@@ -11,17 +11,33 @@ ns.moduleOrder = {}
 local DEFAULTS = {
 	theme = "auto", -- auto | human | orc | undead | nightelf
 	layout = "auto", -- auto | standard | wide | superwide
-	scale = 1.0,
+	scale = 0.75,
+	version = 2,
 	modules = {
 		actionbars = true,
 		minimap = true,
 		chat = true,
 		unitinfo = true,
+		stats = true,
+		target = true,
 		inventory = true,
 		blizzard = true,
 		topbar = true,
 	},
+	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
+	broker = {},
 }
+
+-- Settings saved by older versions.
+local function migrate(db)
+	if (db.version or 1) < 2 then
+		-- Version 1 used 1.0 as its default scale, which turned out far too big.
+		if db.scale == 1 then
+			db.scale = DEFAULTS.scale
+		end
+	end
+	db.version = DEFAULTS.version
+end
 
 local function copyDefaults(src, dst)
 	for k, v in pairs(src) do
@@ -95,14 +111,51 @@ end)
 ----------------------------------------------------------------------------
 -- Frame helpers
 
--- Parent for Blizzard frames we replace. Hidden, so anything parented to it
--- is never drawn, but it keeps a valid position for code that measures it.
-ns.hider = CreateFrame("Frame", "ReforgedUIHider", UIParent)
-ns.hider:Hide()
+-- Newer clients run Blizzard code with "secret" values that addon code must
+-- not touch. Reparenting, hiding or moving Blizzard frames makes their own
+-- scripts run on our (tainted) call stack, so frames we replace are only made
+-- invisible and click-through, which runs none of their code.
+local function forbidden(frame)
+	return frame.IsForbidden and frame:IsForbidden()
+end
+ns.IsForbidden = forbidden
 
-function ns:Kill(frame)
-	if frame and frame.SetParent then
-		frame:SetParent(self.hider)
+local concealed = setmetatable({}, { __mode = "k" })
+
+local function noMouse(frame, depth)
+	if forbidden(frame) then
+		return
+	end
+	if frame.EnableMouse and not (frame:IsProtected() and InCombatLockdown()) then
+		frame:EnableMouse(false)
+	end
+	if depth < 4 and frame.GetChildren then
+		for _, child in ipairs({ frame:GetChildren() }) do
+			noMouse(child, depth + 1)
+		end
+	end
+end
+
+function ns:Conceal(frame)
+	if not frame or forbidden(frame) then
+		return
+	end
+	if frame.SetAlpha then
+		frame:SetAlpha(0)
+		if not concealed[frame] then
+			local busy
+			hooksecurefunc(frame, "SetAlpha", function(f)
+				if not busy then
+					busy = true
+					f:SetAlpha(0)
+					busy = false
+				end
+			end)
+		end
+	end
+	concealed[frame] = true
+	if frame.GetChildren then
+		self:RunOutOfCombat(frame, function() noMouse(frame, 0) end)
 	end
 end
 
@@ -129,36 +182,24 @@ local function runLock(frame)
 	end
 end
 
-function ns:Lock(frame, apply)
-	if not frame then
+-- `also` names further methods that should re-apply the lock (e.g. SetScale).
+function ns:Lock(frame, apply, also)
+	if not frame or forbidden(frame) then
 		return
 	end
 	local hooked = locks[frame] ~= nil
 	locks[frame] = apply
 	if not hooked then
 		hooksecurefunc(frame, "SetPoint", runLock)
+		for _, method in ipairs(also or {}) do
+			hooksecurefunc(frame, method, runLock)
+		end
 	end
 	runLock(frame)
 end
 
 function ns:Unlock(frame)
 	locks[frame] = false
-end
-
--- Keep a frame's top edge at or below console height `limit()`, shifting it
--- down only when something places it higher (used to clear the top bar).
-function ns:KeepBelow(frame, limit)
-	self:Lock(frame, function(f)
-		local top = f:GetTop()
-		local point, rel, relPoint, x, y = f:GetPoint(1)
-		if not top or not point or f:GetNumPoints() > 1 then
-			return
-		end
-		local max = limit() * self.root:GetEffectiveScale() / f:GetEffectiveScale()
-		if top > max + 0.5 then
-			f:SetPoint(point, rel, relPoint, x or 0, (y or 0) - (top - max))
-		end
-	end)
 end
 
 -- Keep a frame's bottom edge at or above console height `limit()`.
@@ -181,13 +222,54 @@ function ns:UnitsFor(frame)
 	return self.root:GetEffectiveScale() / frame:GetEffectiveScale()
 end
 
--- Place a frame that is not a child of the console using console units.
-function ns:PlaceRect(frame, r, point)
+-- Place a frame that is not a child of the console so its `point` sits at
+-- console coordinates (x, y). Blizzard frames are anchored to UIParent (whose
+-- bottom-left is the console's), never to our frames: Edit Mode saves anchors
+-- by frame name and would otherwise store ours in its layout.
+function ns:Anchor(frame, point, x, y)
 	local s = self:UnitsFor(frame)
 	frame:ClearAllPoints()
-	frame:SetPoint(point or "BOTTOMLEFT", self.root, "BOTTOMLEFT", r.x * s, r.y * s)
+	frame:SetPoint(point, UIParent, "BOTTOMLEFT", x * s, y * s)
+end
+
+function ns:PlaceRect(frame, r, point)
+	self:Anchor(frame, point or "BOTTOMLEFT", r.x, r.y)
 	if r.w and r.h then
+		local s = self:UnitsFor(frame)
 		frame:SetSize(r.w * s, r.h * s)
+	end
+end
+
+-- Right-click menu of choices: items are { text, checked, func }. Uses the
+-- modern menu API; returns false where the client has none.
+function ns:ShowMenu(owner, title, items)
+	if not (MenuUtil and MenuUtil.CreateContextMenu) then
+		return false
+	end
+	MenuUtil.CreateContextMenu(owner, function(_, root)
+		root:CreateTitle(title)
+		for _, item in ipairs(items) do
+			root:CreateRadio(item.text, function() return item.checked end, function() item.func() end)
+		end
+		if #items > 20 and root.SetScrollMode then
+			root:SetScrollMode(400)
+		end
+	end)
+	return true
+end
+
+-- Coalesce bursts of events into one call on the next frame or so.
+function ns:Throttle(fn, delay)
+	local pending
+	return function()
+		if pending then
+			return
+		end
+		pending = true
+		C_Timer.After(delay or 0.1, function()
+			pending = false
+			fn()
+		end)
 	end
 end
 
@@ -246,7 +328,9 @@ end
 -- Startup
 
 local function init()
-	ReforgedUIDB = copyDefaults(DEFAULTS, ReforgedUIDB or {})
+	local db = ReforgedUIDB or {}
+	migrate(db) -- before the defaults fill in the new version number
+	ReforgedUIDB = copyDefaults(DEFAULTS, db)
 	ns.db = ReforgedUIDB
 
 	local root = CreateFrame("Frame", "ReforgedUIConsole", UIParent, "SecureHandlerStateTemplate")
@@ -298,7 +382,11 @@ local function usage()
 	print("  /rui theme auto|human|orc|undead|nightelf")
 	print("  /rui layout auto|16:9|21:9|32:9")
 	print("  /rui scale 0.5-1.5")
-	print("  /rui module <name> on|off  (actionbars, minimap, chat, unitinfo, inventory, blizzard, topbar; needs /reload)")
+	print("  /rui stat tl|tr|br main|offhand|ranged|ammo|spell|heal|none")
+	print("  /rui feeds  (list data feeds and top bar slots)")
+	print("  /rui slot <number> <feed name>|none")
+	print("  /rui module <name> on|off  (actionbars, minimap, chat, unitinfo, stats, target, inventory, blizzard,"
+		.. " topbar; needs /reload)")
 	print("  /rui status")
 	print("  /rui reset")
 end
@@ -327,6 +415,18 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.scale = math.max(0.5, math.min(1.5, tonumber(arg)))
 		ns:Relayout()
 		ns:Print("scale:", ns.db.scale)
+	elseif cmd == "stat" and arg and ns.modules.stats.enabled and ns.modules.stats.POSITIONS[arg] then
+		local Stats = ns.modules.stats
+		if not tContains(Stats.KINDS, arg2 or "") then
+			ns:Print("choose one of:", table.concat(Stats.KINDS, ", "))
+			return
+		end
+		Stats:Set(arg, arg2)
+	elseif cmd == "feeds" and ns.modules.topbar.enabled then
+		ns.modules.topbar:ListFeeds()
+	elseif cmd == "slot" and tonumber(arg) and arg2 and ns.modules.topbar.enabled then
+		local result = ns.modules.topbar:SetSlotByName(tonumber(arg), arg2)
+		ns:Print(result and ("slot " .. arg .. ": " .. (result == true and "empty" or result)) or ("no feed matches " .. arg2))
 	elseif cmd == "module" and arg and ns.modules[arg] and (arg2 == "on" or arg2 == "off") then
 		ns.db.modules[arg] = arg2 == "on"
 		ns:Print(arg, arg2, "- type /reload to apply.")

@@ -25,6 +25,10 @@
 ## OptionalDeps: BugSack, BugGrabber
 #@end-alpha@
 
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+
 Layout.lua
 Themes.lua
 Core.lua
@@ -34,6 +38,8 @@ ActionBars.lua
 Minimap.lua
 Chat.lua
 UnitInfo.lua
+Stats.lua
+Target.lua
 Inventory.lua
 Blizzard.lua
 

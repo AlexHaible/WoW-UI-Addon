@@ -43,10 +43,11 @@ def layout(w, h, profile):
 
 
 class Canvas:
-    def __init__(self, W, H):
+    def __init__(self, W, H, world=True):
         self.W, self.H = int(round(W)), int(round(H))
         self.img = Image.new("RGBA", (self.W, self.H))
-        self.draw_world()
+        if world:
+            self.draw_world()
 
     def box(self, x, y, w, h):
         """Console coordinates (origin bottom-left) to an image box."""
@@ -124,23 +125,24 @@ def top_bar(c, faction, theme, L, hour):
     dial = dial.rotate(math.degrees((hour - 12) / 24 * 2 * math.pi), resample=Image.BICUBIC)
     r = cl["radius"]
     c.paste(dial, cl["cx"] - r, cl["cy"] - r, 2 * r, 2 * r)
-    bar = load(faction, "topbar")
+    # The bar is a hanging panel: drawn as a normal one, then flipped.
     r = L["topBar"]
-    slot = L["topSlot"]
-    mid = cl["cx"]
-    # left run aligned to the core's left edge, right run to its right edge
-    c.tile(bar, r["x"], r["y"], mid - r["x"], r["h"], slot, r["h"], ox=r["x"] - L["topSlotsLeft"])
-    c.tile(bar, mid, r["y"], r["x"] + r["w"] - mid, r["h"], slot, r["h"], ox=mid - L["topSlotsRight"])
+    strip = Canvas(r["w"], r["h"], world=False)
+    panel(strip, faction, dict(x=0, y=0, w=r["w"], h=r["h"]), False)
+    c.paste(strip.img.transpose(Image.FLIP_TOP_BOTTOM), r["x"], r["y"], r["w"], r["h"])
     cf = L["clockFrame"]
     c.paste(load(faction, "clockframe"), cf["x"], cf["y"], cf["w"], cf["h"])
     for b, label in zip(L["topButtons"], ["Quests", "Menu", "Allies", "Map"]):
         if b:
-            c.text(b["x"], b["y"] + 4, b["w"], b["h"], label, 11, theme["title"])
-    colours = [(230, 190, 40, 255), (150, 100, 60, 255), (160, 160, 170, 255)]
-    for b, label, colour in zip(L["resources"], ["123", "34 / 80", "87%"], colours):
-        if b:
-            c.text(b["x"] + 24, b["y"] + 4, b["w"] - 30, b["h"], label, 11, (255, 255, 255))
-            c.rect(b["x"] + 6, b["y"] + 5, 12, 12, fill=colour)
+            inset(c, theme, b)
+            c.text(b["x"], b["y"] + 3, b["w"], b["h"], label, 11, theme["title"])
+    feeds = [("87%", (160, 160, 170, 255)), ("34 / 80", (150, 100, 60, 255)), ("123", (230, 190, 40, 255))]
+    for i, b in enumerate(L["topSlots"]):
+        inset(c, theme, b)
+        if i < len(feeds):
+            label, colour = feeds[i]
+            c.text(b["x"] + 24, b["y"] + 3, b["w"] - 30, b["h"], label, 11, (255, 255, 255))
+            c.rect(b["x"] + 6, b["y"] + 4, 12, 12, fill=colour)
 
 
 def inset(c, theme, r):
@@ -158,7 +160,7 @@ def grid_cells(g):
     for i in range(int(g["cols"] * g["rows"])):
         col, row = i % int(g["cols"]), i // int(g["cols"])
         x = g["x"] + col * (g["size"] + g["gap"])
-        y = g["y"] + g["h"] - g["size"] - row * (g["size"] + g["gap"])
+        y = g["y"] + g["h"] - g["size"] - row * (g["size"] + g.get("rowGap", g["gap"]))
         yield i, x, y
 
 
@@ -213,11 +215,14 @@ def render(faction, w, h, profile, path, hour=15):
         for i, x, y in grid_cells(g):
             c.paste(well, x - pad, y - pad, g["size"] + 2 * pad, g["size"] + 2 * pad)
             seed += 1
-            if (key == "main" and i < 10) or (key != "main" and random.Random(seed).random() < 0.6):
+            if (key in ("main", "bar2") and i < 10) or random.Random(seed).random() < 0.4:
                 c.paste(icon(seed, g["size"]), x, y, g["size"], g["size"])
                 if key == "main":
                     c.text(x + 2, y + g["size"] - 14, 12, 12, str((i + 1) % 10 if i < 10 else "-"), 10,
                            (230, 230, 230), "left", True)
+    k = L["keyring"]
+    c.paste(well, k["x"] - 3, k["y"] - 3, k["w"] + 6, k["h"] + 6)
+    c.rect(k["x"] + 3, k["y"] + 6, k["w"] - 6, k["h"] - 12, fill=(200, 170, 80, 255))
     g = L["inventory"]
     pad = round(g["size"] * 0.12)
     for i, x, y in grid_cells(g):
@@ -239,12 +244,45 @@ def render(faction, w, h, profile, path, hour=15):
     c.text(r["x"], r["y"], r["w"], r["h"], "120 / 200", 13, (80, 140, 255))
 
     r = L["nameText"]
-    c.text(r["x"], r["y"], r["w"], r["h"], "Thrall", 15, theme["title"], "left")
-    c.text(r["x"] + 70, r["y"] + 1, r["w"], r["h"], "Level 12 Orc Shaman", 12, (210, 210, 210), "left")
+    c.text(r["x"], r["y"], r["w"], r["h"], "Thrall", 15, theme["title"])
     r = L["xpBar"]
-    c.rect(r["x"] - 1, r["y"] - 1, r["w"] + 2, r["h"] + 2, fill=(0, 0, 0, 220))
+    c.rect(r["x"] - 2, r["y"] - 2, r["w"] + 4, r["h"] + 4, fill=theme["title"] + (255,))
+    c.rect(r["x"] - 1, r["y"] - 1, r["w"] + 2, r["h"] + 2, fill=(0, 0, 0, 255))
     c.rect(r["x"], r["y"], r["w"] * 0.375, r["h"], fill=theme["xp"] + (110,))
     c.rect(r["x"], r["y"], r["w"] * 0.25, r["h"], fill=theme["xp"] + (255,))
+    c.text(r["x"], r["y"] + 2, r["w"], r["h"], "Level 12 Shaman", 11, (255, 255, 255), sans=True)
+    for i, (cell, (lab, val)) in enumerate(zip(L["stats"], [("Damage:", "10 - 16"), ("Spell:", "70"),
+                                                             ("Armor:", "21.3%"), ("Healing:", "207")])):
+        ic = cell["icon"]
+        c.paste(icon(700 + i, ic["w"]), ic["x"], ic["y"], ic["w"], ic["h"])
+        t = cell["text"]
+        c.text(t["x"], t["y"] + t["h"] / 2, t["w"], t["h"] / 2, lab, 11, (255, 209, 0), "left", True)
+        c.text(t["x"], t["y"], t["w"], t["h"] / 2, val, 11, (255, 255, 255), "left", True)
+
+    # target panel placeholder
+    T, Q = L["target"], L["tot"]
+    p = T["portrait"]
+    c.rect(p["x"], p["y"], p["w"], p["h"], fill=(60, 40, 30, 255))
+    c.paste(icon(42, 64), p["x"] + 4, p["y"] + 4, p["w"] - 8, p["h"] - 8)
+    c.text(T["name"]["x"], T["name"]["y"], T["name"]["w"], T["name"]["h"], "Bristleback Quilboar", 12,
+           (255, 80, 0), "left", True)
+    c.text(T["info"]["x"], T["info"]["y"], T["info"]["w"], T["info"]["h"], "Level 9 Elite Humanoid", 10,
+           (220, 220, 220), "left", True)
+    for key, colour, frac, label in (("health", (25, 200, 25), 0.7, "214 / 305"), ("power", (50, 100, 255), 1, "")):
+        b = T[key]
+        c.rect(b["x"] - 1, b["y"] - 1, b["w"] + 2, b["h"] + 2, fill=(0, 0, 0, 220))
+        c.rect(b["x"], b["y"], b["w"] * frac, b["h"], fill=colour + (255,))
+        if label:
+            c.text(b["x"], b["y"] + 1, b["w"], b["h"], label, 10, (255, 255, 255), sans=True)
+    cb = T["combo"]
+    for i in range(3):
+        c.rect(cb["x"] + i * (cb["h"] + 4), cb["y"], cb["h"], cb["h"], fill=(255, 210, 40, 255))
+    p = Q["portrait"]
+    c.paste(icon(43, 36), p["x"], p["y"], p["w"], p["h"])
+    c.text(Q["name"]["x"], Q["name"]["y"], Q["name"]["w"], Q["name"]["h"], "Thrall", 11, (60, 160, 255), "left", True)
+    b = Q["health"]
+    c.rect(b["x"] - 1, b["y"] - 1, b["w"] + 2, b["h"] + 2, fill=(0, 0, 0, 220))
+    c.rect(b["x"], b["y"], b["w"] * 0.66, b["h"], fill=(25, 200, 25, 255))
 
     cr = L["crest"]
     c.paste(load(faction, "crest"), cr["x"], cr["y"], cr["w"], cr["h"])
@@ -272,18 +310,22 @@ def render(faction, w, h, profile, path, hour=15):
     c.text(8, L["H"] - 60, 600, 20, "Reforged UI preview - %s, %s layout (placeholder icons)" % (faction, L["profile"]),
            14, (255, 255, 255), "left", True)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    c.img.convert("RGB").save(path, optimize=True)
+    img = c.img.convert("RGB")
+    # Rendered at the default console scale (1024 units tall), saved 768 tall.
+    img = img.resize((round(img.width * 768 / img.height), 768), Image.LANCZOS)
+    img.save(path, optimize=True)
     print("wrote", os.path.relpath(path, REPO))
 
 
 def main():
     jobs = [
-        ("Human", 1365.33, 768, "auto", "16x9-human"),
-        ("Orc", 1365.33, 768, "auto", "16x9-orc"),
-        ("Undead", 1365.33, 768, "auto", "16x9-undead"),
-        ("NightElf", 1365.33, 768, "auto", "16x9-nightelf"),
-        ("NightElf", 1792, 768, "auto", "21x9-nightelf"),
-        ("Orc", 2730.67, 768, "auto", "32x9-orc", 23),
+        # console units at the default scale: 1024 tall
+        ("Human", 1820.44, 1024, "auto", "16x9-human"),
+        ("Orc", 1820.44, 1024, "auto", "16x9-orc"),
+        ("Undead", 1820.44, 1024, "auto", "16x9-undead"),
+        ("NightElf", 1820.44, 1024, "auto", "16x9-nightelf"),
+        ("NightElf", 2389.33, 1024, "auto", "21x9-nightelf"),
+        ("Orc", 3640.89, 1024, "auto", "32x9-orc", 23),
     ]
     for faction, w, h, profile, name, *hour in jobs:
         render(faction, w, h, profile, os.path.join(OUT, name + ".png"), *hour)

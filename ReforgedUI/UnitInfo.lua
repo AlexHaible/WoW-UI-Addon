@@ -1,5 +1,6 @@
--- Portrait and info screen: the animated 3D portrait with hit points and mana
--- below it, and the hero line (name, level, class) with the experience bar.
+-- Portrait and hero screen: the animated 3D portrait with hit points and mana
+-- below it, the player's name, and the level bar (experience fill with
+-- "Level N Class" written on it; hover for the numbers).
 
 local _, ns = ...
 local UnitInfo = ns:RegisterModule("unitinfo", {})
@@ -21,8 +22,10 @@ local function setPair(fs, a, b)
 end
 
 function UnitInfo:OnEnable()
-	-- The portrait, hit points and mana replace Blizzard's player frame.
-	ns:Kill(PlayerFrame)
+	-- The portrait, hit points and mana replace Blizzard's player frame. It is
+	-- only made invisible: hiding or moving it runs Blizzard's unit frame
+	-- code on our call stack, which fails on "secret" health values.
+	ns:Conceal(PlayerFrame)
 
 	local holder = CreateFrame("Frame", "ReforgedUIUnitInfo", ns.root)
 	holder:SetFrameStrata("LOW")
@@ -46,7 +49,6 @@ function UnitInfo:OnEnable()
 		fs:SetJustifyH("CENTER")
 		fs:SetWordWrap(false)
 	end
-	self.name:SetJustifyH("LEFT")
 
 	local xp = CreateFrame("StatusBar", "ReforgedUIXPBar", holder)
 	xp:SetStatusBarTexture(STATUSBAR)
@@ -59,15 +61,21 @@ function UnitInfo:OnEnable()
 	xp.bg:SetPoint("TOPLEFT", -1, 1)
 	xp.bg:SetPoint("BOTTOMRIGHT", 1, -1)
 	xp.bg:SetColorTexture(0, 0, 0, 0.8)
-	xp.text = xp:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	xp.text:SetPoint("CENTER")
-	xp.text:Hide()
+	xp.border = xp.rested:CreateTexture(nil, "BACKGROUND", nil, -1)
+	xp.border:SetPoint("TOPLEFT", -2, 2)
+	xp.border:SetPoint("BOTTOMRIGHT", 2, -2)
+	xp.label = xp:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	xp.label:SetPoint("CENTER")
 	xp:EnableMouse(true)
-	xp:SetScript("OnEnter", function(f) f.text:Show() end)
-	xp:SetScript("OnLeave", function(f) f.text:Hide() end)
+	xp:SetScript("OnEnter", function(f)
+		f.hover = true
+		self:UpdateXP()
+	end)
+	xp:SetScript("OnLeave", function(f)
+		f.hover = false
+		self:UpdateXP()
+	end)
 	self.xp = xp
-
-	self.maxLevel = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 
 	local function unitEvent(event, fn)
 		ns:On(event, function(_, unit)
@@ -80,8 +88,8 @@ function UnitInfo:OnEnable()
 	for _, e in ipairs({ "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }) do unitEvent(e, self.UpdatePower) end
 	for _, e in ipairs({ "UNIT_MODEL_CHANGED", "UNIT_PORTRAIT_UPDATE" }) do unitEvent(e, self.UpdateModel) end
 	for _, e in ipairs({ "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_LEVEL_UP" }) do unitEvent(e, self.UpdateXP) end
-	unitEvent("PLAYER_LEVEL_UP", self.UpdateName)
 	unitEvent("UNIT_NAME_UPDATE", self.UpdateName)
+	unitEvent("UNIT_LEVEL", self.UpdateXP)
 	ns:On("PLAYER_ENTERING_WORLD", function() self:UpdateAll() end)
 end
 
@@ -121,15 +129,7 @@ function UnitInfo:UpdatePower()
 end
 
 function UnitInfo:UpdateName()
-	local name = UnitName("player") or ""
-	local level = UnitLevel("player") or 0
-	local race = UnitRace("player") or ""
-	local className, classFile = UnitClass("player")
-	local color = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
-	local classText = color and color:WrapTextInColorCode(className) or (className or "")
-	local t = ns.theme and ns.theme.title or { 1, 0.82, 0 }
-	self.name:SetFormattedText("|cff%02x%02x%02x%s|r  |cffd0d0d0%s %d %s|r %s",
-		t[1] * 255, t[2] * 255, t[3] * 255, name, LEVEL or "Level", level, race, classText)
+	self.name:SetText(UnitName("player") or "")
 end
 
 local function atMaxLevel()
@@ -141,25 +141,25 @@ end
 
 function UnitInfo:UpdateXP()
 	local xp = self.xp
-	if atMaxLevel() then
-		xp:Hide()
-		self.maxLevel:SetText(MAX_PLAYER_LEVEL_TEXT or "")
-		self.maxLevel:Show()
-		return
+	local cur, max, rested = 1, 1, 0
+	if not atMaxLevel() then
+		cur, max = UnitXP("player"), UnitXPMax("player")
+		if max <= 0 then max = 1 end
+		rested = GetXPExhaustion() or 0
 	end
-	self.maxLevel:Hide()
-	xp:Show()
-	local cur, max = UnitXP("player"), UnitXPMax("player")
-	if max <= 0 then max = 1 end
-	local rested = GetXPExhaustion() or 0
 	xp:SetMinMaxValues(0, max)
 	xp:SetValue(cur)
 	xp.rested:SetMinMaxValues(0, max)
 	xp.rested:SetValue(math.min(max, cur + rested))
-	if rested > 0 then
-		xp.text:SetFormattedText("%s %d / %d  (+%d)", XP or "XP", cur, max, rested)
+	if xp.hover and not atMaxLevel() then
+		if rested > 0 then
+			xp.label:SetFormattedText("%s %d / %d  (+%d)", XP or "XP", cur, max, rested)
+		else
+			xp.label:SetFormattedText("%s %d / %d", XP or "XP", cur, max)
+		end
 	else
-		xp.text:SetFormattedText("%s %d / %d", XP or "XP", cur, max)
+		local className = UnitClass("player") or ""
+		xp.label:SetFormattedText("%s %d %s", LEVEL or "Level", UnitLevel("player") or 0, className)
 	end
 end
 
@@ -169,7 +169,6 @@ function UnitInfo:OnLayout(L)
 	place(self.power, L.powerText)
 	place(self.name, L.nameText)
 	place(self.xp, L.xpBar)
-	place(self.maxLevel, L.xpBar)
 	self:UpdateAll()
 end
 
@@ -178,5 +177,6 @@ function UnitInfo:OnTheme(theme)
 	local c = theme.xp
 	self.xp:SetStatusBarColor(c[1], c[2], c[3])
 	self.xp.rested:SetStatusBarColor(c[1], c[2], c[3], 0.35)
-	self:UpdateName()
+	self.xp.border:SetColorTexture(unpack(theme.title))
+	self.name:SetTextColor(unpack(theme.title))
 end

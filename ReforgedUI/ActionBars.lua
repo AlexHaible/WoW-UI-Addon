@@ -1,29 +1,40 @@
--- Action bars. The main bar becomes the Warcraft III command card (4x3), bars
--- 2 and 3 sit on the info screen, bars 4 and 5 go to the wings (32:9) or the
--- right edge of the screen. Buttons are our own secure ActionBarButtonTemplate
--- buttons; Blizzard's bars are hidden and their key bindings redirected here.
+-- Action bars. Bars 1-3 fill the screen in the middle of the console, bars 4
+-- and 5 go to free console space on wide screens or the right edge of the
+-- screen. These are Blizzard's own action buttons, moved and reskinned: they
+-- keep their bindings, paging, cooldowns and spell overlays, and none of
+-- Blizzard's action button code ever runs from ours. Bars 2-5 must be turned
+-- on in Options > Gameplay > Action Bars for their buttons to show.
 
 local _, ns = ...
 local ActionBars = ns:RegisterModule("actionbars", {})
 local Layout = ns.Layout
 
--- key, Blizzard binding prefix, fixed action page (nil = follows paging)
+-- Console bar and the Blizzard button names that fill it.
 local BARS = {
-	{ key = "main", binding = "ACTIONBUTTON", page = nil },
-	{ key = "bar2", binding = "MULTIACTIONBAR1BUTTON", page = 6, buttonType = "MULTIACTIONBAR1BUTTON" },
-	{ key = "bar3", binding = "MULTIACTIONBAR2BUTTON", page = 5, buttonType = "MULTIACTIONBAR2BUTTON" },
-	{ key = "bar4", binding = "MULTIACTIONBAR3BUTTON", page = 3, buttonType = "MULTIACTIONBAR3BUTTON" },
-	{ key = "bar5", binding = "MULTIACTIONBAR4BUTTON", page = 4, buttonType = "MULTIACTIONBAR4BUTTON" },
+	{ key = "main", prefix = "ActionButton" },
+	{ key = "bar2", prefix = "MultiBarBottomLeftButton" },
+	{ key = "bar3", prefix = "MultiBarBottomRightButton" },
+	{ key = "bar4", prefix = "MultiBarRightButton" },
+	{ key = "bar5", prefix = "MultiBarLeftButton" },
 }
 
-local BLIZZARD_BARS = {
-	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight",
-	"MultiBarRight", "MultiBarLeft", "MainMenuBarArtFrame",
+-- Decorations of the main bar (end caps, border, page number and arrows).
+local MAIN_ART = {
+	"EndCaps", "BorderArt", "ActionBarPageNumber", "Background",
+}
+local MAIN_ART_GLOBALS = {
+	"MainMenuBarLeftEndCap", "MainMenuBarRightEndCap", "MainMenuBarPageNumber", "ActionBarUpButton",
+	"ActionBarDownButton", "MainMenuBarTexture0", "MainMenuBarTexture1", "MainMenuBarTexture2",
+	"MainMenuBarTexture3", "MainMenuXPBarTexture0", "MainMenuBarArtFrameBackground",
 }
 
-local BASE_SIZE = 45 -- ActionBarButtonTemplate's native size; we scale from it
+-- Our bevels, kept here rather than written into Blizzard's button tables.
+local bevels = setmetatable({}, { __mode = "k" })
 
 local function SkinButton(btn)
+	if bevels[btn] then
+		return
+	end
 	local name = btn:GetName()
 	local icon = btn.icon or _G[name .. "Icon"]
 	if icon then
@@ -31,16 +42,15 @@ local function SkinButton(btn)
 			icon:RemoveMaskTexture(btn.IconMask)
 		end
 		icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-		icon:ClearAllPoints()
-		icon:SetAllPoints()
 	end
-	local normal = btn.NormalTexture or btn:GetNormalTexture()
+	local normal = btn:GetNormalTexture()
 	if normal then
 		normal:SetAlpha(0)
 	end
 	for _, key in ipairs({ "SlotBackground", "SlotArt", "RightDivider", "BottomDivider" }) do
-		if btn[key] then
-			btn[key]:SetAlpha(0)
+		local region = btn[key]
+		if region and region.SetAlpha then
+			region:SetAlpha(0)
 		end
 	end
 	local floating = _G[name .. "FloatingBG"]
@@ -51,98 +61,80 @@ local function SkinButton(btn)
 	local bevel = btn:CreateTexture(nil, "OVERLAY", nil, -1)
 	bevel:SetAllPoints()
 	bevel:SetTexture(ns.MEDIA .. "Common\\bevel")
-	btn.ReforgedBevel = bevel
+	bevels[btn] = bevel
 end
 
-local function UpdateButton(btn)
-	if btn.UpdateAction then
-		btn:UpdateAction(true)
-	elseif ActionButton_UpdateAction then
-		ActionButton_UpdateAction(btn)
-	end
-end
-
-function ActionBars:CreateBar(spec)
-	local header = CreateFrame("Frame", "ReforgedUIBar_" .. spec.key, ns.root, "SecureHandlerBaseTemplate")
-	header:SetFrameStrata("MEDIUM")
-	header:SetAllPoints(ns.root)
-	header.buttons = {}
-	for i = 1, 12 do
-		local name = ("ReforgedUI%sButton%d"):format(spec.key, i)
-		local btn = CreateFrame("CheckButton", name, header, "ActionBarButtonTemplate")
-		btn:SetID(i)
-		btn.buttonType = spec.buttonType
-		if spec.page then
-			btn:SetAttribute("actionpage", spec.page)
+local function isAncestorOf(frame, child)
+	local p = child and child:GetParent()
+	while p do
+		if p == frame then
+			return true
 		end
-		btn:SetAttribute("showgrid", 1)
-		btn:RegisterForClicks("AnyUp", "AnyDown")
-		SkinButton(btn)
-		UpdateButton(btn)
-		btn:Show()
-		header.buttons[i] = btn
+		p = p:GetParent()
 	end
-	return header
+	return false
+end
+
+-- Hides a decoration unless it holds the buttons themselves (on some clients
+-- the main bar's art frame is the buttons' parent).
+local function hideArt(obj, firstButton)
+	if not obj or ns.IsForbidden(obj) then
+		return
+	end
+	if obj.GetChildren then
+		if not isAncestorOf(obj, firstButton) then
+			ns:Conceal(obj)
+		end
+	elseif obj.SetAlpha then
+		obj:SetAlpha(0)
+	end
 end
 
 function ActionBars:OnEnable()
-	for _, name in ipairs(BLIZZARD_BARS) do
-		ns:Kill(_G[name])
-	end
-
-	self.bars = {}
+	self.buttons = {}
 	for _, spec in ipairs(BARS) do
-		self.bars[spec.key] = self:CreateBar(spec)
-	end
-
-	-- The main bar follows Blizzard's paging (stances, forms, stealth, skyriding);
-	-- refresh its icons whenever the page changes.
-	local main = self.bars.main
-	for _, event in ipairs({
-		"ACTIONBAR_PAGE_CHANGED", "UPDATE_BONUS_ACTIONBAR", "UPDATE_SHAPESHIFT_FORM",
-		"UPDATE_VEHICLE_ACTIONBAR", "UPDATE_OVERRIDE_ACTIONBAR", "UPDATE_POSSESS_BAR",
-		"PLAYER_ENTERING_WORLD",
-	}) do
-		ns:On(event, function()
-			for _, btn in ipairs(main.buttons) do
-				UpdateButton(btn)
-			end
-		end)
-	end
-
-	self.bindingOwner = CreateFrame("Frame", "ReforgedUIBindings", UIParent)
-	ns:On("UPDATE_BINDINGS", function() self:UpdateBindings() end)
-	ns:On("PLAYER_ENTERING_WORLD", function() self:UpdateBindings() end)
-	self:UpdateBindings()
-end
-
--- Point the keys bound to Blizzard's action buttons at our buttons instead.
-function ActionBars:UpdateBindings()
-	ns:RunOutOfCombat("bindings", function()
-		local owner = self.bindingOwner
-		ClearOverrideBindings(owner)
-		for _, spec in ipairs(BARS) do
-			local header = self.bars[spec.key]
-			for i, btn in ipairs(header.buttons) do
-				for _, key in ipairs({ GetBindingKey(spec.binding .. i) }) do
-					SetOverrideBindingClick(owner, false, key, btn:GetName(), "LeftButton")
-				end
+		local list = {}
+		for i = 1, 12 do
+			local btn = _G[spec.prefix .. i]
+			if btn and not ns.IsForbidden(btn) then
+				list[i] = btn
+				SkinButton(btn)
 			end
 		end
-	end)
+		self.buttons[spec.key] = list
+	end
+
+	local first = self.buttons.main[1]
+	local bar = _G.MainActionBar or _G.MainMenuBar
+	if bar then
+		for _, key in ipairs(MAIN_ART) do
+			hideArt(bar[key], first)
+		end
+	end
+	for _, name in ipairs(MAIN_ART_GLOBALS) do
+		hideArt(_G[name], first)
+	end
+end
+
+-- Size `btn` to `size` console units and put its bottom-left at (x, y).
+local function placeButton(btn, x, y, size)
+	local w = btn:GetWidth()
+	if not w or w <= 0 then
+		w = 45
+	end
+	local parentScale = btn:GetParent() and btn:GetParent():GetEffectiveScale() or 1
+	btn:SetScale(size * ns.root:GetEffectiveScale() / (w * parentScale))
+	ns:Anchor(btn, "BOTTOMLEFT", x, y)
 end
 
 function ActionBars:OnLayout(L)
 	for _, spec in ipairs(BARS) do
-		local header = self.bars[spec.key]
 		local grid = L.bars[spec.key]
-		local scale = grid.size / BASE_SIZE
-		for i, btn in ipairs(header.buttons) do
+		for i, btn in pairs(self.buttons[spec.key]) do
 			local x, y = Layout.GridCell(grid, i)
-			btn:SetScale(scale)
-			btn:ClearAllPoints()
-			btn:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", x / scale, y / scale)
-			btn:SetSize(BASE_SIZE, BASE_SIZE)
+			ns:Lock(btn, function(b)
+				placeButton(b, x, y, grid.size)
+			end, { "SetScale" })
 		end
 	end
 end

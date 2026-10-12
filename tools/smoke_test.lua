@@ -86,6 +86,8 @@ function methods:GetScript(k) return self._scripts[k] end
 function methods:CreateTexture() return new("texture", nil, self) end
 function methods:CreateFontString() return new("fontstring", nil, self) end
 function methods:GetNormalTexture() return new("texture", nil, self) end
+methods.GetPushedTexture = methods.GetNormalTexture
+methods.GetHighlightTexture = methods.GetNormalTexture
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function methods:SetText(t) self._text = t end
 function methods:GetNumPoints() return #self._points end
@@ -112,6 +114,10 @@ function methods:RegisterEvent(e)
 	self._events = self._events or {}
 	self._events[e] = true
 end
+function methods:SetAlpha(a) self._alpha = a end
+function methods:GetAlpha() return self._alpha or 1 end
+function methods:EnableMouse(v) self._mouse = v end
+function methods:IsForbidden() return self._forbidden or false end
 function methods:SetColorTexture(r, g, b) assert(r and g and b, "colour needs rgb") end
 function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb") end
 
@@ -120,14 +126,9 @@ function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb")
 
 local eventFrames = {}
 function CreateFrame(kind, name, parent, template)
-	local secure = template and (template:find("Secure") or template:find("ActionBarButton"))
+	assert(template ~= "ActionBarButtonTemplate", "action buttons must be Blizzard's own")
+	local secure = template and template:find("Secure")
 	local f = new(secure and "secure" or kind, name, parent)
-	if template == "ActionBarButtonTemplate" then
-		f.icon = new("texture", nil, f)
-		f.IconMask = new("texture", nil, f)
-		f.NormalTexture = new("texture", nil, f)
-		f.UpdateAction = function(btn) btn._updated = (btn._updated or 0) + 1 end
-	end
 	eventFrames[#eventFrames + 1] = f
 	return f
 end
@@ -143,6 +144,10 @@ MinimapCluster.IndicatorFrame = new("frame", nil, MinimapCluster)
 GameTimeFrame = new("button", "GameTimeFrame", MinimapCluster)
 GameTimeFrame._w, GameTimeFrame._h = 40, 40
 TimeManagerClockButton = new("button", "TimeManagerClockButton", MinimapCluster)
+-- A forbidden frame among UIParent's children: touching it is an error.
+local forbiddenFrame = new("frame", nil, UIParent)
+forbiddenFrame._forbidden = true
+function forbiddenFrame:GetName() error("Attempt to access forbidden object") end
 local strayButton = new("button", "ForeverMinimapThing", Minimap)
 strayButton._w, strayButton._h = 24, 24
 IssueReporterButton = new("button", "IssueReporterButton", UIParent)
@@ -151,6 +156,20 @@ function IssueReporterButton:GetBottom() local _, _, _, _, y = self:GetPoint(1);
 ChatFrame1 = new("frame", "ChatFrame1", UIParent)
 ChatFrame1EditBox = new("editbox", "ChatFrame1EditBox", UIParent)
 MainMenuBar = new("frame", "MainMenuBar", UIParent)
+MainActionBar = new("frame", "MainActionBar", UIParent)
+MainActionBar.EndCaps = new("frame", nil, MainActionBar)
+MainActionBar.BorderArt = new("texture", nil, MainActionBar)
+for _, spec in ipairs({ { "ActionButton", MainActionBar }, { "MultiBarBottomLeftButton" },
+	{ "MultiBarBottomRightButton" }, { "MultiBarRightButton" }, { "MultiBarLeftButton" } }) do
+	local bar = spec[2] or new("frame", spec[1]:gsub("Button$", ""), UIParent)
+	for i = 1, 12 do
+		local b = new("secure", spec[1] .. i, bar)
+		b._w, b._h = 45, 45
+		b.icon = new("texture", nil, b)
+		b.IconMask = new("texture", nil, b)
+	end
+end
+TargetFrame = new("secure", "TargetFrame", UIParent)
 StanceBar = new("secure", "StanceBar", UIParent)
 PetActionBar = new("secure", "PetActionBar", UIParent)
 PlayerCastingBarFrame = new("frame", "PlayerCastingBarFrame", UIParent)
@@ -171,6 +190,36 @@ function GetMoney() return 1234567 end
 function GetInventoryItemDurability(slot) if slot == 5 then return 20, 100 end end
 ContainerFrame1 = new("frame", "ContainerFrame1", UIParent)
 ContainerFrame1:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -10, 60)
+
+local timers = {}
+C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
+local function flushTimers()
+	local list = timers
+	timers = {}
+	for _, fn in ipairs(list) do fn() end
+end
+function securecallfunction(fn, ...) return fn(...) end
+function RegisterUnitWatch() end
+function UnitExists() return true end
+function UnitIsPlayer() return false end
+function UnitReaction() return 2 end
+function UnitClassification() return "elite" end
+function UnitCreatureType() return "Beast" end
+function GetComboPoints() return 3 end
+function SetPortraitTexture() end
+function IsAltKeyDown() return false end
+function UnitDamage() return 10.4, 15.6, 5, 8 end
+function UnitRangedDamage() return 2.8, 20, 30 end
+function UnitArmor() return 900, 1000 end
+function GetInventoryItemID(_, slot) if slot == 17 then return 1201 end if slot == 0 then return 2512 end end
+function GetInventoryItemCount() return 350 end
+function GetItemInfoInstant(id) if id == 1201 then return id, "Armor", "Shields", "INVTYPE_SHIELD" end end
+function GetBlockChance() return 13.4 end
+function GetShieldBlock() return 10 end
+function GetSpellBonusDamage(school) return school * 10 end
+function GetSpellBonusHealing() return 207 end
+function tContains(t, v) for _, x in ipairs(t) do if x == v then return true end end return false end
+FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local inCombat = false
 function InCombatLockdown() return inCombat end
@@ -241,7 +290,7 @@ function print(...) printed[#printed + 1] = table.concat({ tostringall and tostr
 local ns = {}
 local files = {}
 for line in io.lines(ADDON .. "ReforgedUI.toc") do
-	if line:match("^[%w_]+%.lua$") then files[#files + 1] = line end
+	if line:match("^[%w_\\%.%-]+%.lua$") then files[#files + 1] = (line:gsub("\\", "/")) end
 end
 assert(#files >= 10, "TOC lists too few files")
 for _, file in ipairs(files) do
@@ -257,58 +306,124 @@ local function fire(event, ...)
 	end
 end
 
+-- Settings from version 1 had a scale of 1, now far too big.
+ReforgedUIDB = { scale = 1, theme = "auto" }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
-assert(ReforgedUIDB and ReforgedUIDB.scale == 1, "saved variables not initialised")
+assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 2, "old default scale not migrated")
 fire("PLAYER_ENTERING_WORLD")
+flushTimers()
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
-assert(overrides == 2, "expected 2 override bindings, got " .. overrides)
-assert(Minimap._points[1][2] == ns.root, "minimap not anchored to the console")
+
+-- Nothing of Blizzard's may be anchored to our frames (Edit Mode saves anchors).
+for _, f in ipairs(allFrames) do
+	local name = rawget(f, "_name")
+	local parent = rawget(f, "_parent")
+	local adopted = parent and (rawget(parent, "_name") or ""):find("^ReforgedUI") -- e.g. classic micro buttons
+	if name and not name:find("^ReforgedUI") and not adopted then
+		for _, p in ipairs(f._points) do
+			local rel = p[2]
+			local relName = type(rel) == "table" and rawget(rel, "_name")
+			assert(not (relName and relName:find("^ReforgedUI")), name .. " is anchored to " .. tostring(relName))
+		end
+	end
+end
+
+-- Replaced Blizzard frames are made invisible, never reparented or moved.
+for _, f in ipairs({ PlayerFrame, TargetFrame, MinimapCluster }) do
+	assert(f:GetParent() == UIParent, f:GetName() .. " should keep its parent")
+	assert(f._alpha == 0, f:GetName() .. " should be invisible")
+	assert(f._mouse == false, f:GetName() .. " should be click-through")
+end
+local _, _, _, _, py = PlayerFrame:GetPoint(1)
+assert(py == -4, "the player frame must not be moved")
+assert(#StanceBar._points == 0 and #ObjectiveTrackerFrame._points == 0, "Edit Mode frames must stay put")
+assert(MainActionBar.EndCaps._alpha == 0 and MainActionBar._alpha == nil, "main bar art should hide, not its buttons")
+
+assert(Minimap._points[1][2] == UIParent, "minimap should be anchored to UIParent")
 assert(strayButton:GetParent() == ReforgedUIMinimapHolder, "stray minimap buttons should join the column")
-assert(MinimapCluster:GetParent() == ReforgedUIHider, "the rest of the minimap cluster should be hidden")
-assert(PlayerFrame:GetParent() == ReforgedUIHider, "the player frame should be replaced by the portrait")
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")
-assert(ReforgedUIBar_main and ReforgedUImainButton1._updated, "main bar buttons not built")
 assert(CharacterMicroButton:GetParent() == ReforgedUIMicroMenu, "classic micro buttons not rescued")
 assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
 	"quests button should click the quest log micro button")
-local _, _, _, _, py = PlayerFrame:GetPoint(1)
-assert(py < -4, "player frame not moved below the top bar")
+
+-- Bars 1-3 are Blizzard's buttons in the middle of the console.
+local L = ns.layout
+for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
+	local btn = _G[prefix .. "1"]
+	local p = btn._points[1]
+	assert(p and p[2] == UIParent, prefix .. "1 not placed")
+	local x = p[4] * btn:GetEffectiveScale() / ns.root:GetEffectiveScale()
+	assert(math.abs(x - L.bars[key].x) < 0.01, prefix .. "1 in the wrong place")
+	assert(math.abs(btn._w * btn:GetEffectiveScale() / ns.root:GetEffectiveScale() - L.bars[key].size) < 0.01,
+		prefix .. "1 has the wrong size")
+end
+
+-- Top bar: clock, and our own data feeds in the first slots.
 local tb = ns.modules.topbar
 assert(math.abs(tb.dial._rotation + math.pi) < 1e-6, "midnight should turn the moon to the window")
 gameHour = 12
 tb:UpdateClock()
 assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
-assert(tb.resources[3].text._text == "20%", "durability should show the lowest item")
+assert(tb.slots[1].text._text:find("20%%"), "slot 1 should show durability")
+assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
+assert(tb.slots[3].text._text == "123", "slot 3 should show gold")
+assert(tb.slots[4].text._text == "", "slot 4 should start empty")
+local ldb = LibStub("LibDataBroker-1.1")
+local feed = ldb:NewDataObject("Test Feed", { type = "data source", text = "hello" })
+assert(SlashCmdList.REFORGEDUI and true)
+SlashCmdList.REFORGEDUI("slot 4 test feed")
+assert(tb.slots[4].text._text == "hello", "slot 4 should show the chosen feed")
+feed.text = "updated"
+assert(tb.slots[4].text._text == "updated", "feed changes should reach the slot")
+SlashCmdList.REFORGEDUI("slot 5 test feed")
+assert(tb.slots[4].text._text == "" and tb.slots[5].text._text == "updated", "a feed should move, not duplicate")
+
+-- Stats: a shaman shows main hand, spell power and healing; armour is fixed.
+local stats = ns.modules.stats
+assert(stats.cells[1].valueText == "10 - 16", "main hand damage")
+assert(stats.cells[2].valueText == "70", "spell power should be the best school")
+assert(stats.cells[3].valueText:find("%%"), "armour reduction")
+assert(stats.cells[4].valueText == "207", "healing")
+SlashCmdList.REFORGEDUI("stat tr offhand")
+assert(stats.cells[2].valueText == "13.4% (10)", "a shield shows block chance and value")
+SlashCmdList.REFORGEDUI("stat br ammo")
+assert(stats.cells[4].text._text:find("350") and stats.cells[4].text._text:find("ffd100"), "ammo under 400 is yellow")
+
+-- Target panel.
+local target = ns.modules.target
+target:UpdateAll()
+assert(target.target.health.text._text == "300 / 450", "target health")
+assert(target.target.combo[3]._shown and not target.target.combo[4]._shown, "three combo points")
 
 -- Something else moving a locked frame snaps it back.
 ChatFrame1:ClearAllPoints()
 ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-assert(ChatFrame1._points[1][1] == "BOTTOMLEFT" and ChatFrame1._points[1][2] == ns.root, "chat lock failed")
+assert(ChatFrame1._points[1][1] == "BOTTOMLEFT" and ChatFrame1._points[1][2] == UIParent, "chat lock failed")
 
 -- Protected frames moved in combat are queued until combat ends.
 inCombat = true
-StanceBar:SetPoint("CENTER", UIParent, "CENTER", 5, 5)
-assert(StanceBar._points[#StanceBar._points][1] == "CENTER", "protected frame moved in combat")
+ActionButton1:SetPoint("CENTER", UIParent, "CENTER", 5, 5)
+assert(ActionButton1._points[#ActionButton1._points][1] == "CENTER", "protected frame moved in combat")
 inCombat = false
 fire("PLAYER_REGEN_ENABLED")
-assert(StanceBar._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
+assert(ActionButton1._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
 local slash = SlashCmdList.REFORGEDUI
 for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2730.67, 768, "superwide" },
 	{ 1024, 768, "standard" }, { 1920, 1080, "standard" }, { 4266.67, 1200, "superwide" } }) do
 	UIParent._w, UIParent._h = size[1], size[2]
 	slash("layout auto")
-	assert(math.abs(ns.layout.H - 768) < 0.01, "the console should scale to a 768-unit-tall layout")
+	assert(math.abs(ns.layout.H - 768 / ns.db.scale) < 0.01, "the console should keep its share of the screen")
 	assert(ns.layout.profile == size[3], ("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.layout.profile))
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "auto" }) do
 		slash("theme " .. theme)
 	end
 	for _, p in ipairs({ "16:9", "21:9", "32:9" }) do
 		slash("layout " .. p)
-		slash("scale 0.8")
 		slash("scale 1")
+		slash("scale 0.75")
 	end
 end
 ContainerFrame1:Show()
@@ -316,8 +431,12 @@ updateContainerFrameAnchors()
 slash("status")
 slash("bogus")
 for _, e in ipairs({ "UNIT_HEALTH", "UNIT_POWER_UPDATE", "PLAYER_XP_UPDATE", "BAG_UPDATE_DELAYED",
-	"UPDATE_BINDINGS", "ZONE_CHANGED_NEW_AREA", "ACTIONBAR_PAGE_CHANGED", "DISPLAY_SIZE_CHANGED" }) do
+	"UPDATE_BINDINGS", "ZONE_CHANGED_NEW_AREA", "ACTIONBAR_PAGE_CHANGED", "DISPLAY_SIZE_CHANGED",
+	"PLAYER_TARGET_CHANGED", "UNIT_DAMAGE", "PLAYER_MONEY" }) do
 	fire(e, "player")
+	fire(e, "target")
 end
+flushTimers()
+slash("feeds")
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

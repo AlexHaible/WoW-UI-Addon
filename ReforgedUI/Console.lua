@@ -1,5 +1,5 @@
 -- The console art: a stone/wood/bone band across the bottom of the screen,
--- raised trimmed blocks for the minimap, portrait, inventory and command card,
+-- raised trimmed blocks for chat, the minimap, portrait, inventory and target,
 -- recessed "screens", button sockets and the faction crest.
 
 local _, ns = ...
@@ -236,6 +236,14 @@ function Console:OnLayout(L)
 		end
 	end
 	n = self:AddWells(L.inventory, n)
+	if L.keyring then
+		n = n + 1
+		local k, t = L.keyring, self:GetWell(n)
+		t:ClearAllPoints()
+		t:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", k.x - 3, k.y - 3)
+		t:SetSize(k.w + 6, k.h + 6)
+		t:Show()
+	end
 	for i = n + 1, #self.wells do
 		self.wells[i]:Hide()
 	end

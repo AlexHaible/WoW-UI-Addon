@@ -19,6 +19,7 @@ local DEFAULTS = {
 		unitinfo = true,
 		inventory = true,
 		blizzard = true,
+		topbar = true,
 	},
 }
 
@@ -144,6 +145,22 @@ function ns:Unlock(frame)
 	locks[frame] = false
 end
 
+-- Keep a frame's top edge at or below console height `limit()`, shifting it
+-- down only when something places it higher (used to clear the top bar).
+function ns:KeepBelow(frame, limit)
+	self:Lock(frame, function(f)
+		local top = f:GetTop()
+		local point, rel, relPoint, x, y = f:GetPoint(1)
+		if not top or not point or f:GetNumPoints() > 1 then
+			return
+		end
+		local max = limit() * self.root:GetEffectiveScale() / f:GetEffectiveScale()
+		if top > max + 0.5 then
+			f:SetPoint(point, rel, relPoint, x or 0, (y or 0) - (top - max))
+		end
+	end)
+end
+
 -- Scale factor that converts console units into `frame`'s own units.
 function ns:UnitsFor(frame)
 	return self.root:GetEffectiveScale() / frame:GetEffectiveScale()
@@ -262,7 +279,7 @@ local function usage()
 	print("  /rui theme auto|human|orc|undead|nightelf")
 	print("  /rui layout auto|16:9|21:9|32:9")
 	print("  /rui scale 0.5-1.5")
-	print("  /rui module <name> on|off  (actionbars, minimap, chat, unitinfo, inventory, blizzard; needs /reload)")
+	print("  /rui module <name> on|off  (actionbars, minimap, chat, unitinfo, inventory, blizzard, topbar; needs /reload)")
 	print("  /rui status")
 	print("  /rui reset")
 end

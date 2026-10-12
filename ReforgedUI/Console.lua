@@ -17,38 +17,42 @@ end
 ----------------------------------------------------------------------------
 -- Trimmed panel
 
-local function CreatePanel(parent, level)
+-- A normal panel stands on the bottom of the screen with its trim on top; a
+-- hanging panel (the top bar) hangs from the top with its trim underneath.
+local function CreatePanel(parent, level, hanging)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetFrameLevel(level)
 	f:EnableMouse(true) -- keep clicks on the console from reaching the world
+	f.hanging = hanging
+	local outer, inner = hanging and "BOTTOM" or "TOP", hanging and "TOP" or "BOTTOM"
+	local dir = hanging and 1 or -1
 	f.fill = f:CreateTexture(nil, "BACKGROUND")
-	f.fill:SetPoint("TOPLEFT", 4, -4)
-	f.fill:SetPoint("BOTTOMRIGHT", -4, 0)
+	f.fill:SetPoint(outer .. "LEFT", 4, dir * 4)
+	f.fill:SetPoint(inner .. "RIGHT", -4, 0)
 	f.shade = f:CreateTexture(nil, "BACKGROUND", nil, 1)
 	f.shade:SetAllPoints(f.fill)
 	f.shade:SetColorTexture(0, 0, 0, 1)
 	f.shade:SetGradient("VERTICAL", CreateColor(0, 0, 0, 0.35), CreateColor(0, 0, 0, 0))
 
 	f.top = f:CreateTexture(nil, "BORDER")
-	f.top:SetPoint("TOPLEFT")
-	f.top:SetPoint("TOPRIGHT")
+	f.top:SetPoint(outer .. "LEFT")
+	f.top:SetPoint(outer .. "RIGHT")
 	f.top:SetHeight(EDGE)
 	f.left = f:CreateTexture(nil, "BORDER")
-	f.left:SetPoint("TOPLEFT", 0, -EDGE + 2)
-	f.left:SetPoint("BOTTOMLEFT")
+	f.left:SetPoint(outer .. "LEFT", 0, dir * (EDGE - 2))
+	f.left:SetPoint(inner .. "LEFT")
 	f.left:SetWidth(EDGE)
 	f.right = f:CreateTexture(nil, "BORDER")
-	f.right:SetPoint("TOPRIGHT", 0, -EDGE + 2)
-	f.right:SetPoint("BOTTOMRIGHT")
+	f.right:SetPoint(outer .. "RIGHT", 0, dir * (EDGE - 2))
+	f.right:SetPoint(inner .. "RIGHT")
 	f.right:SetWidth(EDGE)
 
 	f.tl = f:CreateTexture(nil, "ARTWORK")
 	f.tl:SetSize(CORNER, CORNER)
-	f.tl:SetPoint("TOPLEFT", -6, 6)
+	f.tl:SetPoint(outer .. "LEFT", -6, -dir * 6)
 	f.tr = f:CreateTexture(nil, "ARTWORK")
 	f.tr:SetSize(CORNER, CORNER)
-	f.tr:SetPoint("TOPRIGHT", 6, 6)
-	f.tr.flip = true
+	f.tr:SetPoint(outer .. "RIGHT", 6, -dir * 6)
 	return f
 end
 
@@ -59,7 +63,12 @@ local function PaintPanel(f, theme)
 	setTiled(f.right, ns:Media("edgev", theme), "CLAMP", "REPEAT")
 	f.tl:SetTexture(ns:Media("corner", theme))
 	f.tr:SetTexture(ns:Media("corner", theme))
-	f.tr:SetTexCoord(1, 0, 0, 1)
+	if f.hanging then
+		f.tl:SetTexCoord(0, 1, 1, 0)
+		f.tr:SetTexCoord(1, 0, 1, 0)
+	else
+		f.tr:SetTexCoord(1, 0, 0, 1)
+	end
 end
 
 local function PlacePanel(f, r, root, showCorners)
@@ -70,10 +79,16 @@ local function PlacePanel(f, r, root, showCorners)
 	-- continue the same pattern instead of restarting it.
 	local u0, v0 = r.x / PANEL_PERIOD, r.y / PANEL_PERIOD
 	f.fill:SetTexCoord(u0, u0 + (r.w - 8) / PANEL_PERIOD, v0 + (r.h - 4) / PANEL_PERIOD, v0)
-	f.top:SetTexCoord(0, r.w / EDGE_PERIOD, 0, 1)
 	local vh = (r.h - EDGE + 2) / EDGE_PERIOD
-	f.left:SetTexCoord(0, 1, 0, vh)
-	f.right:SetTexCoord(1, 0, 0, vh)
+	if f.hanging then
+		f.top:SetTexCoord(0, r.w / EDGE_PERIOD, 1, 0)
+		f.left:SetTexCoord(0, 1, vh, 0)
+		f.right:SetTexCoord(1, 0, vh, 0)
+	else
+		f.top:SetTexCoord(0, r.w / EDGE_PERIOD, 0, 1)
+		f.left:SetTexCoord(0, 1, 0, vh)
+		f.right:SetTexCoord(1, 0, 0, vh)
+	end
 	f.tl:SetShown(showCorners)
 	f.tr:SetShown(showCorners)
 	f:Show()
@@ -121,6 +136,12 @@ local function PaintInset(f, theme)
 	f.lines[2]:SetColorTexture(unpack(l))
 	f.lines[4]:SetColorTexture(unpack(l))
 end
+
+-- Shared with the top bar.
+ns.Art = {
+	CreatePanel = CreatePanel, PaintPanel = PaintPanel, PlacePanel = PlacePanel,
+	CreateInset = CreateInset, PaintInset = PaintInset,
+}
 
 ----------------------------------------------------------------------------
 -- Module

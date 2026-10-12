@@ -17,6 +17,10 @@ Orc, Undead and Night Elf factions.
   landing page buttons stacked beside it and mouse-wheel zoom.
 - **Chat, micro menu, stance/pet bars, cast bar, extra action button, vehicle
   bar, quest tracker and bag windows** are moved so they sit around the console.
+- **Top bar** with Quests, Menu, Allies and Map buttons on the left, gold, bag
+  space and durability on the right, and the **day/night clock** in the middle.
+  The clock turns with the server time: the sun crosses the window during the
+  day and the moon at night.
 - Key bindings for the Blizzard action bars carry over to the new buttons.
 
 ## Screen shapes
@@ -52,7 +56,7 @@ Undead. Change it any time with `/rui theme`.
 /rui theme auto|human|orc|undead|nightelf
 /rui layout auto|16:9|21:9|32:9
 /rui scale 0.5-1.5
-/rui module <actionbars|minimap|chat|unitinfo|inventory|blizzard> on|off   (then /reload)
+/rui module <actionbars|minimap|chat|unitinfo|inventory|blizzard|topbar> on|off   (then /reload)
 /rui status
 /rui reset
 ```

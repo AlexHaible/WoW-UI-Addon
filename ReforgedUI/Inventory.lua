@@ -29,30 +29,10 @@ end
 -- bag windows hidden. Without a bag addon the button just runs ToggleBag.
 local REAGENT_BAG = 5
 
--- Bag addons that show every bag in one window. They don't hook the reagent
--- bag's button, so that one opens their window through the backpack button.
-local BAG_ADDONS = { "BetterBags", "Bagnon", "AdiBags", "ArkInventory", "Baganator", "Combuctor", "Inventorian" }
-
-local function bagAddonLoaded()
-	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-	if not isLoaded then
-		return false
-	end
-	for _, name in ipairs(BAG_ADDONS) do
-		if isLoaded(name) then
-			return true
-		end
-	end
-	return false
-end
-
 local function blizzardBagButton(bag)
 	if bag == 0 then
 		return MainMenuBarBackpackButton
 	elseif bag == REAGENT_BAG then
-		if bagAddonLoaded() then
-			return MainMenuBarBackpackButton
-		end
 		return CharacterReagentBag0Slot
 	end
 	return _G["CharacterBag" .. (bag - 1) .. "Slot"]

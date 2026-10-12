@@ -1,25 +1,29 @@
--- Action bars. Bars 1-3 fill the screen in the middle of the console, bars 4
--- and 5 go to free console space on wide screens or the right edge of the
--- screen. These are Blizzard's own action buttons, moved and reskinned: they
--- keep their bindings, paging, cooldowns and spell overlays, and none of
--- Blizzard's action button code ever runs from ours. Bars 2-5 must be turned
--- on in Options > Gameplay > Action Bars for their buttons to show.
+-- Action bars, placed in the original addon's action slot grid: the main bar on the
+-- bottom row, bars 2 and 3 above it. The original addon's nine extra slots (three beside
+-- the minimap, six in the inventory) are Blizzard's Action Bar 6
+-- (MultiBar5): enable it in Edit Mode, and its key bindings are the original addon's
+-- "custom action button" bindings.
+--
+-- These are Blizzard's own action buttons, moved and reskinned: they keep
+-- their bindings, paging, cooldowns and spell overlays, and none of
+-- Blizzard's action button code ever runs from ours. Bars 2, 3 and 6 must be
+-- turned on in Edit Mode (or Options > Gameplay > Action Bars) to show.
 
 local _, ns = ...
 local ActionBars = ns:RegisterModule("actionbars", {})
-local Layout = ns.Layout
+
+local HEARTHSTONE = 6948
 
 -- Console bar and the Blizzard button names that fill it.
 local BARS = {
 	{ key = "main", prefix = "ActionButton" },
 	{ key = "bar2", prefix = "MultiBarBottomLeftButton" },
 	{ key = "bar3", prefix = "MultiBarBottomRightButton" },
-	{ key = "bar4", prefix = "MultiBarRightButton" },
-	{ key = "bar5", prefix = "MultiBarLeftButton" },
 }
+local EXTRA_PREFIX = "MultiBar5Button"
 
 local BAR_FRAMES = {
-	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft",
+	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar5",
 }
 
 -- Decorations of the main bar (end caps, border, page number and arrows).
@@ -32,20 +36,19 @@ local MAIN_ART_GLOBALS = {
 	"MainMenuBarTexture3", "MainMenuXPBarTexture0", "MainMenuBarArtFrameBackground",
 }
 
--- Our bevels, kept here rather than written into Blizzard's button tables.
-local bevels = setmetatable({}, { __mode = "k" })
+local skinned = setmetatable({}, { __mode = "k" })
 
+-- The original addon's look: the grid art is the button frame, so drop Blizzard's own
+-- border and slot art and let the icon fill the cell.
 local function SkinButton(btn)
-	if bevels[btn] then
+	if skinned[btn] then
 		return
 	end
+	skinned[btn] = true
 	local name = btn:GetName()
 	local icon = btn.icon or _G[name .. "Icon"]
-	if icon then
-		if btn.IconMask and icon.RemoveMaskTexture then
-			icon:RemoveMaskTexture(btn.IconMask)
-		end
-		icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	if icon and btn.IconMask and icon.RemoveMaskTexture then
+		icon:RemoveMaskTexture(btn.IconMask)
 	end
 	local normal = btn:GetNormalTexture()
 	if normal then
@@ -53,7 +56,7 @@ local function SkinButton(btn)
 	end
 	for _, key in ipairs({ "SlotBackground", "SlotArt", "RightDivider", "BottomDivider" }) do
 		local region = btn[key]
-		if region and region.SetAlpha then
+		if region and region.SetAlpha and region ~= icon then
 			region:SetAlpha(0)
 		end
 	end
@@ -61,11 +64,15 @@ local function SkinButton(btn)
 	if floating then
 		floating:SetAlpha(0)
 	end
-	-- Warcraft III style bevel over the icon.
-	local bevel = btn:CreateTexture(nil, "OVERLAY", nil, -1)
-	bevel:SetAllPoints()
-	bevel:SetTexture(ns.MEDIA .. "Common\\bevel")
-	bevels[btn] = bevel
+end
+
+-- The original addon zooms each icon a little, relative to the button size.
+local function zoomIcon(btn, s, size)
+	local icon = btn.icon or _G[btn:GetName() .. "Icon"]
+	if icon then
+		local z = math.min(0.2, 0.01851 * s / size)
+		icon:SetTexCoord(z, 1 - z, z, 1 - z)
+	end
 end
 
 local function isAncestorOf(frame, child)
@@ -94,19 +101,24 @@ local function hideArt(obj, firstButton)
 	end
 end
 
+local function collect(prefix, count)
+	local list = {}
+	for i = 1, count do
+		local btn = _G[prefix .. i]
+		if btn and not ns.IsForbidden(btn) then
+			list[i] = btn
+			SkinButton(btn)
+		end
+	end
+	return list
+end
+
 function ActionBars:OnEnable()
 	self.buttons = {}
 	for _, spec in ipairs(BARS) do
-		local list = {}
-		for i = 1, 12 do
-			local btn = _G[spec.prefix .. i]
-			if btn and not ns.IsForbidden(btn) then
-				list[i] = btn
-				SkinButton(btn)
-			end
-		end
-		self.buttons[spec.key] = list
+		self.buttons[spec.key] = collect(spec.prefix, 12)
 	end
+	self.extra = collect(EXTRA_PREFIX, 9)
 
 	-- The bars' own frames stay where Edit Mode put them (now empty, at the
 	-- bottom of the screen); stop them catching clicks meant for the console.
@@ -129,6 +141,35 @@ function ActionBars:OnEnable()
 	for _, name in ipairs(MAIN_ART_GLOBALS) do
 		hideArt(_G[name], first)
 	end
+
+	ns:On("PLAYER_ENTERING_WORLD", function()
+		C_Timer.After(2, function() self:PlaceHearthstone() end)
+	end)
+end
+
+-- The original addon puts a hearthstone in the first slot beside the minimap, once per
+-- character, when that slot is empty.
+function ActionBars:PlaceHearthstone()
+	local btn = self.extra[1]
+	local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	local done = ns.db.consoleOpts.hearthstone
+	if done[key] or not btn or InCombatLockdown() or GetCursorInfo() then
+		return
+	end
+	local ok = pcall(function()
+		local slot = btn.action or btn:GetAttribute("action")
+		if not slot or HasAction(slot) or (C_Item.GetItemCount(HEARTHSTONE) or 0) == 0 then
+			return
+		end
+		C_Item.PickupItem(HEARTHSTONE)
+		if GetCursorInfo() == "item" then
+			PlaceAction(slot)
+		end
+		ClearCursor()
+	end)
+	if ok then
+		done[key] = true
+	end
 end
 
 -- Size `btn` to `size` console units and put its bottom-left at (x, y).
@@ -142,14 +183,29 @@ local function placeButton(btn, x, y, size)
 	ns:Anchor(btn, "BOTTOMLEFT", x, y)
 end
 
+local function lockButton(btn, r, s)
+	ns:Lock(btn, function(b)
+		placeButton(b, r.x, r.y, r.w)
+	end, { "SetScale" })
+	zoomIcon(btn, s, r.w)
+end
+
 function ActionBars:OnLayout(L)
 	for _, spec in ipairs(BARS) do
-		local grid = L.bars[spec.key]
+		local row = L.bars[spec.key]
 		for i, btn in pairs(self.buttons[spec.key]) do
-			local x, y = Layout.GridCell(grid, i)
-			ns:Lock(btn, function(b)
-				placeButton(b, x, y, grid.size)
-			end, { "SetScale" })
+			lockButton(btn, { x = row.xs[i], y = row.y, w = row.size }, L.s)
 		end
+	end
+	-- Action Bar 6: 1-3 beside the minimap, 4-9 in the inventory (parked
+	-- below the screen when the inventory is turned off).
+	for i, btn in pairs(self.extra) do
+		local r
+		if i <= 3 then
+			r = L.minimapSlots[i]
+		else
+			r = L.inventory and L.inventory[i - 3]
+		end
+		lockButton(btn, r or { x = 0, y = -200, w = 30 }, L.s)
 	end
 end

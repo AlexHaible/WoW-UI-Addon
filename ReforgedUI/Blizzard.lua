@@ -1,7 +1,8 @@
--- Blizzard frames around the console. Frames we replace (bag bar, status
--- bars) are made invisible and click-through; the
--- micro menu moves on top of the console, bag windows open above it and the
--- client's Issue Reporter button is lifted clear of it. Everything else that
+-- Blizzard frames around the console. Frames we replace (player frame, bag
+-- bar, status bars) are made invisible and click-through; the micro menu
+-- moves on top of the action grid (or is hidden, the original addon's default), bag
+-- windows open above the console and the client's Issue Reporter button is
+-- lifted clear of it. Everything else that
 -- Edit Mode manages (cast bar, stance and pet bars, buffs, quest tracker,
 -- party frames) stays wherever Edit Mode puts it: moving those from addon
 -- code makes Blizzard's own code fail on "secret" values.
@@ -18,8 +19,9 @@ local function first(...)
 	end
 end
 
--- Replaced by our own XP bar and inventory.
+-- Replaced by our own hero screen, XP bar and bag row.
 local CONCEAL = {
+	"PlayerFrame",
 	"BagsBar", "MicroButtonAndBagsBar", "MainStatusTrackingBarContainer",
 	"SecondaryStatusTrackingBarContainer", "StatusTrackingBarManager",
 	"MainMenuExpBar", "ReputationWatchBar", "MainMenuBarMaxLevelBar",
@@ -38,11 +40,20 @@ function Blizzard:OnEnable()
 	end
 
 	self.micro = first("MicroMenuContainer", "MicroMenu")
-	if not self.micro then
+	if ns.db.consoleOpts.hideMicro then
+		-- The top bar's buttons open the game menu, and every window has
+		-- its key binding.
+		if self.micro then
+			ns:Conceal(self.micro)
+		else
+			for _, name in ipairs(MICRO_NAMES) do
+				ns:Conceal(_G[name])
+			end
+		end
+		self.micro = nil
+	elseif not self.micro then
 		-- Classic-style clients: micro buttons are loose children of the main
-		-- bar, so gather them into a row of our own.
-		self.microRow = CreateFrame("Frame", "ReforgedUIMicroMenu", ns.root)
-		self.microRow:SetFrameStrata("MEDIUM")
+		-- bar, so line them up one by one.
 		self.microButtons = {}
 		for _, name in ipairs(MICRO_NAMES) do
 			if _G[name] then
@@ -69,7 +80,7 @@ function Blizzard:LiftContainers()
 	end
 	-- Only the bottom of each column is anchored to UIParent; the rest stack
 	-- on top of it, so lifting those lifts everything.
-	local lift = ns.layout and (ns.layout.micro.bottom + 44) or 0
+	local lift = ns.layout and ns.layout.consoleTop or 0
 	for _, f in ipairs(frames) do
 		if f:IsShown() then
 			local point, rel, relPoint, x, y = f:GetPoint(1)
@@ -87,14 +98,14 @@ end
 function Blizzard:OnLayout(L)
 	if self.micro then
 		ns:Lock(self.micro, function(f)
-			-- Shrink (never grow) until the menu fits above the command card.
+			-- Shrink (never grow) until the menu fits on the action grid.
 			local w = f:GetWidth() * f:GetEffectiveScale() / ns.root:GetEffectiveScale()
 			if w > L.micro.maxW then
 				f:SetScale(f:GetScale() * L.micro.maxW / w)
 			end
 			ns:Anchor(f, "BOTTOMRIGHT", L.micro.right, L.micro.bottom)
 		end)
-	elseif self.microRow then
+	elseif self.microButtons then
 		self:LayoutMicroRow(L)
 	end
 
@@ -121,27 +132,26 @@ function Blizzard:LiftIssueReporter()
 		self.reporter = found or false
 	end
 	if self.reporter then
-		ns:KeepAbove(self.reporter, function() return ns.layout.base.h + 6 end)
+		ns:KeepAbove(self.reporter, function() return ns.layout.consoleTop + 6 end)
 	end
 end
 
+-- Width of `b` in console units at scale 1.
+local function naturalWidth(b)
+	return b:GetWidth() * b:GetParent():GetEffectiveScale() / ns.root:GetEffectiveScale()
+end
+
 function Blizzard:LayoutMicroRow(L)
-	local row, buttons = self.microRow, self.microButtons
+	local buttons = self.microButtons
 	if #buttons == 0 then
 		return
 	end
-	local bw, bh = buttons[1]:GetSize()
-	local natural = #buttons * bw
-	local scale = math.min(1, L.micro.maxW / natural)
-	row:SetScale(scale)
-	row:SetSize(natural, bh)
-	row:ClearAllPoints()
-	row:SetPoint("BOTTOMRIGHT", ns.root, "BOTTOMLEFT", L.micro.right / scale, L.micro.bottom / scale) -- our own frame
+	local step = math.min(naturalWidth(buttons[1]), L.micro.maxW / #buttons)
+	local x0 = L.micro.right - #buttons * step
 	for i, btn in ipairs(buttons) do
 		ns:Lock(btn, function(b)
-			b:SetParent(row)
-			b:ClearAllPoints()
-			b:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", (i - 1) * bw, 0)
+			b:SetScale(step / naturalWidth(b))
+			ns:Anchor(b, "BOTTOMLEFT", x0 + (i - 1) * step, L.micro.bottom)
 		end)
 	end
 end

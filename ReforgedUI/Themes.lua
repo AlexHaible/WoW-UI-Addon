@@ -1,10 +1,11 @@
--- Faction themes. Each theme points at a folder in Media/ that holds the same
--- set of files (see Media/README.md), plus the colours used for text, bars and
--- the recessed "screens" of the console.
+-- Faction themes. The theme key is also the original addon's art folder (art/<key>);
+-- `folder` is the top bar's folder in Media/ (see Media/README.md), and the
+-- colours are used by the top bar's plates.
 
 local _, ns = ...
 
 local MEDIA = "Interface\\AddOns\\ReforgedUI\\Media\\"
+local ART = "Interface\\AddOns\\ReforgedUI\\art\\"
 
 ns.Themes = {
 	human = {
@@ -80,3 +81,11 @@ function ns:Media(file, theme)
 end
 
 ns.MEDIA = MEDIA
+ns.ART = ART
+-- The original addon's font.
+ns.FONT = ART .. "other\\fonts\\blq55.TTF"
+
+-- A file under art/, e.g. "orc\\inventory\\inventory".
+function ns:ArtPath(file)
+	return ART .. file
+end

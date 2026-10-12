@@ -1,15 +1,18 @@
--- The Warcraft III 2x3 inventory, holding the backpack and bag slots, with the
--- key ring beside it. Click to open a bag, drag a bag onto a slot to equip it,
--- drag from a slot to pick the bag up. A small number shows the free slots in
--- each bag.
+-- The original addon's bag row above the chat area: backpack on the right, the bags and
+-- the key ring to its left. With "Hide bags" on (the original addon's default) the row
+-- only shows while the backpack is open or the mouse is over it.
+--
+-- These are our own buttons: clicks go through Blizzard's own (hidden) bag
+-- buttons, which bag addons such as BetterBags hook, and drag and drop
+-- equips or picks up bags. A small number shows the free slots in each bag.
 
 local _, ns = ...
 local Inventory = ns:RegisterModule("inventory", {})
-local Layout = ns.Layout
 
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
 local KEYRING_ICON = "Interface\\Icons\\INV_Misc_Key_03"
+local REAGENT_BAG = 5
 
 local Container = C_Container or {}
 local toInventoryID = Container.ContainerIDToInventoryID or ContainerIDToInventoryID
@@ -23,11 +26,6 @@ local function inventoryID(bag)
 	local ok, id = pcall(toInventoryID, bag)
 	return ok and id or nil
 end
-
--- Clicks go through Blizzard's own (hidden) bag buttons: bag addons such as
--- BetterBags hook those buttons rather than ToggleBag, and keep Blizzard's
--- bag windows hidden. Without a bag addon the button just runs ToggleBag.
-local REAGENT_BAG = 5
 
 local function blizzardBagButton(bag)
 	if bag == 0 then
@@ -64,6 +62,7 @@ local function onDragStart(btn)
 end
 
 local function onEnter(btn)
+	Inventory:SetHover(true)
 	GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
 	if btn.bag == 0 then
 		GameTooltip:SetText(BACKPACK_TOOLTIP or "Backpack", 1, 1, 1)
@@ -73,23 +72,35 @@ local function onEnter(btn)
 	GameTooltip:Show()
 end
 
+local function onLeave()
+	Inventory:SetHover(false)
+	GameTooltip:Hide()
+end
+
 local function toggleKeyRing()
 	if ToggleKeyRing then
 		ToggleKeyRing()
-	elseif KeyRingButton then
+	elseif KeyRingButton and not ns.IsForbidden(KeyRingButton) then
 		KeyRingButton:Click()
 	else
 		ToggleBag(KEYRING_CONTAINER or -2)
 	end
 end
 
-function Inventory:CreateKeyRing(holder)
-	local btn = CreateFrame("Button", "ReforgedUIKeyRing", holder)
-	-- A small key on the ledge above the bag slots.
-	btn:SetNormalTexture(KEYRING_ICON)
-	btn:GetNormalTexture():SetTexCoord(0.07, 0.93, 0.07, 0.93)
+local function makeButton(holder, name)
+	local btn = CreateFrame("Button", name, holder)
+	btn.icon = btn:CreateTexture(nil, "ARTWORK")
+	btn.icon:SetAllPoints()
 	btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+	btn:SetScript("OnLeave", onLeave)
+	return btn
+end
+
+function Inventory:CreateKeyRing(holder)
+	local btn = makeButton(holder, "ReforgedUIKeyRing")
+	btn.icon:SetTexture(KEYRING_ICON)
+	btn.icon:SetTexCoord(0.3, 0.7, 0.07, 0.93)
 	btn:SetScript("OnClick", toggleKeyRing)
 	btn:SetScript("OnReceiveDrag", function()
 		if PutKeyInKeyRing then
@@ -97,43 +108,36 @@ function Inventory:CreateKeyRing(holder)
 		end
 	end)
 	btn:SetScript("OnEnter", function(b)
+		self:SetHover(true)
 		GameTooltip:SetOwner(b, "ANCHOR_LEFT")
 		GameTooltip:SetText(KEYRING or "Key Ring", 1, 1, 1)
 		GameTooltip:Show()
 	end)
-	btn:SetScript("OnLeave", GameTooltip_Hide)
 	-- Only clients with a key ring (Classic-based ones, WoW: Forever) get one.
-	btn:SetShown((ToggleKeyRing or KeyRingButton or KEYRING_CONTAINER) ~= nil)
+	btn.available = (ToggleKeyRing or KeyRingButton or KEYRING_CONTAINER) ~= nil
 	self.keyring = btn
 end
 
 function Inventory:OnEnable()
 	self.buttons = {}
-	local holder = CreateFrame("Frame", "ReforgedUIInventory", ns.root)
+	local holder = CreateFrame("Frame", "ReforgedUIBags", ns.root)
 	holder:SetFrameStrata("MEDIUM") -- above Blizzard's (invisible) bar frames at the screen bottom
 	holder:SetAllPoints(ns.root)
+	self.holder = holder
 	for i = 1, 6 do
-		local bag = i - 1 -- 0 backpack, 1-4 bags, 5 reagent bag (Retail only)
-		local btn = CreateFrame("Button", "ReforgedUIBagSlot" .. i, holder)
+		local bag = i - 1 -- 0 backpack, 1-4 bags, 5 reagent bag
+		local btn = makeButton(holder, "ReforgedUIBagSlot" .. i)
 		btn.bag = bag
 		btn.invID = inventoryID(bag)
-		btn.icon = btn:CreateTexture(nil, "ARTWORK")
-		btn.icon:SetAllPoints()
 		btn.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-		btn.bevel = btn:CreateTexture(nil, "OVERLAY")
-		btn.bevel:SetAllPoints()
-		btn.bevel:SetTexture(ns.MEDIA .. "Common\\bevel")
 		btn.count = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
 		btn.count:SetPoint("BOTTOMRIGHT", -2, 2)
-		btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-		btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 		btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		btn:RegisterForDrag("LeftButton")
 		btn:SetScript("OnClick", onClick)
 		btn:SetScript("OnReceiveDrag", onReceiveDrag)
 		btn:SetScript("OnDragStart", onDragStart)
 		btn:SetScript("OnEnter", onEnter)
-		btn:SetScript("OnLeave", GameTooltip_Hide)
 		self.buttons[i] = btn
 	end
 	self:CreateKeyRing(holder)
@@ -141,6 +145,27 @@ function Inventory:OnEnable()
 		"BAG_SLOT_FLAGS_UPDATED", "PLAYER_ENTERING_WORLD", "UNIT_INVENTORY_CHANGED" }) do
 		ns:On(e, function() self:Update() end)
 	end
+
+	-- "Hide bags": show the row while the backpack is open.
+	for _, name in ipairs({ "ContainerFrame1", "ContainerFrameCombinedBags" }) do
+		local f = _G[name]
+		if f then
+			f:HookScript("OnShow", function() self:UpdateVisibility() end)
+			f:HookScript("OnHide", function() self:UpdateVisibility() end)
+		end
+	end
+end
+
+function Inventory:SetHover(on)
+	self.hover = on
+	self:UpdateVisibility()
+end
+
+function Inventory:UpdateVisibility()
+	local open = (ContainerFrame1 and ContainerFrame1:IsShown())
+		or (ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown())
+	local visible = not ns.db.consoleOpts.hideBags or open or self.hover
+	self.holder:SetAlpha(visible and 1 or 0)
 end
 
 function Inventory:Update()
@@ -156,22 +181,31 @@ function Inventory:Update()
 		else
 			btn.count:SetText("")
 		end
-		-- Bag 5 only exists where the client has a reagent bag slot.
-		btn:SetShown(btn.bag == 0 or btn.invID ~= nil)
 	end
 end
 
 function Inventory:OnLayout(L)
-	local g = L.inventory
-	for i, btn in ipairs(self.buttons) do
-		local x, y = Layout.GridCell(g, i)
-		btn:ClearAllPoints()
-		btn:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", x, y)
-		btn:SetSize(g.size, g.size)
+	local b = L.bags
+	self.holder:SetShown(b ~= nil)
+	if not b then
+		return
 	end
-	local k = L.keyring
-	self.keyring:ClearAllPoints()
-	self.keyring:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", k.x, k.y)
-	self.keyring:SetSize(k.w, k.h)
+	local x = b.right - b.size
+	local y = b.top - b.size
+	local lastX = x
+	for _, btn in ipairs(self.buttons) do
+		-- Bag 5 only exists where the client has a reagent bag slot.
+		local shown = btn.bag == 0 or btn.invID ~= nil
+		btn:SetShown(shown)
+		if shown then
+			ns.modules.console.Place(btn, { x = x, y = y, w = b.size, h = b.size })
+			lastX = x
+			x = x - b.step
+		end
+	end
+	local key = self.keyring
+	key:SetShown(key.available)
+	ns.modules.console.Place(key, { x = lastX - 20, y = y - 1, w = 18, h = 39 })
 	self:Update()
+	self:UpdateVisibility()
 end

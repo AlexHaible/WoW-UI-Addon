@@ -2,7 +2,7 @@
 
 ## Title: Reforged UI
 ## Author: AlexHaible
-## Notes: Warcraft III: Reforged style bottom console with Human, Orc, Undead and Night Elf themes for 16:9, 21:9 and 32:9 screens.
+## Notes: Ported to WoW Forever: the Warcraft III console with Human, Orc, Undead and Night Elf themes, plus Reforged UI's top bar.
 ## Version: @project-version@
 ## X-Date: @project-date-iso@
 ## X-Category: Interface Enhancements
@@ -32,16 +32,16 @@ Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Layout.lua
 Themes.lua
 Core.lua
+Art.lua
 Console.lua
 TopBar.lua
+Hero.lua
 ActionBars.lua
 Minimap.lua
 Chat.lua
-UnitInfo.lua
-Stats.lua
-Target.lua
 Inventory.lua
 Blizzard.lua
+Config.lua
 
 #@debug@
 ## Version: DEV

@@ -1,6 +1,7 @@
 -- Reforged UI core: saved settings, events, the combat-safe work queue, the
 -- frame "lock" helper used to keep Blizzard frames where we put them, and the
--- console root that every module builds on.
+-- two roots every module builds on: the console (768 units tall, the
+-- screen the original addon was designed for) and the top bar (its own scale).
 
 local addonName, ns = ...
 
@@ -10,22 +11,44 @@ ns.moduleOrder = {}
 
 local DEFAULTS = {
 	theme = "auto", -- auto | human | orc | undead | nightelf
-	layout = "auto", -- auto | standard | wide | superwide
-	scale = 0.75,
-	version = 2,
+	layout = "auto", -- top bar: auto | standard | wide | superwide
+	scale = 0.75, -- top bar
+	version = 3,
 	modules = {
+		console = true,
+		hero = true,
 		actionbars = true,
 		minimap = true,
 		chat = true,
-		unitinfo = true,
-		stats = true,
-		target = true,
 		inventory = true,
 		blizzard = true,
 		topbar = true,
+		config = true,
 	},
 	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
 	broker = {},
+	-- The original addon's options (its config menu, see Config.lua).
+	consoleOpts = {
+		uiScale = 240, -- 240-270
+		chatUp = 10, -- "extend bottom right upwards", 0-150
+		chatWidth = false, -- false: to the screen edge
+		center = "off", -- off | center | slim | noinv
+		portraitX = 100, portraitY = 100, portraitScale = 0,
+		hpWarning = 25,
+		restedColor = { 0, 0, 1, 0.5 },
+		icons = {}, -- stat icon choices per class
+		healthPercent = false,
+		powerPercent = false,
+		hideGrid = false,
+		hideMicro = true,
+		hideBags = true,
+		hideChatIcons = false,
+		chatInputAbove = false,
+		placeChat = true,
+		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
+		stopAnimation = false,
+		hearthstone = {}, -- characters that already got the hearthstone placed
+	},
 }
 
 -- Settings saved by older versions.
@@ -35,6 +58,11 @@ local function migrate(db)
 		if db.scale == 1 then
 			db.scale = DEFAULTS.scale
 		end
+	end
+	if (db.version or 1) < 3 then
+		-- Version 3 replaced the console with the original addon's; drop the old modules'
+		-- switches and settings.
+		db.modules, db.stats = nil, nil
 	end
 	db.version = DEFAULTS.version
 end
@@ -298,22 +326,50 @@ end
 ----------------------------------------------------------------------------
 -- Layout and theme
 
+-- The original addon's options as Layout.Compute wants them.
+function ns:LayoutOptions()
+	local o = self.db.consoleOpts
+	local Layout = self.Layout
+	local s = math.floor(tonumber(o.uiScale) or 240)
+	return {
+		s = math.max(Layout.SCALE_MIN, math.min(Layout.SCALE_MAX, s)),
+		m = math.max(0, math.min(150, tonumber(o.chatUp) or 10)),
+		theme = self.themeKey,
+		center = tContains(Layout.CENTER_MODES, o.center) and o.center or "off",
+		chatWidth = tonumber(o.chatWidth) or nil,
+		zoneTextPos = o.zoneText,
+		portraitX = tonumber(o.portraitX) or 100,
+		portraitY = tonumber(o.portraitY) or 100,
+		portraitScale = tonumber(o.portraitScale) or 0,
+		chatInputAbove = o.chatInputAbove,
+	}
+end
+
 function ns:Relayout()
 	self:RunOutOfCombat("relayout", function()
-		-- The layout is designed for a 768-unit-tall screen. Scale the console
-		-- so it keeps the same share of the screen at any resolution and UI
-		-- scale (a 1440p screen at a small UI scale is ~1200 units tall), then
-		-- apply the player's own /rui scale on top.
+		-- The console is laid out for a screen 768 units tall (the original addon's
+		-- design size); scale it so it keeps that share of the screen at any
+		-- resolution and UI scale.
 		local root = self.root
-		local scale = self.db.scale * UIParent:GetHeight() / 768
+		local scale = UIParent:GetHeight() / 768
 		root:SetScale(scale)
 		local W = UIParent:GetWidth() / scale
-		local H = UIParent:GetHeight() / scale
-		local L = self.Layout.Compute(W, H, self.db.layout)
-		self.layout = L
 		root:ClearAllPoints()
 		root:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
-		root:SetSize(W, L.top)
+		root:SetSize(W, 768)
+
+		-- The top bar keeps Reforged UI's own scale setting (/rui scale).
+		local topRoot = self.topRoot
+		local topScale = self.db.scale * UIParent:GetHeight() / 768
+		topRoot:SetScale(topScale)
+		local TW, TH = UIParent:GetWidth() / topScale, UIParent:GetHeight() / topScale
+		topRoot:ClearAllPoints()
+		topRoot:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
+		topRoot:SetSize(TW, TH)
+		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout)
+
+		local L = self.Layout.Compute(W, 768, self:LayoutOptions())
+		self.layout = L
 		self:ForEachModule("OnLayout", L)
 	end)
 end
@@ -322,6 +378,10 @@ function ns:ApplyTheme()
 	self.themeKey = self:ResolveThemeKey(self.db.theme)
 	self.theme = self.Themes[self.themeKey]
 	self:ForEachModule("OnTheme", self.theme)
+	-- The original addon's pieces sit differently per theme.
+	if self.ready then
+		self:Relayout()
+	end
 end
 
 ----------------------------------------------------------------------------
@@ -361,6 +421,14 @@ end
 ----------------------------------------------------------------------------
 -- Startup
 
+local function makeRoot(name)
+	local f = CreateFrame("Frame", name, UIParent, "SecureHandlerStateTemplate")
+	f:SetFrameStrata("BACKGROUND")
+	f:SetFrameLevel(1)
+	RegisterStateDriver(f, "visibility", "[petbattle] hide; show")
+	return f
+end
+
 local function init()
 	local db = ReforgedUIDB or {}
 	migrate(db) -- before the defaults fill in the new version number
@@ -368,11 +436,8 @@ local function init()
 	ns.db = ReforgedUIDB
 	repairEditModeLayouts()
 
-	local root = CreateFrame("Frame", "ReforgedUIConsole", UIParent, "SecureHandlerStateTemplate")
-	root:SetFrameStrata("BACKGROUND")
-	root:SetFrameLevel(1)
-	ns.root = root
-	RegisterStateDriver(root, "visibility", "[petbattle] hide; show")
+	ns.root = makeRoot("ReforgedUIConsole")
+	ns.topRoot = makeRoot("ReforgedUITopRoot")
 
 	ns.themeKey = ns:ResolveThemeKey(ns.db.theme)
 	ns.theme = ns.Themes[ns.themeKey]
@@ -413,15 +478,15 @@ local LAYOUT_ALIASES = {
 }
 
 local function usage()
-	ns:Print("commands:")
+	ns:Print("commands (the console's own options are in its menu: the cogwheel in the bottom-right corner):")
+	print("  /rui config  (open that menu)")
 	print("  /rui theme auto||human||orc||undead||nightelf")
-	print("  /rui layout auto||16:9||21:9||32:9")
-	print("  /rui scale 0.5-1.5")
-	print("  /rui stat tl||tr||br main||offhand||ranged||ammo||spell||heal||none")
 	print("  /rui feeds  (list data feeds and top bar slots)")
 	print("  /rui slot <number> <feed name>||none")
-	print("  /rui module <name> on||off  (actionbars, minimap, chat, unitinfo, stats, target, inventory, blizzard,"
-		.. " topbar; needs /reload)")
+	print("  /rui scale 0.5-1.5  (top bar)")
+	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
+	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, topbar,"
+		.. " config; needs /reload)")
 	print("  /rui status")
 	print("  /rui reset")
 end
@@ -442,21 +507,16 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.theme = arg
 		ns:ApplyTheme()
 		ns:Print("theme:", ns.theme.name, arg == "auto" and "(auto)" or "")
+	elseif cmd == "config" and ns.modules.config.enabled then
+		ns.modules.config:Toggle()
 	elseif cmd == "layout" and arg and LAYOUT_ALIASES[arg] then
 		ns.db.layout = LAYOUT_ALIASES[arg]
 		ns:Relayout()
-		ns:Print("layout:", ns.db.layout)
+		ns:Print("top bar layout:", ns.db.layout)
 	elseif cmd == "scale" and tonumber(arg) then
 		ns.db.scale = math.max(0.5, math.min(1.5, tonumber(arg)))
 		ns:Relayout()
-		ns:Print("scale:", ns.db.scale)
-	elseif cmd == "stat" and arg and ns.modules.stats.enabled and ns.modules.stats.POSITIONS[arg] then
-		local Stats = ns.modules.stats
-		if not tContains(Stats.KINDS, arg2 or "") then
-			ns:Print("choose one of:", table.concat(Stats.KINDS, ", "))
-			return
-		end
-		Stats:Set(arg, arg2)
+		ns:Print("top bar scale:", ns.db.scale)
 	elseif cmd == "feeds" and ns.modules.topbar.enabled then
 		ns.modules.topbar:ListFeeds()
 	elseif cmd == "slot" and tonumber(arg) and arg2 and ns.modules.topbar.enabled then
@@ -466,9 +526,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.modules[arg] = arg2 == "on"
 		ns:Print(arg, arg2, "- type /reload to apply.")
 	elseif cmd == "status" then
-		local L = ns.layout
-		ns:Print(("theme %s, layout %s (%s), screen %.0fx%.0f units, scale %.2f"):format(
-			ns.theme.name, L.profile, ns.Layout.PROFILES[L.profile].label, L.W, L.H, ns.db.scale))
+		local L, T = ns.layout, ns.topLayout
+		ns:Print(("theme %s, UI scale %d, centre %s, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(
+			ns.theme.name, L.s, L.center, L.W, L.H, T.profile, ns.Layout.PROFILES[T.profile].label, ns.db.scale))
 	elseif cmd == "reset" then
 		ReforgedUIDB = nil
 		ns:Print("settings reset - type /reload to apply.")

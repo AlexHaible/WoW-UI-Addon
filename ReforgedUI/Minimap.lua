@@ -1,5 +1,12 @@
--- Square minimap in the console's left block, with the minimap buttons stacked
--- in a column beside it the way Warcraft III lines up its minimap signals.
+-- The original addon's minimap: a square map in the bottom-left block, the tracking
+-- button in the round slot under it, the mail slot beside it (a grey letter
+-- when there is no mail), the zone name on the bottom (or top) edge of the
+-- map and zooming with the mouse wheel. The other minimap buttons (calendar,
+-- addon buttons, ...) line up along the top edge of the map.
+--
+-- The map stays a child of its cluster (an Edit Mode frame we never move or
+-- hide); only the map itself and the buttons are placed, anchored to
+-- UIParent, and the cluster's own decorations are made invisible.
 
 local _, ns = ...
 local MinimapModule = ns:RegisterModule("minimap", {})
@@ -9,7 +16,19 @@ function GetMinimapShape()
 	return "SQUARE"
 end
 
+-- The original addon's MinimapMask is plain white: a square mask.
 local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+
+-- Calls fn(f) for each non-nil argument (lists of frames that may not exist
+-- on this client).
+local function each(fn, ...)
+	for i = 1, select("#", ...) do
+		local f = select(i, ...)
+		if f then
+			fn(f)
+		end
+	end
+end
 
 local function find(...)
 	for i = 1, select("#", ...) do
@@ -20,21 +39,19 @@ local function find(...)
 	end
 end
 
--- Buttons that normally sit around the round minimap: the known ones first,
--- then any other small button on the minimap or its cluster (other addons'
--- and client-specific ones), so nothing is left stranded on the map.
+-- Buttons that normally sit around the round minimap, other than the ones
+-- with a place of their own: the known ones first, then any other small
+-- button on the minimap or its cluster (other addons' and client-specific
+-- ones), so nothing is left stranded on the map.
 local function collectButtons(skip)
-	local cluster = MinimapCluster or {}
 	local list, seen = {}, {}
 	local function add(f)
-		if f and not seen[f] and not skip[f] then
+		if f and not seen[f] and not skip[f] and not ns.IsForbidden(f) then
 			seen[f] = true
 			list[#list + 1] = f
 		end
 	end
-	add(find(cluster.Tracking, cluster.TrackingFrame, MiniMapTracking, MiniMapTrackingButton))
 	add(GameTimeFrame)
-	add(find(cluster.IndicatorFrame, MiniMapMailFrame))
 	add(AddonCompartmentFrame)
 	add(find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton))
 	local function sweep(parent, depth)
@@ -42,12 +59,14 @@ local function collectButtons(skip)
 			return
 		end
 		for _, child in ipairs({ parent:GetChildren() }) do
-			local w, h = child:GetSize()
-			if child:GetObjectType() == "Button" and child:IsShown() and w and w >= 12 and w <= 64
-				and h and h >= 12 and h <= 64 then
-				add(child)
-			elseif depth > 0 and child ~= Minimap then
-				sweep(child, depth - 1)
+			if not skip[child] and not ns.IsForbidden(child) then
+				local w, h = child:GetSize()
+				if child:GetObjectType() == "Button" and child:IsShown() and w and w >= 12 and w <= 64
+					and h and h >= 12 and h <= 64 then
+					add(child)
+				elseif depth > 0 and child ~= Minimap then
+					sweep(child, depth - 1)
+				end
 			end
 		end
 	end
@@ -57,74 +76,72 @@ local function collectButtons(skip)
 end
 
 function MinimapModule:OnEnable()
-	local Minimap = Minimap
-	self.holder = CreateFrame("Frame", "ReforgedUIMinimapHolder", ns.root)
-	self.holder:SetFrameStrata("LOW")
-
-	Minimap:SetParent(self.holder)
-	Minimap:SetFrameStrata("LOW")
-	Minimap:SetMaskTexture(SQUARE_MASK)
-	if Minimap.SetArchBlobRingScalar then
-		Minimap:SetArchBlobRingScalar(0)
-		Minimap:SetQuestBlobRingScalar(0)
+	local map = Minimap
+	map:SetMaskTexture(SQUARE_MASK)
+	if map.SetArchBlobRingScalar then
+		map:SetArchBlobRingScalar(0)
+		map:SetQuestBlobRingScalar(0)
 	end
 
-	-- Round decorations that make no sense on a square map.
-	for _, f in ipairs({
-		MinimapCompassTexture, MinimapBorder, MinimapBorderTop, MinimapBackdrop and MinimapBackdrop.StaticOverlay,
-		Minimap.ZoomIn, Minimap.ZoomOut, MinimapZoomIn, MinimapZoomOut,
-		MinimapCluster and MinimapCluster.BorderTop, MinimapCluster and MinimapCluster.ZoneTextButton,
-		MinimapZoneTextButton, MiniMapWorldMapButton,
-	}) do
-		if f then
-			if f.SetParent then
-				ns:Conceal(f)
-			else
-				f:Hide()
-			end
+	local cluster = MinimapCluster or {}
+	-- Round decorations and the cluster's header (zone bar, border, zoom
+	-- buttons) that the original addon drops.
+	each(function(f)
+		if f.GetChildren then
+			ns:Conceal(f)
+		elseif f.SetAlpha then
+			f:SetAlpha(0)
 		end
-	end
+	end, MinimapCompassTexture, MinimapBorder, MinimapBorderTop, MinimapBackdrop,
+		map.ZoomIn, map.ZoomOut, map.ZoomHitArea, MinimapZoomIn, MinimapZoomOut,
+		cluster.BorderTop, cluster.ZoneTextButton, MinimapZoneTextButton, MiniMapWorldMapButton,
+		TimeManagerClockButton, MiniMapMailBorder)
 
-	-- Mouse wheel zoom (the zoom buttons are gone).
-	Minimap:EnableMouseWheel(true)
-	if not Minimap:GetScript("OnMouseWheel") then
-		Minimap:SetScript("OnMouseWheel", function(map, delta)
-			local zoom = map:GetZoom() + (delta > 0 and 1 or -1)
-			if zoom >= 0 and zoom < map:GetZoomLevels() then
-				map:SetZoom(zoom)
+	-- Mouse wheel zoom (newer clients zoom by themselves).
+	map:EnableMouseWheel(true)
+	if not map:GetScript("OnMouseWheel") then
+		map:SetScript("OnMouseWheel", function(m, delta)
+			local zoom = m:GetZoom() + (delta > 0 and 1 or -1)
+			if zoom >= 0 and zoom < m:GetZoomLevels() then
+				m:SetZoom(zoom)
 			end
 		end)
 	end
 
-	-- Zone name on the plate above the map, Warcraft III gold.
+	self.holder = CreateFrame("Frame", "ReforgedUIMinimap", ns.root)
+	self.holder:SetFrameStrata("LOW")
+	self.holder:SetFrameLevel(20)
+	self.holder:SetAllPoints(ns.root)
+
+	-- The empty mail slot: a grey letter, covered when mail arrives.
+	self.noMail = self.holder:CreateTexture(nil, "ARTWORK")
+	self.noMail:SetTexture("Interface\\Icons\\INV_Letter_15")
+	self.noMail:SetVertexColor(0.25, 0.25, 0.25, 1)
+	self.noMail:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	ns:On("UPDATE_PENDING_MAIL", function() self:UpdateMail() end)
+	ns:On("PLAYER_ENTERING_WORLD", function() self:UpdateMail() end)
+
+	-- Zone name, coloured by PvP status like Blizzard's.
 	self.zone = self.holder:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	self.zone:SetJustifyH("CENTER")
 	self.zone:SetWordWrap(false)
-	ns:On("ZONE_CHANGED", function() self:UpdateZone() end)
-	ns:On("ZONE_CHANGED_INDOORS", function() self:UpdateZone() end)
-	ns:On("ZONE_CHANGED_NEW_AREA", function() self:UpdateZone() end)
-	ns:On("PLAYER_ENTERING_WORLD", function() self:UpdateZone() end)
+	for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD" }) do
+		ns:On(e, function() self:UpdateZone() end)
+	end
 	self:UpdateZone()
 
-	self.extras = {
-		clock = TimeManagerClockButton,
-		difficulty = MinimapCluster and (MinimapCluster.InstanceDifficulty or MinimapCluster.InstanceDifficultyFrame)
-			or MiniMapInstanceDifficulty,
-	}
+	self.tracking = find(cluster.Tracking, cluster.TrackingFrame, MiniMapTracking, MiniMapTrackingFrame,
+		MiniMapTrackingButton)
+	self.mail = find(cluster.IndicatorFrame, MiniMapMailFrame)
+	self.difficulty = find(cluster.InstanceDifficulty, cluster.InstanceDifficultyFrame, MiniMapInstanceDifficulty)
 	local skip = {}
-	for _, f in pairs(self.extras) do skip[f] = true end
+	each(function(f) skip[f] = true end, self.tracking, self.mail, self.difficulty, cluster.ZoneTextButton,
+		cluster.BorderTop, MinimapZoneTextButton, MiniMapWorldMapButton, TimeManagerClockButton)
 	self.buttons = collectButtons(skip)
-	-- Everything worth keeping is out of the cluster now; hide the rest of it
-	-- (zone bar, border, header) wherever the client anchors it.
-	if MinimapCluster then
-		for _, f in pairs(self.extras) do
-			if f then f:SetParent(self.holder) end
-		end
-		for _, b in ipairs(self.buttons) do
-			b:SetParent(self.holder)
-		end
-		ns:Conceal(MinimapCluster)
-	end
+end
+
+function MinimapModule:UpdateMail()
+	self.noMail:SetShown(not HasNewMail())
 end
 
 function MinimapModule:UpdateZone()
@@ -133,8 +150,10 @@ function MinimapModule:UpdateZone()
 	local pvp = C_PvP and C_PvP.GetZonePVPInfo and C_PvP.GetZonePVPInfo() or (GetZonePVPInfo and GetZonePVPInfo())
 	if pvp == "sanctuary" then
 		r, g, b = 0.41, 0.8, 0.94
-	elseif pvp == "hostile" then
+	elseif pvp == "arena" or pvp == "hostile" then
 		r, g, b = 1, 0.1, 0.1
+	elseif pvp == "friendly" then
+		r, g, b = 0.1, 1, 0.1
 	elseif pvp == "contested" then
 		r, g, b = 1, 0.7, 0
 	end
@@ -142,54 +161,66 @@ function MinimapModule:UpdateZone()
 	self.zone:SetTextColor(r, g, b)
 end
 
+-- Scale `f` so its larger side is `size` console units.
+local function fit(f, size)
+	local w, h = f:GetSize()
+	local natural = math.max(w or 0, h or 0)
+	if natural > 0 then
+		local parentScale = f:GetParent() and f:GetParent():GetEffectiveScale() or 1
+		f:SetScale(size * ns.root:GetEffectiveScale() / (natural * parentScale))
+	end
+end
+
 function MinimapModule:OnLayout(L)
-	local root, m = ns.root, L.minimap
+	local m = L.minimap
 	ns:Lock(Minimap, function(map)
-		map:ClearAllPoints()
 		ns:PlaceRect(map, m)
-	end)
+	end, { "SetSize" })
 	-- Changing the size needs a zoom nudge or the map renders stale tiles.
 	local zoom = Minimap:GetZoom()
 	Minimap:SetZoom(zoom > 0 and zoom - 1 or zoom + 1)
 	Minimap:SetZoom(zoom)
 
+	ns.modules.console.Place(self.noMail, L.noMail)
+	self:UpdateMail()
+
 	local z = L.zoneText
-	self.zone:ClearAllPoints()
-	self.zone:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", z.x, z.y)
-	self.zone:SetSize(z.w, z.h)
+	self.zone:SetShown(z ~= nil)
+	if z then
+		ns.modules.console.Place(self.zone, z)
+	end
 
-	-- Column of minimap buttons, top to bottom; shrinks to fit them all.
-	local col = L.minimapButtons
+	local t = L.tracking
+	if self.tracking then
+		ns:Lock(self.tracking, function(f)
+			fit(f, t.size)
+			ns:Anchor(f, "CENTER", t.cx, t.cy)
+		end, { "SetScale" })
+	end
+	local nm = L.noMail
+	if self.mail then
+		ns:Lock(self.mail, function(f)
+			fit(f, nm.w)
+			ns:Anchor(f, "CENTER", nm.x + nm.w / 2, nm.y + nm.h / 2)
+		end, { "SetScale" })
+	end
+	if self.difficulty then
+		ns:Lock(self.difficulty, function(f)
+			ns:Anchor(f, "TOPLEFT", m.x + 2, m.y + m.h - 2)
+		end)
+	end
+
+	-- The other buttons in a row along the top edge of the map, shrinking
+	-- to fit them all.
+	local row = L.minimapButtons
 	local n = #self.buttons
-	local slot = math.min(col.w, (col.h - (n - 1) * 4) / math.max(n, 1))
-	local y = col.y + col.h
-	for _, btn in ipairs(self.buttons) do
-		local top = y
+	local size = math.min(row.size, (row.maxW - (n - 1) * 2) / math.max(n, 1))
+	for i, btn in ipairs(self.buttons) do
+		local x = row.x + (i - 1) * (size + 2)
 		ns:Lock(btn, function(b)
-			-- The holder shares the console's scale, so a scale of slot/size
-			-- makes the button exactly one slot tall in console units.
-			b:SetParent(self.holder)
-			local w, h = b:GetSize()
-			local size = math.max(w or 0, h or 0)
-			b:SetScale(size > 0 and slot / size or 1)
-			ns:Anchor(b, "TOP", col.x + slot / 2, top)
-		end)
-		y = y - slot - 4
-	end
-
-	local clock = self.extras.clock
-	if clock then
-		ns:Lock(clock, function(b)
-			b:SetParent(self.holder)
-			ns:Anchor(b, "BOTTOM", m.x + m.w / 2, m.y + 2)
-		end)
-	end
-	local diff = self.extras.difficulty
-	if diff then
-		ns:Lock(diff, function(b)
-			b:SetParent(self.holder)
-			ns:Anchor(b, "TOPLEFT", m.x + 2, m.y + m.h - 2)
-		end)
+			fit(b, size)
+			ns:Anchor(b, "TOPLEFT", x, row.y)
+		end, { "SetScale" })
 	end
 end
 

@@ -30,7 +30,7 @@ local numSlots = Container.GetContainerNumSlots or GetContainerNumSlots
 
 local function place(region, r)
 	region:ClearAllPoints()
-	region:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x, r.y)
+	region:SetPoint("BOTTOMLEFT", ns.topRoot, "BOTTOMLEFT", r.x, r.y)
 	region:SetSize(r.w, r.h)
 end
 
@@ -293,7 +293,8 @@ function TopBar:OnEnable()
 		db.initialised = true
 	end
 
-	local root = ns.root
+	-- The top bar has its own root and scale (see Core.lua).
+	local root = ns.topRoot
 	self.panel = ns.Art.CreatePanel(root, 40, true)
 	self.holder = CreateFrame("Frame", "ReforgedUITopBar", root)
 	self.holder:SetFrameStrata("LOW")
@@ -376,11 +377,12 @@ function TopBar:UpdateClock()
 	self.dial:SetRotation((hours - 12) / 24 * 2 * math.pi)
 end
 
-function TopBar:OnLayout(L)
-	ns.Art.PlacePanel(self.panel, L.topBar, ns.root, false)
+function TopBar:OnLayout()
+	local L = ns.topLayout
+	ns.Art.PlacePanel(self.panel, L.topBar, ns.topRoot, false)
 	local c = L.clock
 	self.dial:ClearAllPoints()
-	self.dial:SetPoint("CENTER", ns.root, "BOTTOMLEFT", c.cx, c.cy)
+	self.dial:SetPoint("CENTER", ns.topRoot, "BOTTOMLEFT", c.cx, c.cy)
 	self.dial:SetSize(c.radius * 2, c.radius * 2)
 	place(self.clockFrame, L.clockFrame)
 	for i, plate in ipairs(self.buttons) do
@@ -413,8 +415,8 @@ function TopBar:OnTheme(theme)
 	for _, slot in ipairs(self.slots) do
 		ns.Art.PaintInset(slot.plate, theme)
 	end
-	if ns.layout then
-		ns.Art.PlacePanel(self.panel, ns.layout.topBar, ns.root, false)
+	if ns.topLayout then
+		ns.Art.PlacePanel(self.panel, ns.topLayout.topBar, ns.topRoot, false)
 	end
 end
 

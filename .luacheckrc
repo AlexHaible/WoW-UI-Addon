@@ -33,4 +33,10 @@ read_globals = {
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
 	"UnitArmor", "UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",
+	-- Console port (hero screen, action bars, options menu)
+	"ClearCursor", "ColorPickerFrame", "ContainerFrame1", "CurveConstants", "GetCursorInfo", "GetRealmName",
+	"GetShapeshiftFormID", "HasAction", "HasNewMail", "IsResting", "MiniMapMailBorder", "MiniMapTrackingFrame",
+	"PaperDollFrame_GetArmorReduction", "PlaceAction", "ReloadUI", "Settings", "UISpecialFrames", "UnitAffectingCombat",
+	"UnitAttackSpeed", "UnitHealthPercent", "UnitIsGroupLeader", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitPowerPercent",
+	"issecretvalue", "tinsert",
 }

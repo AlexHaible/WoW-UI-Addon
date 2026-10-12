@@ -63,11 +63,13 @@ local function PaintPanel(f, theme)
 	setTiled(f.right, ns:Media("edgev", theme), "CLAMP", "REPEAT")
 	f.tl:SetTexture(ns:Media("corner", theme))
 	f.tr:SetTexture(ns:Media("corner", theme))
+	-- corner.tga is drawn for the top-right corner; mirror it for the left.
 	if f.hanging then
-		f.tl:SetTexCoord(0, 1, 1, 0)
-		f.tr:SetTexCoord(1, 0, 1, 0)
+		f.tl:SetTexCoord(1, 0, 1, 0)
+		f.tr:SetTexCoord(0, 1, 1, 0)
 	else
-		f.tr:SetTexCoord(1, 0, 0, 1)
+		f.tl:SetTexCoord(1, 0, 0, 1)
+		f.tr:SetTexCoord(0, 1, 0, 1)
 	end
 end
 

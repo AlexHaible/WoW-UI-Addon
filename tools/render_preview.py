@@ -112,8 +112,8 @@ def panel(c, faction, r, corners):
     c.tile(edgev, r["x"], r["y"], 16, r["h"] - 14, 16, 64)
     c.tile(edgev.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 16, r["y"], 16, r["h"] - 14, 16, 64)
     if corners:
-        c.paste(corner, r["x"] - 6, r["y"] + r["h"] - 34, 40, 40)
-        c.paste(corner.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 34, r["y"] + r["h"] - 34, 40, 40)
+        c.paste(corner.transpose(Image.FLIP_LEFT_RIGHT), r["x"] - 6, r["y"] + r["h"] - 34, 40, 40)
+        c.paste(corner, r["x"] + r["w"] - 34, r["y"] + r["h"] - 34, 40, 40)
 
 
 def top_bar(c, faction, theme, L, hour):

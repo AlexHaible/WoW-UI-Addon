@@ -414,13 +414,13 @@ local LAYOUT_ALIASES = {
 
 local function usage()
 	ns:Print("commands:")
-	print("  /rui theme auto|human|orc|undead|nightelf")
-	print("  /rui layout auto|16:9|21:9|32:9")
+	print("  /rui theme auto||human||orc||undead||nightelf")
+	print("  /rui layout auto||16:9||21:9||32:9")
 	print("  /rui scale 0.5-1.5")
-	print("  /rui stat tl|tr|br main|offhand|ranged|ammo|spell|heal|none")
+	print("  /rui stat tl||tr||br main||offhand||ranged||ammo||spell||heal||none")
 	print("  /rui feeds  (list data feeds and top bar slots)")
-	print("  /rui slot <number> <feed name>|none")
-	print("  /rui module <name> on|off  (actionbars, minimap, chat, unitinfo, stats, target, inventory, blizzard,"
+	print("  /rui slot <number> <feed name>||none")
+	print("  /rui module <name> on||off  (actionbars, minimap, chat, unitinfo, stats, target, inventory, blizzard,"
 		.. " topbar; needs /reload)")
 	print("  /rui status")
 	print("  /rui reset")

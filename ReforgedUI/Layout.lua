@@ -212,6 +212,18 @@ function Layout.Compute(W, H, profileKey)
 
 	L.top = max(S.tall, L.crest.y + L.crest.h)
 
+	-- Touching panels read as one wall: a side that meets a neighbour at least
+	-- as tall is left open (no side trim, no corner), so trim and corners only
+	-- appear where the console's outline steps.
+	for _, a in ipairs(L.panels) do
+		for _, b in ipairs(L.panels) do
+			if a ~= b and a.x + a.w == b.x then
+				a.openRight = b.h >= a.h
+				b.openLeft = a.h >= b.h
+			end
+		end
+	end
+
 	-- Bars 4 and 5: 6x2 grids on the base band in the free space either side
 	-- of the console when there is room, otherwise columns on the right edge
 	-- of the screen.

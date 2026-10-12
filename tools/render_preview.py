@@ -103,17 +103,22 @@ def load(faction, name):
 
 def panel(c, faction, r, corners):
     fill, edge, edgev, corner = (load(faction, n) for n in ("panel", "edge", "edgev", "corner"))
-    c.tile(fill, r["x"] + 4, r["y"], r["w"] - 8, r["h"] - 4, ox=r["x"] + 4)
+    ol, orr = r.get("openLeft", False), r.get("openRight", False)
+    l, rt = (0 if ol else 4), (0 if orr else 4)
+    c.tile(fill, r["x"] + l, r["y"], r["w"] - l - rt, r["h"] - 4, ox=r["x"] + l)
     # shade toward the bottom
     shade = Image.new("RGBA", (1, 64))
     for i in range(64):
         shade.putpixel((0, i), (0, 0, 0, int(90 * i / 63)))
-    c.paste(shade, r["x"] + 4, r["y"], r["w"] - 8, r["h"] - 4)
-    c.tile(edge, r["x"], r["y"] + r["h"] - 16, r["w"], 16, 64, 16)
-    c.tile(edgev, r["x"], r["y"], 16, r["h"] - 14, 16, 64)
-    c.tile(edgev.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 16, r["y"], 16, r["h"] - 14, 16, 64)
-    if corners:
+    c.paste(shade, r["x"] + l, r["y"], r["w"] - l - rt, r["h"] - 4)
+    c.tile(edge, r["x"], r["y"] + r["h"] - 16, r["w"], 16, 64, 16, ox=r["x"])
+    if not ol:
+        c.tile(edgev, r["x"], r["y"], 16, r["h"] - 14, 16, 64)
+    if not orr:
+        c.tile(edgev.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 16, r["y"], 16, r["h"] - 14, 16, 64)
+    if corners and not ol:
         c.paste(corner.transpose(Image.FLIP_LEFT_RIGHT), r["x"] - 6, r["y"] + r["h"] - 34, 40, 40)
+    if corners and not orr:
         c.paste(corner, r["x"] + r["w"] - 34, r["y"] + r["h"] - 34, 40, 40)
 
 

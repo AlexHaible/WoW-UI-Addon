@@ -13,7 +13,9 @@ local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 -- clients without that button.
 local BUTTONS = {
 	{ label = QUESTLOG_BUTTON or "Quests", micro = { "QuestLogMicroButton" }, fallback = "ToggleQuestLog" },
-	{ label = MAINMENU_BUTTON or "Menu", micro = { "MainMenuMicroButton" } },
+	-- The game menu micro button opens on mouse-up rather than OnClick, so a
+	-- secure click on it does nothing; open the menu directly instead.
+	{ label = MAINMENU_BUTTON or "Menu", micro = {}, fallback = "ToggleGameMenu" },
 	{ label = SOCIAL_BUTTON or "Allies", micro = { "SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton" },
 		fallback = "ToggleFriendsFrame" },
 	{ label = WORLD_MAP or "Map", micro = { "WorldMapMicroButton" }, fallback = "ToggleWorldMap" },
@@ -340,7 +342,7 @@ function TopBar:OnEnable()
 				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate, "SecureActionButtonTemplate")
 				btn:SetAttribute("type", "click")
 				btn:SetAttribute("clickbutton", target)
-				btn:RegisterForClicks("AnyUp", "AnyDown")
+				btn:RegisterForClicks("AnyUp")
 			else
 				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate)
 				btn:SetScript("OnClick", function() fallback() end)

@@ -7,9 +7,9 @@ name replaces the generated art. Sizes must stay powers of two.
 | File | Size | Used for |
 | --- | --- | --- |
 | `panel` | 256x256 | Tiled fill of the console panels |
-| `edge` | 128x32 | Top trim, tiled horizontally; outer side at the top |
-| `edgev` | 32x128 | Side trim, tiled vertically; outer side on the left |
-| `corner` | 64x64 | Corner ornament for the top-right corner (mirrored for the left) |
+| `edge` | 256x32 | Crenellated wall top, tiled horizontally (every 128 units at 16 thick) |
+| `edgev` | 32x128 | Side post, tiled vertically; outer side on the left |
+| `corner` | 64x64 | End of the wall top for the top-right corner (mirrored for the left); only drawn where the console outline steps |
 | `well` | 64x64 | Socket behind each action, inventory and bag slot |
 | `crest` | 256x256 | Faction emblem above the portrait |
 | `clockframe` | 256x128 | Frame around the day/night clock under the top bar; the dial's centre is the top-middle of the texture (4 units down at 176x88) |
@@ -29,3 +29,6 @@ centred 0.52 × radius from the middle, which matches the clock window at
 
 `tools/gen_textures.py` makes the original procedural art (it has no `topbar`).
 It refuses to overwrite existing files unless run with `--force`.
+
+`edge`, `edgev` and `corner` are cut from the original addon's console pieces (themselves
+cut from Warcraft III) by `tools/import_console_art.py <console art source>`.

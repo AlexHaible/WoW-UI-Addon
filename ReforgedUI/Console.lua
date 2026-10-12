@@ -6,7 +6,7 @@ local _, ns = ...
 local Console = ns:RegisterModule("console", {})
 
 local EDGE = 16 -- trim thickness in console units
-local EDGE_PERIOD = 64 -- edge.tga (128px) repeats every 64 units at EDGE thickness
+local EDGE_PERIOD = 128 -- edge.tga (256x32) repeats every 128 units at EDGE thickness
 local PANEL_PERIOD = 256
 local CORNER = 40
 

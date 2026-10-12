@@ -24,6 +24,6 @@ read_globals = {
 	"TimeManagerClockButton", "ToggleBackpack", "ToggleBag", "UIParent", "UnitClass", "UnitFactionGroup",
 	"UnitHealth", "UnitHealthMax", "UnitLevel", "UnitName", "UnitPower", "UnitPowerMax", "UnitPowerType",
 	"UnitRace", "UnitXP", "UnitXPMax", "UpdateContainerFrameAnchors", "updateContainerFrameAnchors",
-	"ActionButton_UpdateAction", "BreakUpLargeNumbers", "GetGameTime", "GetInventoryItemDurability", "GetMoney",
+	"ActionButton_UpdateAction", "BreakUpLargeNumbers", "PlayerFrame", "GetGameTime", "GetInventoryItemDurability", "GetMoney",
 	"MAINMENU_BUTTON", "QUESTLOG_BUTTON", "SOCIAL_BUTTON", "TIMEMANAGER_TOOLTIP_TITLE", "WORLD_MAP", "XP", "ChatFrame1", "geterrorhandler", "hooksecurefunc", "strsplit", "strtrim",
 }

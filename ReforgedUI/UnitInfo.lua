@@ -21,6 +21,9 @@ local function setPair(fs, a, b)
 end
 
 function UnitInfo:OnEnable()
+	-- The portrait, hit points and mana replace Blizzard's player frame.
+	ns:Kill(PlayerFrame)
+
 	local holder = CreateFrame("Frame", "ReforgedUIUnitInfo", ns.root)
 	holder:SetFrameStrata("LOW")
 	holder:SetAllPoints(ns.root)
@@ -109,10 +112,11 @@ function UnitInfo:UpdatePower()
 	setPair(fs, UnitPower("player"), UnitPowerMax("player"))
 	local _, token = UnitPowerType("player")
 	local c = PowerBarColor and token and PowerBarColor[token]
-	if c then
-		fs:SetTextColor(c.r, c.g, c.b)
+	if token == "MANA" or not c then
+		-- Blizzard's mana blue is unreadable on the dark console.
+		fs:SetTextColor(0.45, 0.65, 1)
 	else
-		fs:SetTextColor(0.4, 0.6, 1)
+		fs:SetTextColor(c.r, c.g, c.b)
 	end
 end
 

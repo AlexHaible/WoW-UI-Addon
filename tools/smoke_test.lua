@@ -14,12 +14,14 @@ local screenW, screenH = 1365.33, 768
 -- Stub objects: unknown methods are no-ops; a few return useful values.
 
 local Object = {}
+allFrames = {}
 local function new(kind, name, parent)
 	local o = setmetatable({
 		_kind = kind, _name = name, _parent = parent, _w = 0, _h = 0, _scale = 1,
 		_shown = true, _points = {}, _scripts = {}, _attrs = {}, _level = 1,
 	}, Object)
 	if name then _G[name] = o end
+	allFrames[#allFrames + 1] = o
 	return o
 end
 
@@ -87,6 +89,14 @@ function methods:GetNormalTexture() return new("texture", nil, self) end
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function methods:SetText(t) self._text = t end
 function methods:GetNumPoints() return #self._points end
+function methods:GetObjectType() return self._kind == "button" and "Button" or "Frame" end
+function methods:GetChildren()
+	local out = {}
+	for _, f in ipairs(allFrames) do
+		if rawget(f, "_parent") == self then out[#out + 1] = f end
+	end
+	return unpack(out)
+end
 function methods:SetRotation(r) assert(type(r) == "number" and r == r, "bad rotation"); self._rotation = r end
 function methods:GetZoom() return 2 end
 function methods:GetZoomLevels() return 6 end
@@ -133,6 +143,11 @@ MinimapCluster.IndicatorFrame = new("frame", nil, MinimapCluster)
 GameTimeFrame = new("button", "GameTimeFrame", MinimapCluster)
 GameTimeFrame._w, GameTimeFrame._h = 40, 40
 TimeManagerClockButton = new("button", "TimeManagerClockButton", MinimapCluster)
+local strayButton = new("button", "ForeverMinimapThing", Minimap)
+strayButton._w, strayButton._h = 24, 24
+IssueReporterButton = new("button", "IssueReporterButton", UIParent)
+IssueReporterButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 10, 10)
+function IssueReporterButton:GetBottom() local _, _, _, _, y = self:GetPoint(1); return y end
 ChatFrame1 = new("frame", "ChatFrame1", UIParent)
 ChatFrame1EditBox = new("editbox", "ChatFrame1EditBox", UIParent)
 MainMenuBar = new("frame", "MainMenuBar", UIParent)
@@ -249,6 +264,11 @@ fire("PLAYER_ENTERING_WORLD")
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 assert(overrides == 2, "expected 2 override bindings, got " .. overrides)
 assert(Minimap._points[1][2] == ns.root, "minimap not anchored to the console")
+assert(strayButton:GetParent() == ReforgedUIMinimapHolder, "stray minimap buttons should join the column")
+assert(MinimapCluster:GetParent() == ReforgedUIHider, "the rest of the minimap cluster should be hidden")
+assert(PlayerFrame:GetParent() == ReforgedUIHider, "the player frame should be replaced by the portrait")
+local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
+assert(iy > 100, "the issue reporter should sit above the console")
 assert(ReforgedUIBar_main and ReforgedUImainButton1._updated, "main bar buttons not built")
 assert(CharacterMicroButton:GetParent() == ReforgedUIMicroMenu, "classic micro buttons not rescued")
 assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
@@ -277,9 +297,10 @@ assert(StanceBar._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
 local slash = SlashCmdList.REFORGEDUI
 for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2730.67, 768, "superwide" },
-	{ 1024, 768, "standard" }, { 1920, 1080, "standard" } }) do
+	{ 1024, 768, "standard" }, { 1920, 1080, "standard" }, { 4266.67, 1200, "superwide" } }) do
 	UIParent._w, UIParent._h = size[1], size[2]
 	slash("layout auto")
+	assert(math.abs(ns.layout.H - 768) < 0.01, "the console should scale to a 768-unit-tall layout")
 	assert(ns.layout.profile == size[3], ("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.layout.profile))
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "auto" }) do
 		slash("theme " .. theme)

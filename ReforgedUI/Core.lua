@@ -161,6 +161,21 @@ function ns:KeepBelow(frame, limit)
 	end)
 end
 
+-- Keep a frame's bottom edge at or above console height `limit()`.
+function ns:KeepAbove(frame, limit)
+	self:Lock(frame, function(f)
+		local bottom = f:GetBottom()
+		local point, rel, relPoint, x, y = f:GetPoint(1)
+		if not bottom or not point or f:GetNumPoints() > 1 then
+			return
+		end
+		local min = limit() * self.root:GetEffectiveScale() / f:GetEffectiveScale()
+		if bottom < min - 0.5 then
+			f:SetPoint(point, rel, relPoint, x or 0, (y or 0) + (min - bottom))
+		end
+	end)
+end
+
 -- Scale factor that converts console units into `frame`'s own units.
 function ns:UnitsFor(frame)
 	return self.root:GetEffectiveScale() / frame:GetEffectiveScale()
@@ -203,8 +218,12 @@ end
 
 function ns:Relayout()
 	self:RunOutOfCombat("relayout", function()
+		-- The layout is designed for a 768-unit-tall screen. Scale the console
+		-- so it keeps the same share of the screen at any resolution and UI
+		-- scale (a 1440p screen at a small UI scale is ~1200 units tall), then
+		-- apply the player's own /rui scale on top.
 		local root = self.root
-		local scale = self.db.scale
+		local scale = self.db.scale * UIParent:GetHeight() / 768
 		root:SetScale(scale)
 		local W = UIParent:GetWidth() / scale
 		local H = UIParent:GetHeight() / scale

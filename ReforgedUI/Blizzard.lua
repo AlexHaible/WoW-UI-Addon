@@ -132,6 +132,14 @@ function Blizzard:OnLayout(L)
 	if self.override then
 		ns:Lock(self.override, function(f) anchor(f, "BOTTOM", L.override.cx, L.override.y) end)
 	end
+	-- Client-specific buttons parked at the bottom of the screen (WoW: Forever's
+	-- Issue Reporter) are lifted to sit on top of the console.
+	for _, f in ipairs({ UIParent:GetChildren() }) do
+		local name = f:GetName()
+		if name and name:find("IssueReport") then
+			ns:KeepAbove(f, function() return ns.layout.base.h + 6 end)
+		end
+	end
 	if self.tracker then
 		ns:Lock(self.tracker, function(f)
 			local h = f:GetHeight()

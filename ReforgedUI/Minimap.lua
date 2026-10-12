@@ -20,16 +20,40 @@ local function find(...)
 	end
 end
 
--- Buttons that normally sit around the round minimap, in column order.
-local function collectButtons()
+-- Buttons that normally sit around the round minimap: the known ones first,
+-- then any other small button on the minimap or its cluster (other addons'
+-- and client-specific ones), so nothing is left stranded on the map.
+local function collectButtons(skip)
 	local cluster = MinimapCluster or {}
-	return {
-		find(cluster.Tracking, cluster.TrackingFrame, MiniMapTracking, MiniMapTrackingButton),
-		find(GameTimeFrame),
-		find(cluster.IndicatorFrame, MiniMapMailFrame),
-		find(AddonCompartmentFrame),
-		find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton),
-	}
+	local list, seen = {}, {}
+	local function add(f)
+		if f and not seen[f] and not skip[f] then
+			seen[f] = true
+			list[#list + 1] = f
+		end
+	end
+	add(find(cluster.Tracking, cluster.TrackingFrame, MiniMapTracking, MiniMapTrackingButton))
+	add(GameTimeFrame)
+	add(find(cluster.IndicatorFrame, MiniMapMailFrame))
+	add(AddonCompartmentFrame)
+	add(find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton))
+	local function sweep(parent, depth)
+		if not parent or not parent.GetChildren then
+			return
+		end
+		for _, child in ipairs({ parent:GetChildren() }) do
+			local w, h = child:GetSize()
+			if child:GetObjectType() == "Button" and child:IsShown() and w and w >= 12 and w <= 64
+				and h and h >= 12 and h <= 64 then
+				add(child)
+			elseif depth > 0 and child ~= Minimap then
+				sweep(child, depth - 1)
+			end
+		end
+	end
+	sweep(MinimapCluster, 2)
+	sweep(Minimap, 0)
+	return list
 end
 
 function MinimapModule:OnEnable()
@@ -53,14 +77,12 @@ function MinimapModule:OnEnable()
 		MinimapZoneTextButton, MiniMapWorldMapButton,
 	}) do
 		if f then
-			f:Hide()
-			if f.SetAlpha then
-				f:SetAlpha(0)
+			if f.SetParent then
+				ns:Kill(f)
+			else
+				f:Hide()
 			end
 		end
-	end
-	if MinimapCluster then
-		MinimapCluster:EnableMouse(false)
 	end
 
 	-- Mouse wheel zoom (the zoom buttons are gone).
@@ -84,12 +106,25 @@ function MinimapModule:OnEnable()
 	ns:On("PLAYER_ENTERING_WORLD", function() self:UpdateZone() end)
 	self:UpdateZone()
 
-	self.buttons = collectButtons()
 	self.extras = {
 		clock = TimeManagerClockButton,
 		difficulty = MinimapCluster and (MinimapCluster.InstanceDifficulty or MinimapCluster.InstanceDifficultyFrame)
 			or MiniMapInstanceDifficulty,
 	}
+	local skip = {}
+	for _, f in pairs(self.extras) do skip[f] = true end
+	self.buttons = collectButtons(skip)
+	-- Everything worth keeping is out of the cluster now; hide the rest of it
+	-- (zone bar, border, header) wherever the client anchors it.
+	if MinimapCluster then
+		for _, f in pairs(self.extras) do
+			if f then f:SetParent(self.holder) end
+		end
+		for _, b in ipairs(self.buttons) do
+			b:SetParent(self.holder)
+		end
+		ns:Kill(MinimapCluster)
+	end
 end
 
 function MinimapModule:UpdateZone()
@@ -124,9 +159,10 @@ function MinimapModule:OnLayout(L)
 	self.zone:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", z.x, z.y)
 	self.zone:SetSize(z.w, z.h)
 
-	-- Column of minimap buttons, top to bottom.
+	-- Column of minimap buttons, top to bottom; shrinks to fit them all.
 	local col = L.minimapButtons
-	local slot = col.w
+	local n = #self.buttons
+	local slot = math.min(col.w, (col.h - (n - 1) * 4) / math.max(n, 1))
 	local y = col.y + col.h
 	for _, btn in ipairs(self.buttons) do
 		local top = y

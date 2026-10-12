@@ -37,7 +37,7 @@ end
 
 local function CreateUnitButton(name, unit)
 	local b = CreateFrame("Button", name, ns.root, "SecureUnitButtonTemplate")
-	b:SetFrameStrata("LOW")
+	b:SetFrameStrata("MEDIUM") -- above Blizzard's (invisible) bar frames at the screen bottom
 	b:SetFrameLevel(30)
 	b:SetAttribute("unit", unit)
 	b:SetAttribute("*type1", "target")

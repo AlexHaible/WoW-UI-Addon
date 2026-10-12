@@ -29,3 +29,11 @@ with the `ext` trim pieces at 270x34.
 
 Rebuild with `D:\Blizzard\wc3-ui-extract\import_sections.py <console art source> ReforgedUI\Media`
 (kept outside the repo; it converts the original addon's RLE TGAs).
+
+## In use
+
+`Console.lua` draws `minimap` and `portrait` side by side (a 576-unit strip)
+and the left 208 pixels of `inventory` (bag grid and pillar), each at 288 units
+per 512 pixels; `Layout.lua` places the minimap, its button column, the
+portrait, health and power text, the hero screen and the bag buttons in the
+windows painted into them.

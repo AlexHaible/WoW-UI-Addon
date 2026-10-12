@@ -9,7 +9,7 @@ local Layout = ns.Layout
 
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
-local KEYRING_ICON = "Interface\\Buttons\\UI-Button-KeyRing"
+local KEYRING_ICON = "Interface\\Icons\\INV_Misc_Key_03"
 
 local Container = C_Container or {}
 local toInventoryID = Container.ContainerIDToInventoryID or ContainerIDToInventoryID
@@ -68,12 +68,11 @@ end
 
 function Inventory:CreateKeyRing(holder)
 	local btn = CreateFrame("Button", "ReforgedUIKeyRing", holder)
+	-- A small key on the ledge above the bag slots.
 	btn:SetNormalTexture(KEYRING_ICON)
-	btn:SetPushedTexture(KEYRING_ICON .. "-Down")
-	btn:SetHighlightTexture(KEYRING_ICON .. "-Highlight", "ADD")
-	for _, t in ipairs({ btn:GetNormalTexture(), btn:GetPushedTexture(), btn:GetHighlightTexture() }) do
-		t:SetTexCoord(0, 0.5625, 0, 0.609375)
-	end
+	btn:GetNormalTexture():SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 	btn:SetScript("OnClick", toggleKeyRing)
 	btn:SetScript("OnReceiveDrag", function()
 		if PutKeyInKeyRing then

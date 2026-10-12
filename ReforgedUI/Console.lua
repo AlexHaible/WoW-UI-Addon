@@ -164,6 +164,11 @@ function Console:OnEnable()
 	self.panels = {}
 	self.insets = {}
 	self.wells = {}
+	-- The original addon's whole console sections (minimap, portrait, inventory).
+	self.sectionFrame = CreateFrame("Frame", nil, root)
+	self.sectionFrame:SetFrameLevel(3)
+	self.sectionFrame:SetAllPoints()
+	self.sections = {}
 	self.wellFrame = CreateFrame("Frame", nil, root)
 	self.wellFrame:SetFrameLevel(20)
 	self.wellFrame:SetAllPoints()
@@ -224,10 +229,10 @@ function Console:OnLayout(L)
 		self.panels[i]:Hide()
 	end
 
+	self:PlaceSections(L)
+
 	local insets = {}
 	for _, r in ipairs(L.insets) do insets[#insets + 1] = r end
-	local m = L.minimap
-	insets[#insets + 1] = { x = m.x - 4, y = m.y - 4, w = m.w + 8, h = m.h + 8 }
 	for i, r in ipairs(insets) do
 		local f = self:GetInset(i)
 		f:ClearAllPoints()
@@ -245,15 +250,7 @@ function Console:OnLayout(L)
 			n = self:AddWells(L.bars[key], n)
 		end
 	end
-	n = self:AddWells(L.inventory, n)
-	if L.keyring then
-		n = n + 1
-		local k, t = L.keyring, self:GetWell(n)
-		t:ClearAllPoints()
-		t:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", k.x - 3, k.y - 3)
-		t:SetSize(k.w + 6, k.h + 6)
-		t:Show()
-	end
+	-- (the inventory section paints its own bag sockets)
 	for i = n + 1, #self.wells do
 		self.wells[i]:Hide()
 	end
@@ -262,6 +259,35 @@ function Console:OnLayout(L)
 	self.crest:ClearAllPoints()
 	self.crest:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", c.x, c.y)
 	self.crest:SetSize(c.w, c.h)
+end
+
+-- Sections are drawn at their layout size; `u1` crops a section to the left
+-- part of its texture. Clicks on them stop at the console like panels'.
+function Console:PlaceSections(L)
+	local root = ns.root
+	for i, sec in ipairs(L.sections or {}) do
+		local f = self.sections[i]
+		if not f then
+			f = CreateFrame("Frame", nil, self.sectionFrame)
+			f:SetFrameLevel(3)
+			f.tex = f:CreateTexture(nil, "BACKGROUND")
+			f.tex:SetAllPoints()
+			self.sections[i] = f
+		end
+		f.key = sec.key
+		f:ClearAllPoints()
+		f:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", sec.x, sec.y)
+		f:SetSize(sec.w, sec.h)
+		-- Only the wall itself (not the transparent sky above it) takes clicks.
+		f:EnableMouse(true)
+		f:SetHitRectInsets(0, 0, sec.h - (sec.wall or sec.h), 0)
+		f.tex:SetTexture(ns:Media("sections\\" .. sec.key, ns.theme))
+		f.tex:SetTexCoord(0, sec.u1 or 1, 0, 1)
+		f:Show()
+	end
+	for i = #(L.sections or {}) + 1, #self.sections do
+		self.sections[i]:Hide()
+	end
 end
 
 function Console:OnTheme(theme)

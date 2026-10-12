@@ -111,7 +111,7 @@ def panel(c, faction, r, corners):
     for i in range(64):
         shade.putpixel((0, i), (0, 0, 0, int(90 * i / 63)))
     c.paste(shade, r["x"] + l, r["y"], r["w"] - l - rt, r["h"] - 4)
-    c.tile(edge, r["x"], r["y"] + r["h"] - 16, r["w"], 16, 64, 16, ox=r["x"])
+    c.tile(edge, r["x"], r["y"] + r["h"] - 16, r["w"], 16, 128, 16, ox=r["x"])
     if not ol:
         c.tile(edgev, r["x"], r["y"], 16, r["h"] - 14, 16, 64)
     if not orr:

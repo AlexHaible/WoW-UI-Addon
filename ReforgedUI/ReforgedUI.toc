@@ -1,0 +1,41 @@
+## Interface: 16001
+
+## Title: Reforged UI
+## Author: AlexHaible
+## Notes: Warcraft III: Reforged style bottom console with Human, Orc, Undead and Night Elf themes for 16:9, 21:9 and 32:9 screens.
+## Version: @project-version@
+## X-Date: @project-date-iso@
+## X-Category: Interface Enhancements
+## SavedVariables: ReforgedUIDB
+## IconTexture: Interface\Icons\INV_BannerPVP_02
+
+## Category-enUS: User Interface
+## Category-deDE: Benutzeroberfläche
+## Category-esES: Interfaz de usuario
+## Category-esMX: Interfaz de usuario
+## Category-frFR: Interface utilisateur
+## Category-itIT: Interfaccia utente
+## Category-koKR: 사용자 인터페이스
+## Category-ptBR: Interface do usuário
+## Category-ruRU: Интерфейс
+## Category-zhCN: 用户界面
+## Category-zhTW: 使用者介面
+
+#@alpha@
+## OptionalDeps: BugSack, BugGrabber
+#@end-alpha@
+
+Layout.lua
+Themes.lua
+Core.lua
+Console.lua
+ActionBars.lua
+Minimap.lua
+Chat.lua
+UnitInfo.lua
+Inventory.lua
+Blizzard.lua
+
+#@debug@
+## Version: DEV
+#@end-debug@

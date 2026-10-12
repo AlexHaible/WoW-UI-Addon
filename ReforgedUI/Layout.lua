@@ -36,7 +36,7 @@ local S = {
 	barBtn = 34, barGap = 3,
 	sideBtn = 36, sideGap = 3,
 	crest = 104,
-	topH = 40, topBtnW = 84, resW = 120,
+	topH = 32, topSlot = 128, -- topbar.tga (256x64) shown 32 tall repeats every 128
 	dialR = 52, clockW = 176, clockH = 88,
 }
 Layout.SIZES = S
@@ -218,21 +218,31 @@ function Layout.Compute(W, H, profileKey)
 	-- Top bar: menu buttons on the left, the day/night clock hanging from the
 	-- middle, resources (gold, bag space, durability) on the right.
 	L.topBar = rect(0, H - S.topH, W, S.topH)
+	L.topSlot = S.topSlot
 	local cx = coreX + floor(coreW / 2)
 	-- The dial's centre sits on the bar's trim; the bar hides its upper half.
 	local cy = H - S.topH + 8
 	L.clock = { cx = cx, cy = cy, radius = S.dialR }
 	L.clockFrame = rect(cx - S.clockW / 2, cy + 4 - S.clockH, S.clockW, S.clockH)
-	-- Plates sit on the bar above its trim (the bottom 16 units).
-	local plateY, plateH = H - S.topH + 18, S.topH - 22
+	-- The bar is drawn as two runs of topbar slots: one starting at the left of
+	-- the core, one ending at its right, meeting under the clock. Buttons and
+	-- resources sit in the dark window of one slot each.
+	L.topSlotsLeft = coreX
+	L.topSlotsRight = coreX + coreW
+	local function window(slotX)
+		return rect(slotX + 5, H - 25, S.topSlot - 10, 22)
+	end
+	-- On narrow screens, slots that would run under the clock are left out.
+	local clockL, clockR = L.clockFrame.x - 4, L.clockFrame.x + L.clockFrame.w + 4
 	L.topButtons = {}
 	for i = 1, 4 do
-		L.topButtons[i] = rect(coreX + 16 + (i - 1) * (S.topBtnW + 6), plateY, S.topBtnW, plateH)
+		local r = window(coreX + (i - 1) * S.topSlot)
+		L.topButtons[i] = (r.x + r.w <= clockL) and r or false
 	end
 	L.resources = {}
 	for i = 1, 3 do
-		local rx = coreX + coreW - 16 - (4 - i) * (S.resW + 8) + 8
-		L.resources[i] = rect(rx, plateY, S.resW, plateH)
+		local r = window(coreX + coreW - (4 - i) * S.topSlot)
+		L.resources[i] = (r.x >= clockR) and r or false
 	end
 	L.topLimit = H - S.topH - 4 -- frames are kept below this line
 	L.centerLimit = L.clockFrame.y - 4 -- ...and centred frames below the clock

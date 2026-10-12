@@ -72,7 +72,7 @@ class Canvas:
             tex = tex.resize((max(1, int(round(pw))), max(1, int(round(ph)))), Image.LANCZOS)
         x0, y0, x1, y1 = self.box(x, y, w, h)
         region = Image.new("RGBA", (x1 - x0, y1 - y0))
-        sx = -int(ox) % tex.width
+        sx = int(round(ox)) % tex.width
         for tx in range(-sx, region.width, tex.width):
             for ty in range(0, region.height, tex.height):
                 region.alpha_composite(tex, (max(tx, 0), ty), (max(-tx, 0), 0))
@@ -116,15 +116,6 @@ def panel(c, faction, r, corners):
         c.paste(corner.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 34, r["y"] + r["h"] - 34, 40, 40)
 
 
-def hanging_panel(c, faction, r):
-    fill, edge, edgev, corner = (load(faction, n) for n in ("panel", "edge", "edgev", "corner"))
-    c.tile(fill, r["x"] + 4, r["y"] + 4, r["w"] - 8, r["h"] - 4, ox=r["x"] + 4)
-    c.tile(edge.transpose(Image.FLIP_TOP_BOTTOM), r["x"], r["y"], r["w"], 16, 64, 16)
-    flipv = edgev.transpose(Image.FLIP_TOP_BOTTOM)
-    c.tile(flipv, r["x"], r["y"] + 14, 16, r["h"] - 14, 16, 64)
-    c.tile(flipv.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 16, r["y"] + 14, 16, r["h"] - 14, 16, 64)
-
-
 def top_bar(c, faction, theme, L, hour):
     cl = L["clock"]
     dial = Image.open(os.path.join(MEDIA, "Common", "dial.tga")).convert("RGBA")
@@ -133,17 +124,23 @@ def top_bar(c, faction, theme, L, hour):
     dial = dial.rotate(math.degrees((hour - 12) / 24 * 2 * math.pi), resample=Image.BICUBIC)
     r = cl["radius"]
     c.paste(dial, cl["cx"] - r, cl["cy"] - r, 2 * r, 2 * r)
-    hanging_panel(c, faction, L["topBar"])
+    bar = load(faction, "topbar")
+    r = L["topBar"]
+    slot = L["topSlot"]
+    mid = cl["cx"]
+    # left run aligned to the core's left edge, right run to its right edge
+    c.tile(bar, r["x"], r["y"], mid - r["x"], r["h"], slot, r["h"], ox=r["x"] - L["topSlotsLeft"])
+    c.tile(bar, mid, r["y"], r["x"] + r["w"] - mid, r["h"], slot, r["h"], ox=mid - L["topSlotsRight"])
     cf = L["clockFrame"]
     c.paste(load(faction, "clockframe"), cf["x"], cf["y"], cf["w"], cf["h"])
     for b, label in zip(L["topButtons"], ["Quests", "Menu", "Allies", "Map"]):
-        inset(c, theme, b)
-        c.text(b["x"], b["y"] + 2, b["w"], b["h"], label, 11, theme["title"])
-    for b, label in zip(L["resources"], ["123", "34 / 80", "87%"]):
-        inset(c, theme, b)
-        c.text(b["x"] + 6, b["y"] + 2, b["w"] - 12, b["h"], label, 11, (255, 255, 255))
-        c.rect(b["x"] + 6, b["y"] + 3, 12, 12, fill=[(230, 190, 40, 255), (150, 100, 60, 255), (160, 160, 170, 255)][
-            L["resources"].index(b)])
+        if b:
+            c.text(b["x"], b["y"] + 4, b["w"], b["h"], label, 11, theme["title"])
+    colours = [(230, 190, 40, 255), (150, 100, 60, 255), (160, 160, 170, 255)]
+    for b, label, colour in zip(L["resources"], ["123", "34 / 80", "87%"], colours):
+        if b:
+            c.text(b["x"] + 24, b["y"] + 4, b["w"] - 30, b["h"], label, 11, (255, 255, 255))
+            c.rect(b["x"] + 6, b["y"] + 5, 12, 12, fill=colour)
 
 
 def inset(c, theme, r):

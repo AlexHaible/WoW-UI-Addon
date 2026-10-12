@@ -24,8 +24,27 @@ local function inventoryID(bag)
 	return ok and id or nil
 end
 
+-- Bag addons that show every bag in one window. They open through
+-- ToggleAllBags; Blizzard's per-bag ToggleBag does nothing with them on.
+local BAG_ADDONS = { "BetterBags", "Bagnon", "AdiBags", "ArkInventory", "Baganator", "Combuctor", "Inventorian" }
+
+local function bagAddonLoaded()
+	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+	if not isLoaded then
+		return false
+	end
+	for _, name in ipairs(BAG_ADDONS) do
+		if isLoaded(name) then
+			return true
+		end
+	end
+	return false
+end
+
 local function onClick(btn)
-	if btn.bag == 0 then
+	if ToggleAllBags and bagAddonLoaded() then
+		ToggleAllBags()
+	elseif btn.bag == 0 then
 		ToggleBackpack()
 	else
 		ToggleBag(btn.bag)

@@ -18,6 +18,10 @@ local BARS = {
 	{ key = "bar5", prefix = "MultiBarLeftButton" },
 }
 
+local BAR_FRAMES = {
+	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarRight", "MultiBarLeft",
+}
+
 -- Decorations of the main bar (end caps, border, page number and arrows).
 local MAIN_ART = {
 	"EndCaps", "BorderArt", "ActionBarPageNumber", "Background",
@@ -103,6 +107,17 @@ function ActionBars:OnEnable()
 		end
 		self.buttons[spec.key] = list
 	end
+
+	-- The bars' own frames stay where Edit Mode put them (now empty, at the
+	-- bottom of the screen); stop them catching clicks meant for the console.
+	ns:RunOutOfCombat("actionbar-frames", function()
+		for _, name in ipairs(BAR_FRAMES) do
+			local bar = _G[name]
+			if bar and not ns.IsForbidden(bar) and bar.EnableMouse then
+				bar:EnableMouse(false)
+			end
+		end
+	end)
 
 	local first = self.buttons.main[1]
 	local bar = _G.MainActionBar or _G.MainMenuBar

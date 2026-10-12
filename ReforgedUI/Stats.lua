@@ -198,7 +198,7 @@ end
 function Stats:OnEnable()
 	ns.db.stats = ns.db.stats or {}
 	local holder = CreateFrame("Frame", "ReforgedUIStats", ns.root)
-	holder:SetFrameStrata("LOW")
+	holder:SetFrameStrata("MEDIUM") -- above Blizzard's (invisible) bar frames at the screen bottom
 	holder:SetAllPoints(ns.root)
 	self.cells = {}
 	for i = 1, 4 do

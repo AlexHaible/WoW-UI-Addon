@@ -93,7 +93,7 @@ end
 function Inventory:OnEnable()
 	self.buttons = {}
 	local holder = CreateFrame("Frame", "ReforgedUIInventory", ns.root)
-	holder:SetFrameStrata("LOW")
+	holder:SetFrameStrata("MEDIUM") -- above Blizzard's (invisible) bar frames at the screen bottom
 	holder:SetAllPoints(ns.root)
 	for i = 1, 6 do
 		local bag = i - 1 -- 0 backpack, 1-4 bags, 5 reagent bag (Retail only)

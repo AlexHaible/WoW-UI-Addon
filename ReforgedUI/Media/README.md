@@ -18,6 +18,15 @@ name replaces the generated art. Sizes must stay powers of two.
 is the day/night disc: sun at the bottom, moon at the top. It turns with the
 server time and only its lower half shows below the top bar.
 
-The current files are original procedural art from `tools/gen_textures.py`;
-re-run it to regenerate them. Running it overwrites every file here, including
-art copied in from elsewhere.
+| `topbar` | 256x64 | One slot of the WC3 top resource bar, post to post; tiles horizontally (not used by the code yet) |
+
+The faction files and `Common/dial` are cropped from Warcraft III: Reforged's HD
+console art (`_hd.w3mod/ui/console/<race>/<race>uitile0N`, `-timeindicatorframe`,
+`-inventory-slotfiller`, the statistics-panel race banners and the
+`humanuitile-timeindicator` sky strip). Blizzard owns that art, so keep this repo
+private. The dial is built from the scrolling sky strip with its sun and moon
+centred 0.52 × radius from the middle, which matches the clock window at
+`dialR = 52`, `clockW/H = 176x88`. `Common/bevel` is still procedural.
+
+`tools/gen_textures.py` makes the original procedural art. Running it overwrites
+every file here, including the extracted art.

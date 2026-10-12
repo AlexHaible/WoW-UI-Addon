@@ -5,7 +5,7 @@
 --
 -- Left to right the console holds: chat, minimap, the player's portrait, the
 -- hero screen (name, level/experience and four stat icons), action bars 1-3,
--- the 2x3 inventory with the key ring, and the target panel. Action bars 1-3
+-- the target panel, and the 2x3 inventory with the key ring. Action bars 1-3
 -- sit in the middle of the screen whenever there is room for that.
 
 local _, ns = ...
@@ -186,19 +186,10 @@ function Layout.Compute(W, H, profileKey)
 	L.bars.bar3 = grid(gx, gy, 12, 1, barBtn, S.barGap)
 	x = x + barsW
 
-	-- Inventory section: the 2x3 bag slots with its pillar; the key ring sits
-	-- on the ledge above them.
-	L.sections[#L.sections + 1] = { key = "inventory", x = x, y = 0, w = invW, h = S.sec, u1 = 208 / 512,
-		wall = S.secTop }
-	L.inventory = grid(x + 7 * k, 7 * k, 2, 3, 64 * k, 15 * k, 13 * k)
-	L.keyring = rect(x + 7 * k, (512 - 273) * k, 20 * k, 20 * k)
-	L.invRect = rect(x, 0, invW, S.secTop)
-	x = x + invW
-
 	-- Target panel: portrait, name, level, health and power, combo points,
 	-- and the target's target underneath.
 	local tw = S.targetW
-	L.panels[#L.panels + 1] = { key = "target", x = x, y = 0, w = tw, h = S.mid, openLeft = true }
+	L.panels[#L.panels + 1] = { key = "target", x = x, y = 0, w = tw, h = S.mid }
 	L.insets[#L.insets + 1] = { key = "target", x = x + 8, y = 10, w = tw - 16, h = S.mid - 26 }
 	local tx = x + 16
 	L.target = {
@@ -216,6 +207,16 @@ function Layout.Compute(W, H, profileKey)
 		name = rect(tx + 44, 36, tw - 76, 14),
 		health = rect(tx + 44, 20, tw - 76, 12),
 	}
+	x = x + tw
+
+	-- Inventory section: the 2x3 bag slots with its pillar; the key ring sits
+	-- on the ledge above them.
+	L.sections[#L.sections + 1] = { key = "inventory", x = x, y = 0, w = invW, h = S.sec, u1 = 208 / 512,
+		wall = S.secTop }
+	L.inventory = grid(x + 7 * k, 7 * k, 2, 3, 64 * k, 15 * k, 13 * k)
+	L.keyring = rect(x + 7 * k, (512 - 273) * k, 20 * k, 20 * k)
+	L.invRect = rect(x, 0, invW, S.secTop)
+	x = x + invW
 
 	L.top = max(S.tall, L.crest.y + L.crest.h)
 

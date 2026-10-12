@@ -13,12 +13,11 @@ name replaces the generated art. Sizes must stay powers of two.
 | `well` | 64x64 | Socket behind each action, inventory and bag slot |
 | `crest` | 256x256 | Faction emblem above the portrait |
 | `clockframe` | 256x128 | Frame around the day/night clock under the top bar; the dial's centre is the top-middle of the texture (4 units down at 176x88) |
+| `topbar` | 256x64 | One slot of the top resource bar, post to post; tiles horizontally, shown 32 units tall (a slot every 128). Buttons and resources sit in the dark window |
 
 `Common/bevel` (64x64) is drawn over every button icon. `Common/dial` (256x256)
 is the day/night disc: sun at the bottom, moon at the top. It turns with the
 server time and only its lower half shows below the top bar.
-
-| `topbar` | 256x64 | One slot of the WC3 top resource bar, post to post; tiles horizontally (not used by the code yet) |
 
 The faction files and `Common/dial` are cropped from Warcraft III: Reforged's HD
 console art (`_hd.w3mod/ui/console/<race>/<race>uitile0N`, `-timeindicatorframe`,
@@ -28,5 +27,5 @@ private. The dial is built from the scrolling sky strip with its sun and moon
 centred 0.52 × radius from the middle, which matches the clock window at
 `dialR = 52`, `clockW/H = 176x88`. `Common/bevel` is still procedural.
 
-`tools/gen_textures.py` makes the original procedural art. Running it overwrites
-every file here, including the extracted art.
+`tools/gen_textures.py` makes the original procedural art (it has no `topbar`).
+It refuses to overwrite existing files unless run with `--force`.

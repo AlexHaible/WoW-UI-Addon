@@ -6,7 +6,8 @@ faction folder gets the same set of files, so extracted or hand-made art can be
 dropped in later under the same names (.tga or .blp; the addon references them
 without an extension).
 
-    python3 tools/gen_textures.py            # writes ReforgedUI/Media/...
+    python3 tools/gen_textures.py            # fills in missing ReforgedUI/Media files
+    python3 tools/gen_textures.py --force    # overwrites them all, extracted art included
 
 Files per faction (all power-of-two, 32-bit TGA):
     panel.tga   256x256  tileable fill for console panels
@@ -66,10 +67,17 @@ def colorize(t, dark, light):
     return dark[None, None, :] * (1 - t[..., None]) + light[None, None, :] * t[..., None]
 
 
+FORCE = "--force" in sys.argv
+
+
 def save(img, faction, name):
     folder = os.path.join(ROOT, faction)
     os.makedirs(folder, exist_ok=True)
-    img.save(os.path.join(folder, name), format="TGA")
+    path = os.path.join(folder, name)
+    if os.path.exists(path) and not FORCE:
+        print("skipping", os.path.relpath(path, ROOT), "(exists; use --force to overwrite)", file=sys.stderr)
+        return
+    img.save(path, format="TGA")
 
 
 def canvas(w, h):
@@ -558,9 +566,8 @@ def main():
         save(well(*spec["well"]), name, "well.tga")
         save(spec["crest"](), name, "crest.tga")
         save(clockframe(name, *CLOCK_METAL[name]), name, "clockframe.tga")
-    os.makedirs(os.path.join(ROOT, "Common"), exist_ok=True)
-    bevel().save(os.path.join(ROOT, "Common", "bevel.tga"), format="TGA")
-    dial().save(os.path.join(ROOT, "Common", "dial.tga"), format="TGA")
+    save(bevel(), "Common", "bevel.tga")
+    save(dial(), "Common", "dial.tga")
     print("textures written to", os.path.normpath(ROOT), file=sys.stderr)
 
 

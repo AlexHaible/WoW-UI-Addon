@@ -37,8 +37,10 @@ local function firstGlobal(names)
 	end
 end
 
+-- Buttons and resources sit in the dark windows of the bar texture.
 local function CreatePlate(parent, level)
-	local plate = ns.Art.CreateInset(parent, level)
+	local plate = CreateFrame("Frame", nil, parent)
+	plate:SetFrameLevel(level)
 	plate.text = plate:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	plate.text:SetPoint("CENTER")
 	return plate
@@ -46,7 +48,12 @@ end
 
 function TopBar:OnEnable()
 	local root = ns.root
-	self.panel = ns.Art.CreatePanel(root, 40, true)
+	-- The bar itself: two runs of the faction's topbar slot texture.
+	self.bar = CreateFrame("Frame", nil, root)
+	self.bar:SetFrameLevel(40)
+	self.bar:EnableMouse(true)
+	self.barLeft = self.bar:CreateTexture(nil, "BACKGROUND")
+	self.barRight = self.bar:CreateTexture(nil, "BACKGROUND")
 	self.holder = CreateFrame("Frame", "ReforgedUITopBar", root)
 	self.holder:SetFrameStrata("LOW")
 	self.holder:SetAllPoints(root)
@@ -190,34 +197,59 @@ function TopBar:UpdateResources()
 end
 
 function TopBar:OnLayout(L)
-	ns.Art.PlacePanel(self.panel, L.topBar, ns.root, false)
+	self:PlaceBar(L)
 	local c = L.clock
 	self.dial:ClearAllPoints()
 	self.dial:SetPoint("CENTER", ns.root, "BOTTOMLEFT", c.cx, c.cy)
 	self.dial:SetSize(c.radius * 2, c.radius * 2)
 	place(self.clockFrame, L.clockFrame)
 	for i, plate in ipairs(self.buttons) do
-		place(plate, L.topButtons[i])
+		self:PlacePlate(plate, L.topButtons[i])
 	end
 	for i, plate in ipairs(self.resources) do
-		place(plate, L.resources[i])
+		self:PlacePlate(plate, L.resources[i])
 	end
 	self:UpdateClock()
 	self:UpdateResources()
 	self:ClearTopFrames() -- re-checks every frame against the new limits
 end
 
+-- Slots left of the clock line up with the core's left edge and slots right
+-- of it with the core's right edge; the clock frame covers the seam.
+function TopBar:PlaceBar(L)
+	local r, slot, root = L.topBar, L.topSlot, ns.root
+	local mid = L.clock.cx
+	self.bar:ClearAllPoints()
+	self.bar:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", r.x, r.y)
+	self.bar:SetSize(r.w, r.h)
+	self.barLeft:ClearAllPoints()
+	self.barLeft:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", r.x, r.y)
+	self.barLeft:SetSize(mid - r.x, r.h)
+	self.barLeft:SetTexCoord((r.x - L.topSlotsLeft) / slot, (mid - L.topSlotsLeft) / slot, 0, 1)
+	self.barRight:ClearAllPoints()
+	self.barRight:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", mid, r.y)
+	self.barRight:SetSize(r.x + r.w - mid, r.h)
+	self.barRight:SetTexCoord((mid - L.topSlotsRight) / slot, (r.x + r.w - L.topSlotsRight) / slot, 0, 1)
+end
+
+function TopBar:PlacePlate(plate, r)
+	if r then
+		place(plate, r)
+		plate:Show()
+	else
+		plate:Hide()
+	end
+end
+
 function TopBar:OnTheme(theme)
-	ns.Art.PaintPanel(self.panel, theme)
+	for _, t in ipairs({ self.barLeft, self.barRight }) do
+		t:SetTexture(ns:Media("topbar", theme), "REPEAT", "CLAMP")
+	end
 	self.clockArt:SetTexture(ns:Media("clockframe", theme))
 	for _, plate in ipairs(self.buttons) do
-		ns.Art.PaintInset(plate, theme)
 		plate.text:SetTextColor(unpack(theme.title))
 	end
-	for _, plate in ipairs(self.resources) do
-		ns.Art.PaintInset(plate, theme)
-	end
 	if ns.layout then
-		ns.Art.PlacePanel(self.panel, ns.layout.topBar, ns.root, false)
+		self:PlaceBar(ns.layout)
 	end
 end

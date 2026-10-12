@@ -78,7 +78,7 @@ function MinimapModule:OnEnable()
 	}) do
 		if f then
 			if f.SetParent then
-				ns:Kill(f)
+				ns:Conceal(f)
 			else
 				f:Hide()
 			end
@@ -123,7 +123,7 @@ function MinimapModule:OnEnable()
 		for _, b in ipairs(self.buttons) do
 			b:SetParent(self.holder)
 		end
-		ns:Kill(MinimapCluster)
+		ns:Conceal(MinimapCluster)
 	end
 end
 
@@ -146,8 +146,7 @@ function MinimapModule:OnLayout(L)
 	local root, m = ns.root, L.minimap
 	ns:Lock(Minimap, function(map)
 		map:ClearAllPoints()
-		map:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", m.x, m.y)
-		map:SetSize(m.w, m.h)
+		ns:PlaceRect(map, m)
 	end)
 	-- Changing the size needs a zoom nudge or the map renders stale tiles.
 	local zoom = Minimap:GetZoom()
@@ -173,9 +172,7 @@ function MinimapModule:OnLayout(L)
 			local w, h = b:GetSize()
 			local size = math.max(w or 0, h or 0)
 			b:SetScale(size > 0 and slot / size or 1)
-			local u = ns:UnitsFor(b)
-			b:ClearAllPoints()
-			b:SetPoint("TOP", root, "BOTTOMLEFT", (col.x + slot / 2) * u, top * u)
+			ns:Anchor(b, "TOP", col.x + slot / 2, top)
 		end)
 		y = y - slot - 4
 	end
@@ -184,18 +181,14 @@ function MinimapModule:OnLayout(L)
 	if clock then
 		ns:Lock(clock, function(b)
 			b:SetParent(self.holder)
-			local u = ns:UnitsFor(b)
-			b:ClearAllPoints()
-			b:SetPoint("BOTTOM", root, "BOTTOMLEFT", (m.x + m.w / 2) * u, (m.y + 2) * u)
+			ns:Anchor(b, "BOTTOM", m.x + m.w / 2, m.y + 2)
 		end)
 	end
 	local diff = self.extras.difficulty
 	if diff then
 		ns:Lock(diff, function(b)
 			b:SetParent(self.holder)
-			local u = ns:UnitsFor(b)
-			b:ClearAllPoints()
-			b:SetPoint("TOPLEFT", root, "BOTTOMLEFT", (m.x + 2) * u, (m.y + m.h - 2) * u)
+			ns:Anchor(b, "TOPLEFT", m.x + 2, m.y + m.h - 2)
 		end)
 	end
 end

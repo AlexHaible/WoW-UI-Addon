@@ -1,6 +1,7 @@
--- The Warcraft III 2x3 inventory, holding the backpack and bag slots. Click to
--- open a bag, drag a bag onto a slot to equip it, drag from a slot to pick the
--- bag up. A small number shows the free slots in each bag.
+-- The Warcraft III 2x3 inventory, holding the backpack and bag slots, with the
+-- key ring beside it. Click to open a bag, drag a bag onto a slot to equip it,
+-- drag from a slot to pick the bag up. A small number shows the free slots in
+-- each bag.
 
 local _, ns = ...
 local Inventory = ns:RegisterModule("inventory", {})
@@ -8,6 +9,7 @@ local Layout = ns.Layout
 
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
+local KEYRING_ICON = "Interface\\Buttons\\UI-Button-KeyRing"
 
 local Container = C_Container or {}
 local toInventoryID = Container.ContainerIDToInventoryID or ContainerIDToInventoryID
@@ -54,6 +56,41 @@ local function onEnter(btn)
 	GameTooltip:Show()
 end
 
+local function toggleKeyRing()
+	if ToggleKeyRing then
+		ToggleKeyRing()
+	elseif KeyRingButton then
+		KeyRingButton:Click()
+	else
+		ToggleBag(KEYRING_CONTAINER or -2)
+	end
+end
+
+function Inventory:CreateKeyRing(holder)
+	local btn = CreateFrame("Button", "ReforgedUIKeyRing", holder)
+	btn:SetNormalTexture(KEYRING_ICON)
+	btn:SetPushedTexture(KEYRING_ICON .. "-Down")
+	btn:SetHighlightTexture(KEYRING_ICON .. "-Highlight", "ADD")
+	for _, t in ipairs({ btn:GetNormalTexture(), btn:GetPushedTexture(), btn:GetHighlightTexture() }) do
+		t:SetTexCoord(0, 0.5625, 0, 0.609375)
+	end
+	btn:SetScript("OnClick", toggleKeyRing)
+	btn:SetScript("OnReceiveDrag", function()
+		if PutKeyInKeyRing then
+			PutKeyInKeyRing()
+		end
+	end)
+	btn:SetScript("OnEnter", function(b)
+		GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+		GameTooltip:SetText(KEYRING or "Key Ring", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	btn:SetScript("OnLeave", GameTooltip_Hide)
+	-- Only clients with a key ring (Classic-based ones, WoW: Forever) get one.
+	btn:SetShown((ToggleKeyRing or KeyRingButton or KEYRING_CONTAINER) ~= nil)
+	self.keyring = btn
+end
+
 function Inventory:OnEnable()
 	self.buttons = {}
 	local holder = CreateFrame("Frame", "ReforgedUIInventory", ns.root)
@@ -83,6 +120,7 @@ function Inventory:OnEnable()
 		btn:SetScript("OnLeave", GameTooltip_Hide)
 		self.buttons[i] = btn
 	end
+	self:CreateKeyRing(holder)
 	for _, e in ipairs({ "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "BAG_CONTAINER_UPDATE",
 		"BAG_SLOT_FLAGS_UPDATED", "PLAYER_ENTERING_WORLD", "UNIT_INVENTORY_CHANGED" }) do
 		ns:On(e, function() self:Update() end)
@@ -115,5 +153,9 @@ function Inventory:OnLayout(L)
 		btn:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", x, y)
 		btn:SetSize(g.size, g.size)
 	end
+	local k = L.keyring
+	self.keyring:ClearAllPoints()
+	self.keyring:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", k.x, k.y)
+	self.keyring:SetSize(k.w, k.h)
 	self:Update()
 end

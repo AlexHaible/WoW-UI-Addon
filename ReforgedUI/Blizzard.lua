@@ -1,7 +1,10 @@
--- Blizzard frames we keep but move around the console: micro menu, stance,
--- pet and possess bars, cast bar, extra action button, vehicle bar, quest
--- tracker and bag windows. Frame names differ between Retail and
--- Classic-based clients, so every lookup tries both.
+-- Blizzard frames around the console. Frames we replace (bag bar, status
+-- bars) are made invisible and click-through; the
+-- micro menu moves on top of the console, bag windows open above it and the
+-- client's Issue Reporter button is lifted clear of it. Everything else that
+-- Edit Mode manages (cast bar, stance and pet bars, buffs, quest tracker,
+-- party frames) stays wherever Edit Mode puts it: moving those from addon
+-- code makes Blizzard's own code fail on "secret" values.
 
 local _, ns = ...
 local Blizzard = ns:RegisterModule("blizzard", {})
@@ -16,7 +19,7 @@ local function first(...)
 end
 
 -- Replaced by our own XP bar and inventory.
-local KILL = {
+local CONCEAL = {
 	"BagsBar", "MicroButtonAndBagsBar", "MainStatusTrackingBarContainer",
 	"SecondaryStatusTrackingBarContainer", "StatusTrackingBarManager",
 	"MainMenuExpBar", "ReputationWatchBar", "MainMenuBarMaxLevelBar",
@@ -29,20 +32,9 @@ local MICRO_NAMES = {
 	"EJMicroButton", "StoreMicroButton", "MainMenuMicroButton", "HelpMicroButton",
 }
 
--- Place `frame` so its `point` sits at console coordinates (x, y).
-local function anchor(frame, point, x, y)
-	local u = ns:UnitsFor(frame)
-	frame:ClearAllPoints()
-	frame:SetPoint(point, ns.root, "BOTTOMLEFT", x * u, y * u)
-end
-
 function Blizzard:OnEnable()
-	for _, name in ipairs(KILL) do
-		-- Bag buttons and micro buttons may live inside these on Classic
-		-- clients; the micro buttons are rescued below.
-		if _G[name] then
-			ns:Kill(_G[name])
-		end
+	for _, name in ipairs(CONCEAL) do
+		ns:Conceal(_G[name])
 	end
 
 	self.micro = first("MicroMenuContainer", "MicroMenu")
@@ -58,14 +50,6 @@ function Blizzard:OnEnable()
 			end
 		end
 	end
-
-	self.stance = first("StanceBar", "StanceBarFrame")
-	self.pet = first("PetActionBar", "PetActionBarFrame")
-	self.possess = first("PossessActionBar", "PossessBarFrame")
-	self.castBar = first("PlayerCastingBarFrame", "CastingBarFrame")
-	self.extra = first("ExtraAbilityContainer", "ExtraActionBarFrame")
-	self.override = first("OverrideActionBar")
-	self.tracker = first("ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame")
 
 	-- Bag windows open above the console instead of over it.
 	local hookName = (UpdateContainerFrameAnchors and "UpdateContainerFrameAnchors")
@@ -108,46 +92,36 @@ function Blizzard:OnLayout(L)
 			if w > L.micro.maxW then
 				f:SetScale(f:GetScale() * L.micro.maxW / w)
 			end
-			anchor(f, "BOTTOMRIGHT", L.micro.right, L.micro.bottom)
+			ns:Anchor(f, "BOTTOMRIGHT", L.micro.right, L.micro.bottom)
 		end)
 	elseif self.microRow then
 		self:LayoutMicroRow(L)
 	end
 
-	if self.stance then
-		ns:Lock(self.stance, function(f) anchor(f, "BOTTOMLEFT", L.stance.x, L.stance.y) end)
-	end
-	if self.possess then
-		ns:Lock(self.possess, function(f) anchor(f, "BOTTOMLEFT", L.stance.x, L.stance.y) end)
-	end
-	if self.pet then
-		ns:Lock(self.pet, function(f) anchor(f, "BOTTOMRIGHT", L.pet.right, L.pet.y) end)
-	end
-	if self.castBar then
-		ns:Lock(self.castBar, function(f) anchor(f, "BOTTOM", L.castBar.cx, L.castBar.y) end)
-	end
-	if self.extra then
-		ns:Lock(self.extra, function(f) anchor(f, "BOTTOM", L.extra.cx, L.extra.y) end)
-	end
-	if self.override then
-		ns:Lock(self.override, function(f) anchor(f, "BOTTOM", L.override.cx, L.override.y) end)
-	end
-	-- Client-specific buttons parked at the bottom of the screen (WoW: Forever's
-	-- Issue Reporter) are lifted to sit on top of the console.
-	for _, f in ipairs({ UIParent:GetChildren() }) do
-		local name = f:GetName()
-		if name and name:find("IssueReport") then
-			ns:KeepAbove(f, function() return ns.layout.base.h + 6 end)
-		end
-	end
-	if self.tracker then
-		ns:Lock(self.tracker, function(f)
-			local h = f:GetHeight()
-			anchor(f, "TOPRIGHT", L.tracker.right, L.tracker.top)
-			if h and h > 0 then
-				f:SetHeight(h)
+	self:LiftIssueReporter()
+end
+
+-- WoW: Forever parks its Issue Reporter button at the bottom of the screen;
+-- lift it on top of the console. Found by name, or by one careful look
+-- through UIParent's children (some of which are forbidden to addons).
+function Blizzard:LiftIssueReporter()
+	if self.reporter == nil then
+		local found = _G.PTR_IssueReporter or _G.IssueReporterButton
+		if not found then
+			for _, f in ipairs({ UIParent:GetChildren() }) do
+				if not ns.IsForbidden(f) then
+					local ok, name = pcall(f.GetName, f)
+					if ok and type(name) == "string" and name:find("IssueReport") then
+						found = f
+						break
+					end
+				end
 			end
-		end)
+		end
+		self.reporter = found or false
+	end
+	if self.reporter then
+		ns:KeepAbove(self.reporter, function() return ns.layout.base.h + 6 end)
 	end
 end
 
@@ -162,7 +136,7 @@ function Blizzard:LayoutMicroRow(L)
 	row:SetScale(scale)
 	row:SetSize(natural, bh)
 	row:ClearAllPoints()
-	row:SetPoint("BOTTOMRIGHT", ns.root, "BOTTOMLEFT", L.micro.right / scale, L.micro.bottom / scale)
+	row:SetPoint("BOTTOMRIGHT", ns.root, "BOTTOMLEFT", L.micro.right / scale, L.micro.bottom / scale) -- our own frame
 	for i, btn in ipairs(buttons) do
 		ns:Lock(btn, function(b)
 			b:SetParent(row)

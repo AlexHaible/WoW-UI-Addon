@@ -221,6 +221,18 @@ function GetSpellBonusHealing() return 207 end
 function tContains(t, v) for _, x in ipairs(t) do if x == v then return true end end return false end
 FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
+local savedLayouts
+C_EditMode = {
+	GetLayouts = function()
+		return { activeLayout = 3, layouts = { { layoutName = "Mine", systems = {
+			{ system = 12, anchorInfo = { point = "TOPRIGHT", relativeTo = "ReforgedUIConsole", relativePoint = "BOTTOMLEFT",
+				offsetX = 1000, offsetY = 600 }, isInDefaultPosition = false },
+			{ system = 0, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM" } },
+		} } } }
+	end,
+	SaveLayouts = function(info) savedLayouts = info end,
+}
+
 local inCombat = false
 function InCombatLockdown() return inCombat end
 local hooks = {}
@@ -313,6 +325,9 @@ assert(ns.ready, "init did not finish")
 assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 2, "old default scale not migrated")
 fire("PLAYER_ENTERING_WORLD")
 flushTimers()
+local repaired = savedLayouts and savedLayouts.layouts[1].systems[1]
+assert(repaired and repaired.anchorInfo.relativeTo == "UIParent" and repaired.isInDefaultPosition,
+	"Edit Mode anchors to our frames should be repaired")
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 
 -- Nothing of Blizzard's may be anchored to our frames (Edit Mode saves anchors).

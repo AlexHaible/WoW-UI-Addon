@@ -29,15 +29,13 @@ local S = {
 	edge = 16, -- trim thickness drawn on every panel
 	pad = 18, -- distance from a panel's outer edge to its content
 	tall = 212, -- chat and minimap blocks
-	mid = 176, -- portrait, inventory and target blocks
+	mid = 176, -- target block
 	low = 150, -- the base band that spans the whole screen
-	map = 162,
-	mapButtonsW = 28,
+	sec = 288, -- a 512px console section is drawn 288 units square
+	secTop = 158, -- top of the portrait and inventory sections' walls
 	chatMax = 520, chatMin = 300,
-	portraitW = 130, portrait = 100,
-	infoW = 260, statIcon = 30,
+	statIcon = 30,
 	barBtn = 36, barBtnMin = 22, barGap = 3, barRowGap = 4,
-	invBtn = 38, invGap = 6, keyW = 16,
 	targetW = 250,
 	sideBtn = 36, sideGap = 3,
 	crest = 104,
@@ -96,23 +94,27 @@ function Layout.Compute(W, H, profileKey)
 	}
 	L.base = rect(0, 0, W, S.low)
 
-	local mapW = S.pad + S.map + 4 + S.mapButtonsW + S.pad
-	local invGridW = 2 * S.invBtn + S.invGap
-	local invW = S.pad + S.keyW + S.invGap + invGridW + S.pad
-	local others = mapW + S.portraitW + S.infoW + invW + S.targetW
+	-- The original addon's sections (Media/<Faction>/sections): minimap + portrait form
+	-- one 576-unit strip (minimap, button column, portrait arch, hero screen);
+	-- the inventory section's bag grid and pillar are its left 208 pixels.
+	local k = S.sec / 512 -- units per section texture pixel
+	local stripW = 2 * S.sec
+	local invW = floor(208 * k + 0.5)
+	local others = stripW + invW + S.targetW
 
 	-- Action bars shrink their buttons when the screen is too narrow for them.
 	local barBtn = clamp(floor((W - others - 2 * S.pad - 11 * S.barGap) / 12), S.barBtnMin, S.barBtn)
 	local gridW = 12 * barBtn + 11 * S.barGap
 	local barsW = gridW + 2 * S.pad
 	local fixed = others + barsW
-	local beforeBars = mapW + S.portraitW + S.infoW -- left of the bars, chat aside
+	local beforeBars = stripW -- left of the bars, chat aside
 
 	-- Chat goes inside the console, sized so the bars land in the middle of
 	-- the screen, when it can be at least chatMin wide. Otherwise it floats
 	-- above the left end of the console.
 	local centred = floor(W / 2 - barsW / 2) - beforeBars
-	local chatW = min(clamp(centred, S.chatMin, S.chatMax), W - fixed)
+	-- (When the bars can't be centred anyway, chat takes whatever room is left.)
+	local chatW = min(centred >= S.chatMin and min(centred, S.chatMax) or S.chatMax, W - fixed)
 	if chatW < S.chatMin then
 		chatW = 0
 	end
@@ -123,7 +125,8 @@ function Layout.Compute(W, H, profileKey)
 
 	-- Chat block.
 	if chatW > 0 then
-		L.panels[#L.panels + 1] = { key = "chat", x = x, y = 0, w = chatW, h = S.tall }
+		-- The minimap section's own pillar closes the chat block's right side.
+		L.panels[#L.panels + 1] = { key = "chat", x = x, y = 0, w = chatW, h = S.tall, openRight = true }
 		L.insets[#L.insets + 1] = { key = "chat", x = x + 10, y = 10, w = chatW - 20, h = S.tall - 26 }
 		-- 44 on the left leaves room for the chat menu buttons beside the frame
 		L.chat = rect(x + 44, 44, chatW - 60, S.tall - 44 - 34)
@@ -131,67 +134,71 @@ function Layout.Compute(W, H, profileKey)
 		x = x + chatW
 	end
 
-	-- Minimap block, buttons in a column on its right.
-	L.panels[#L.panels + 1] = { key = "minimap", x = x, y = 0, w = mapW, h = S.tall }
-	L.minimap = rect(x + S.pad, S.pad, S.map, S.map)
-	L.zoneText = rect(x + S.pad, S.pad + S.map + 2, S.map, 14)
-	L.minimapButtons = rect(x + S.pad + S.map + 4, S.pad, S.mapButtonsW, S.map)
+	-- Minimap and portrait sections. Positions below are the windows painted
+	-- into the textures (pixels from the top-left) converted to units.
+	local function px(tx, ty, tw, th) -- texture pixels to a console rect
+		return rect(x + tx * k, (512 - ty - th) * k, tw * k, th * k)
+	end
+	L.sections = {
+		{ key = "minimap", x = x, y = 0, w = S.sec, h = S.sec, wall = S.tall },
+		{ key = "portrait", x = x + S.sec, y = 0, w = S.sec, h = S.sec, wall = S.secTop },
+	}
+	L.minimap = px(21, 222, 274, 274)
+	L.zoneText = px(21, 204, 274, 16)
+	L.minimapButtons = px(309, 224, 44, 274)
 	local mapX = x
-	x = x + mapW
+	L.portrait = px(436, 296, 138, 148)
+	L.healthText = px(424, 452, 160, 26)
+	L.powerText = px(424, 480, 160, 26)
+	local pcx = L.portrait.x + L.portrait.w / 2
+	L.crest = rect(floor(pcx - S.crest / 2), S.sec - 207 * k - 20, S.crest, S.crest)
 
-	-- Portrait block, with the faction crest rising above it.
-	L.panels[#L.panels + 1] = { key = "portrait", x = x, y = 0, w = S.portraitW, h = S.mid }
-	local px = x + floor((S.portraitW - S.portrait) / 2)
-	L.insets[#L.insets + 1] = { key = "portrait", x = px - 4, y = 52, w = S.portrait + 8, h = S.portrait + 8 }
-	L.portrait = rect(px, 56, S.portrait, S.portrait)
-	L.healthText = rect(x + 8, 30, S.portraitW - 16, 16)
-	L.powerText = rect(x + 8, 12, S.portraitW - 16, 16)
-	L.crest = rect(x + floor((S.portraitW - S.crest) / 2), S.mid + 30 - floor(S.crest / 2), S.crest, S.crest)
-	x = x + S.portraitW
-
-	-- Hero screen: name, the level bar (experience fill with "Level N Class"
-	-- on it) and a 2x2 grid of stat icons with their values.
-	local info = rect(x, 0, S.infoW, S.low)
+	-- Hero screen, in the section's dark window right of the portrait: name,
+	-- the level bar (experience fill with "Level N Class" on it) and a 2x2
+	-- grid of stat icons with their values.
+	local info = px(512 + 92, 272, 418, 240)
 	L.info = info
-	L.insets[#L.insets + 1] = { key = "info", x = x + 6, y = 10, w = S.infoW - 12, h = S.low - 26 }
-	L.nameText = rect(x + 14, 108, S.infoW - 28, 18)
-	L.xpBar = rect(x + 24, 88, S.infoW - 48, 16)
-	local cellW = floor((S.infoW - 28) / 2)
+	local ix, iw = info.x, info.w
+	L.nameText = rect(ix + 10, 110, iw - 20, 18)
+	L.xpBar = rect(ix + 18, 90, iw - 36, 16)
+	local cellW = floor((iw - 20) / 2)
 	L.stats = {}
 	for i = 1, 4 do
 		local col, row = (i - 1) % 2, floor((i - 1) / 2)
-		local cx, cy = x + 14 + col * cellW, 48 - row * 36
+		local cx, cy = ix + 10 + col * cellW, 48 - row * 36
 		L.stats[i] = {
 			icon = rect(cx, cy, S.statIcon, S.statIcon),
 			text = rect(cx + S.statIcon + 4, cy - 2, cellW - S.statIcon - 6, S.statIcon + 4),
 		}
 	end
-	x = x + S.infoW
+	x = x + stripW
 
 	-- Action bars 1-3, full twelve buttons wide, on a recessed screen.
 	local gridH = 3 * barBtn + 2 * S.barRowGap
 	local gy = floor((S.low - S.edge - gridH) / 2)
 	local gx = x + S.pad
 	L.barsRect = rect(x, 0, barsW, S.low)
+	-- A stretch of wall as tall as the sections either side, joined on the left.
+	L.panels[#L.panels + 1] = { key = "bars", x = x, y = 0, w = barsW, h = S.secTop, openLeft = true }
 	L.insets[#L.insets + 1] = { key = "bars", x = x + 6, y = gy - 8, w = barsW - 12, h = gridH + 16 }
 	L.bars.main = grid(gx, gy + 2 * (barBtn + S.barRowGap), 12, 1, barBtn, S.barGap)
 	L.bars.bar2 = grid(gx, gy + barBtn + S.barRowGap, 12, 1, barBtn, S.barGap)
 	L.bars.bar3 = grid(gx, gy, 12, 1, barBtn, S.barGap)
 	x = x + barsW
 
-	-- Inventory: the key ring beside the six bag slots in Warcraft III's 2x3.
-	L.panels[#L.panels + 1] = { key = "inventory", x = x, y = 0, w = invW, h = S.mid }
-	local invGrid = grid(x + S.pad + S.keyW + S.invGap, 0, 2, 3, S.invBtn, S.invGap)
-	invGrid.y = floor((S.mid - S.edge - invGrid.h) / 2)
-	L.inventory = invGrid
-	L.keyring = rect(x + S.pad, invGrid.y, S.keyW, S.invBtn)
-	L.invRect = rect(x, 0, invW, S.mid)
+	-- Inventory section: the 2x3 bag slots with its pillar; the key ring sits
+	-- on the ledge above them.
+	L.sections[#L.sections + 1] = { key = "inventory", x = x, y = 0, w = invW, h = S.sec, u1 = 208 / 512,
+		wall = S.secTop }
+	L.inventory = grid(x + 7 * k, 7 * k, 2, 3, 64 * k, 15 * k, 13 * k)
+	L.keyring = rect(x + 7 * k, (512 - 273) * k, 20 * k, 20 * k)
+	L.invRect = rect(x, 0, invW, S.secTop)
 	x = x + invW
 
 	-- Target panel: portrait, name, level, health and power, combo points,
 	-- and the target's target underneath.
 	local tw = S.targetW
-	L.panels[#L.panels + 1] = { key = "target", x = x, y = 0, w = tw, h = S.mid }
+	L.panels[#L.panels + 1] = { key = "target", x = x, y = 0, w = tw, h = S.mid, openLeft = true }
 	L.insets[#L.insets + 1] = { key = "target", x = x + 8, y = 10, w = tw - 16, h = S.mid - 26 }
 	local tx = x + 16
 	L.target = {

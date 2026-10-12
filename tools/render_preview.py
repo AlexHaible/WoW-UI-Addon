@@ -190,9 +190,13 @@ def render(faction, w, h, profile, path, hour=15):
     panel(c, faction, L["base"], False)
     for p in L["panels"]:
         panel(c, faction, p, True)
+    for sec in L.get("sections", []):
+        tex = load(faction, "sections/" + sec["key"])
+        u1 = sec.get("u1", 1)
+        tex = tex.crop((0, 0, round(tex.width * u1), tex.height))
+        c.paste(tex, sec["x"], sec["y"], sec["w"], sec["h"])
     m = L["minimap"]
-    insets = list(L["insets"]) + [dict(x=m["x"] - 4, y=m["y"] - 4, w=m["w"] + 8, h=m["h"] + 8)]
-    for r in insets:
+    for r in L["insets"]:
         inset(c, theme, r)
 
     # minimap terrain placeholder
@@ -226,12 +230,10 @@ def render(faction, w, h, profile, path, hour=15):
                     c.text(x + 2, y + g["size"] - 14, 12, 12, str((i + 1) % 10 if i < 10 else "-"), 10,
                            (230, 230, 230), "left", True)
     k = L["keyring"]
-    c.paste(well, k["x"] - 3, k["y"] - 3, k["w"] + 6, k["h"] + 6)
-    c.rect(k["x"] + 3, k["y"] + 6, k["w"] - 6, k["h"] - 12, fill=(200, 170, 80, 255))
+    c.paste(icon(77, 32), k["x"], k["y"], k["w"], k["h"])
     g = L["inventory"]
     pad = round(g["size"] * 0.12)
     for i, x, y in grid_cells(g):
-        c.paste(well, x - pad, y - pad, g["size"] + 2 * pad, g["size"] + 2 * pad)
         if i < 5:
             c.paste(icon(500 + i, g["size"]), x, y, g["size"], g["size"])
             c.text(x + g["size"] - 14, y + 2, 12, 11, str(4 + i * 3), 9, (255, 255, 255), "left", True)

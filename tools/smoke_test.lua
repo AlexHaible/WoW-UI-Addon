@@ -56,6 +56,12 @@ function methods:SetPoint(point, rel, relPoint, x, y)
 	assert(type(point) == "string", "SetPoint needs a point")
 	if x ~= nil then assert(type(x) == "number" and x == x, "bad x offset") end
 	if y ~= nil then assert(type(y) == "number" and y == y, "bad y offset") end
+	for i, p in ipairs(self._points) do
+		if p[1] == point then
+			self._points[i] = { point, rel, relPoint, x, y }
+			return
+		end
+	end
 	self._points[#self._points + 1] = { point, rel, relPoint, x, y }
 end
 function methods:ClearAllPoints() self._points = {} end
@@ -80,6 +86,8 @@ function methods:CreateFontString() return new("fontstring", nil, self) end
 function methods:GetNormalTexture() return new("texture", nil, self) end
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function methods:SetText(t) self._text = t end
+function methods:GetNumPoints() return #self._points end
+function methods:SetRotation(r) assert(type(r) == "number" and r == r, "bad rotation"); self._rotation = r end
 function methods:GetZoom() return 2 end
 function methods:GetZoomLevels() return 6 end
 function methods:SetTexture(path) if path then assert(type(path) == "string") end self._tex = path end
@@ -138,6 +146,14 @@ CharacterMicroButton._w, CharacterMicroButton._h = 28, 58
 MainMenuMicroButton = new("button", "MainMenuMicroButton", MainMenuBar)
 MainMenuMicroButton._w, MainMenuMicroButton._h = 28, 58
 GameTooltip = new("frame", "GameTooltip", UIParent)
+PlayerFrame = new("secure", "PlayerFrame", UIParent)
+PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
+function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
+QuestLogMicroButton = new("button", "QuestLogMicroButton", MainMenuBar)
+local gameHour = 0
+function GetGameTime() return gameHour, 0 end
+function GetMoney() return 1234567 end
+function GetInventoryItemDurability(slot) if slot == 5 then return 20, 100 end end
 ContainerFrame1 = new("frame", "ContainerFrame1", UIParent)
 ContainerFrame1:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -10, 60)
 
@@ -235,6 +251,16 @@ assert(overrides == 2, "expected 2 override bindings, got " .. overrides)
 assert(Minimap._points[1][2] == ns.root, "minimap not anchored to the console")
 assert(ReforgedUIBar_main and ReforgedUImainButton1._updated, "main bar buttons not built")
 assert(CharacterMicroButton:GetParent() == ReforgedUIMicroMenu, "classic micro buttons not rescued")
+assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
+	"quests button should click the quest log micro button")
+local _, _, _, _, py = PlayerFrame:GetPoint(1)
+assert(py < -4, "player frame not moved below the top bar")
+local tb = ns.modules.topbar
+assert(math.abs(tb.dial._rotation + math.pi) < 1e-6, "midnight should turn the moon to the window")
+gameHour = 12
+tb:UpdateClock()
+assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
+assert(tb.resources[3].text._text == "20%", "durability should show the lowest item")
 
 -- Something else moving a locked frame snaps it back.
 ChatFrame1:ClearAllPoints()

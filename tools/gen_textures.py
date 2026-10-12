@@ -15,7 +15,9 @@ Files per faction (all power-of-two, 32-bit TGA):
     corner.tga  64x64    corner ornament, oriented for the top-left corner
     well.tga    64x64    socket drawn behind every button slot
     crest.tga   256x256  faction emblem above the portrait
+    clockframe.tga 256x128  frame around the day/night clock under the top bar
 Common/bevel.tga 64x64  bevel laid over action button icons
+Common/dial.tga 256x256  day/night disc (sun at the bottom, moon at the top)
 """
 import math
 import os
@@ -461,6 +463,71 @@ def bevel():
     return Image.fromarray(a, "RGBA")
 
 
+def dial():
+    size = 256
+    yy, xx = np.mgrid[0:size, 0:size].astype(float)
+    cx = cy = (size - 1) / 2
+    r = np.hypot(xx - cx, yy - cy)
+    t = (yy - cy) / cx  # -1 top .. 1 bottom
+    day = colorize(np.clip(t, 0, 1), (250, 170, 90), (90, 160, 235))  # horizon to sky
+    night = colorize(np.clip(-t, 0, 1), (60, 50, 110), (8, 12, 40))
+    img = np.where((t >= 0)[..., None], day, night)
+    rng = np.random.default_rng(5)
+    for _ in range(70):  # stars on the night half
+        x, y = rng.integers(20, 236), rng.integers(10, 120)
+        if np.hypot(x - cx, y - cy) < 118:
+            img[y, x] = (230, 235, 255)
+    alpha = np.clip((124 - r) * 64, 0, 255)
+    out = rgba(img, alpha)
+    d = ImageDraw.Draw(out)
+    sx, sy = 128, 210  # sun
+    for k in range(12):
+        a = k * math.pi / 6
+        d.line([(sx + 22 * math.cos(a), sy + 22 * math.sin(a)), (sx + 32 * math.cos(a), sy + 32 * math.sin(a))],
+               fill=(255, 230, 120, 255), width=4)
+    d.ellipse([sx - 18, sy - 18, sx + 18, sy + 18], fill=(255, 220, 90, 255))
+    d.ellipse([sx - 12, sy - 12, sx + 10, sy + 10], fill=(255, 245, 190, 255))
+    mx, my = 128, 46  # moon
+    d.ellipse([mx - 20, my - 20, mx + 20, my + 20], fill=(225, 230, 250, 255))
+    d.ellipse([mx - 8, my - 26, mx + 28, my + 12], fill=(30, 30, 80, 255))
+    return out
+
+
+def clockframe(name, metal, metal_hi, metal_lo):
+    w, h = 256, 128
+    k = w / 176  # pixels per console unit
+    cx, cy = w / 2, 4 * k
+    img, d = canvas(w, h)
+    s = SS
+    ro, ri = 64 * k, 52 * k
+    # wing plates either side of the dial, flush with the top bar
+    d.rounded_rectangle([4 * s, 0, (w - 4) * s, 18 * s], radius=6 * s, fill=metal_lo)
+    d.rounded_rectangle([6 * s, 0, (w - 6) * s, 15 * s], radius=5 * s, fill=metal)
+    # ring around the lower half of the dial
+    d.ellipse([(cx - ro - 3) * s, (cy - ro - 3) * s, (cx + ro + 3) * s, (cy + ro + 3) * s], fill=metal_lo)
+    d.ellipse([(cx - ro) * s, (cy - ro) * s, (cx + ro) * s, (cy + ro) * s], fill=metal)
+    d.ellipse([(cx - ro + 4) * s, (cy - ro + 4) * s, (cx + ro - 4) * s, (cy + ro - 4) * s], fill=metal_hi)
+    d.ellipse([(cx - ri - 2) * s, (cy - ri - 2) * s, (cx + ri + 2) * s, (cy + ri + 2) * s], fill=metal_lo)
+    d.ellipse([(cx - ri) * s, (cy - ri) * s, (cx + ri) * s, (cy + ri) * s], fill=(0, 0, 0, 0))
+    out = finish(img, w, h)
+    # faction ornament at the bottom of the ring
+    orn = load_corner(name).resize((44, 44), Image.LANCZOS)
+    out.alpha_composite(orn, (int(cx - 22), int(cy + ro - 30)))
+    return out
+
+
+def load_corner(name):
+    return Image.open(os.path.join(ROOT, name, "corner.tga")).convert("RGBA")
+
+
+CLOCK_METAL = {
+    "Human": ((196, 152, 62, 255), (255, 226, 140, 255), (80, 56, 18, 255)),
+    "Orc": ((96, 88, 82, 255), (160, 150, 140, 255), (30, 26, 24, 255)),
+    "Undead": ((150, 140, 124, 255), (214, 206, 186, 255), (40, 32, 48, 255)),
+    "NightElf": ((84, 64, 46, 255), (140, 112, 84, 255), (22, 16, 12, 255)),
+}
+
+
 FACTIONS = {
     "Human": dict(
         panel=panel_human, edge=edge_human, corner=corner_human, crest=crest_human,
@@ -490,8 +557,10 @@ def main():
         save(spec["corner"](), name, "corner.tga")
         save(well(*spec["well"]), name, "well.tga")
         save(spec["crest"](), name, "crest.tga")
+        save(clockframe(name, *CLOCK_METAL[name]), name, "clockframe.tga")
     os.makedirs(os.path.join(ROOT, "Common"), exist_ok=True)
     bevel().save(os.path.join(ROOT, "Common", "bevel.tga"), format="TGA")
+    dial().save(os.path.join(ROOT, "Common", "dial.tga"), format="TGA")
     print("textures written to", os.path.normpath(ROOT), file=sys.stderr)
 
 

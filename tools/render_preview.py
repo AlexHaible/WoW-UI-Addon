@@ -116,6 +116,36 @@ def panel(c, faction, r, corners):
         c.paste(corner.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 34, r["y"] + r["h"] - 34, 40, 40)
 
 
+def hanging_panel(c, faction, r):
+    fill, edge, edgev, corner = (load(faction, n) for n in ("panel", "edge", "edgev", "corner"))
+    c.tile(fill, r["x"] + 4, r["y"] + 4, r["w"] - 8, r["h"] - 4, ox=r["x"] + 4)
+    c.tile(edge.transpose(Image.FLIP_TOP_BOTTOM), r["x"], r["y"], r["w"], 16, 64, 16)
+    flipv = edgev.transpose(Image.FLIP_TOP_BOTTOM)
+    c.tile(flipv, r["x"], r["y"] + 14, 16, r["h"] - 14, 16, 64)
+    c.tile(flipv.transpose(Image.FLIP_LEFT_RIGHT), r["x"] + r["w"] - 16, r["y"] + 14, 16, r["h"] - 14, 16, 64)
+
+
+def top_bar(c, faction, theme, L, hour):
+    cl = L["clock"]
+    dial = Image.open(os.path.join(MEDIA, "Common", "dial.tga")).convert("RGBA")
+    # Texture:SetRotation turns anticlockwise for positive angles, as PIL does.
+    import math
+    dial = dial.rotate(math.degrees((hour - 12) / 24 * 2 * math.pi), resample=Image.BICUBIC)
+    r = cl["radius"]
+    c.paste(dial, cl["cx"] - r, cl["cy"] - r, 2 * r, 2 * r)
+    hanging_panel(c, faction, L["topBar"])
+    cf = L["clockFrame"]
+    c.paste(load(faction, "clockframe"), cf["x"], cf["y"], cf["w"], cf["h"])
+    for b, label in zip(L["topButtons"], ["Quests", "Menu", "Allies", "Map"]):
+        inset(c, theme, b)
+        c.text(b["x"], b["y"] + 2, b["w"], b["h"], label, 11, theme["title"])
+    for b, label in zip(L["resources"], ["123", "34 / 80", "87%"]):
+        inset(c, theme, b)
+        c.text(b["x"] + 6, b["y"] + 2, b["w"] - 12, b["h"], label, 11, (255, 255, 255))
+        c.rect(b["x"] + 6, b["y"] + 3, 12, 12, fill=[(230, 190, 40, 255), (150, 100, 60, 255), (160, 160, 170, 255)][
+            L["resources"].index(b)])
+
+
 def inset(c, theme, r):
     c.rect(r["x"], r["y"], r["w"], r["h"], fill=theme["inset"])
     line = theme["line"]
@@ -149,7 +179,7 @@ def icon(seed, size):
     return img
 
 
-def render(faction, w, h, profile, path):
+def render(faction, w, h, profile, path, hour=15):
     L = layout(w, h, profile)
     theme = THEMES[faction]
     c = Canvas(L["W"], L["H"])
@@ -241,7 +271,8 @@ def render(faction, w, h, profile, path):
         x = mi["right"] - (n - i) * (bw + 2)
         c.paste(icon(900 + i, bw), x, mi["bottom"], bw, bw * 1.3)
 
-    c.text(8, L["H"] - 26, 600, 20, "Reforged UI preview - %s, %s layout (placeholder icons)" % (faction, L["profile"]),
+    top_bar(c, faction, theme, L, hour)
+    c.text(8, L["H"] - 60, 600, 20, "Reforged UI preview - %s, %s layout (placeholder icons)" % (faction, L["profile"]),
            14, (255, 255, 255), "left", True)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     c.img.convert("RGB").save(path, optimize=True)
@@ -255,10 +286,10 @@ def main():
         ("Undead", 1365.33, 768, "auto", "16x9-undead"),
         ("NightElf", 1365.33, 768, "auto", "16x9-nightelf"),
         ("NightElf", 1792, 768, "auto", "21x9-nightelf"),
-        ("Orc", 2730.67, 768, "auto", "32x9-orc"),
+        ("Orc", 2730.67, 768, "auto", "32x9-orc", 23),
     ]
-    for faction, w, h, profile, name in jobs:
-        render(faction, w, h, profile, os.path.join(OUT, name + ".png"))
+    for faction, w, h, profile, name, *hour in jobs:
+        render(faction, w, h, profile, os.path.join(OUT, name + ".png"), *hour)
 
 
 if __name__ == "__main__":

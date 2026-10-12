@@ -29,6 +29,7 @@ Layout.lua
 Themes.lua
 Core.lua
 Console.lua
+TopBar.lua
 ActionBars.lua
 Minimap.lua
 Chat.lua

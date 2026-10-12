@@ -77,22 +77,32 @@ local function PlacePanel(f, r, root, showCorners)
 	f:ClearAllPoints()
 	f:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", r.x, r.y)
 	f:SetSize(r.w, r.h)
+	-- Open sides (joined to a neighbouring panel) run the fill to the edge.
+	local l, rt = r.openLeft and 0 or 4, r.openRight and 0 or 4
+	local outer, inner = f.hanging and "BOTTOM" or "TOP", f.hanging and "TOP" or "BOTTOM"
+	local dir = f.hanging and 1 or -1
+	f.fill:ClearAllPoints()
+	f.fill:SetPoint(outer .. "LEFT", l, dir * 4)
+	f.fill:SetPoint(inner .. "RIGHT", -rt, 0)
 	-- Offset texture coordinates by absolute position so neighbouring panels
 	-- continue the same pattern instead of restarting it.
-	local u0, v0 = r.x / PANEL_PERIOD, r.y / PANEL_PERIOD
-	f.fill:SetTexCoord(u0, u0 + (r.w - 8) / PANEL_PERIOD, v0 + (r.h - 4) / PANEL_PERIOD, v0)
+	local u0, v0 = (r.x + l) / PANEL_PERIOD, r.y / PANEL_PERIOD
+	f.fill:SetTexCoord(u0, u0 + (r.w - l - rt) / PANEL_PERIOD, v0 + (r.h - 4) / PANEL_PERIOD, v0)
 	local vh = (r.h - EDGE + 2) / EDGE_PERIOD
+	local e0 = r.x / EDGE_PERIOD
 	if f.hanging then
-		f.top:SetTexCoord(0, r.w / EDGE_PERIOD, 1, 0)
+		f.top:SetTexCoord(e0, e0 + r.w / EDGE_PERIOD, 1, 0)
 		f.left:SetTexCoord(0, 1, vh, 0)
 		f.right:SetTexCoord(1, 0, vh, 0)
 	else
-		f.top:SetTexCoord(0, r.w / EDGE_PERIOD, 0, 1)
+		f.top:SetTexCoord(e0, e0 + r.w / EDGE_PERIOD, 0, 1)
 		f.left:SetTexCoord(0, 1, 0, vh)
 		f.right:SetTexCoord(1, 0, 0, vh)
 	end
-	f.tl:SetShown(showCorners)
-	f.tr:SetShown(showCorners)
+	f.left:SetShown(not r.openLeft)
+	f.right:SetShown(not r.openRight)
+	f.tl:SetShown(showCorners and not r.openLeft)
+	f.tr:SetShown(showCorners and not r.openRight)
 	f:Show()
 end
 

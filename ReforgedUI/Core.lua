@@ -325,6 +325,40 @@ function ns:ApplyTheme()
 end
 
 ----------------------------------------------------------------------------
+-- Edit Mode repair
+
+-- Earlier versions anchored Blizzard frames to our console, and Edit Mode
+-- saved those anchors into the player's layouts (stored by the game, so the
+-- warning stayed even with the addon off). Put any such frame back in its
+-- default position once.
+local function repairEditModeLayouts()
+	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then
+		return
+	end
+	local ok, info = pcall(C_EditMode.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
+		return
+	end
+	local fixed = 0
+	for _, layout in ipairs(info.layouts) do
+		for _, system in ipairs(layout.systems or {}) do
+			for _, key in ipairs({ "anchorInfo", "anchorInfo2" }) do
+				local anchor = system[key]
+				if type(anchor) == "table" and type(anchor.relativeTo) == "string"
+					and anchor.relativeTo:find("^ReforgedUI") then
+					anchor.relativeTo = "UIParent"
+					system.isInDefaultPosition = true
+					fixed = fixed + 1
+				end
+			end
+		end
+	end
+	if fixed > 0 and pcall(C_EditMode.SaveLayouts, info) then
+		ns:Print(("reset %d Edit Mode position(s) left over from an older version."):format(fixed))
+	end
+end
+
+----------------------------------------------------------------------------
 -- Startup
 
 local function init()
@@ -332,6 +366,7 @@ local function init()
 	migrate(db) -- before the defaults fill in the new version number
 	ReforgedUIDB = copyDefaults(DEFAULTS, db)
 	ns.db = ReforgedUIDB
+	repairEditModeLayouts()
 
 	local root = CreateFrame("Frame", "ReforgedUIConsole", UIParent, "SecureHandlerStateTemplate")
 	root:SetFrameStrata("BACKGROUND")

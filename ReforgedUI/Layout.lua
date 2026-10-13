@@ -201,7 +201,10 @@ end
 
 Layout.THEMES = { "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers", "forsaken" }
 -- The race themes are the original faction art recoloured (tools/make_race_themes.py),
--- so their pieces have that faction's shapes and take its layout corrections.
+-- so their pieces have that faction's windows and take its layout corrections.
+-- A theme with its own outline (wall tops, draw layers, hero wall) adds its own
+-- entries to LEFT_WALL, RIGHT_WALL, HERO_WALL and LAYERS: those are looked up by
+-- theme first, then by base faction.
 Layout.BASE = {
 	dwarf = "human", gnome = "human", tauren = "orc", troll = "orc", highorder = "nightelf", windshapers = "nightelf",
 	forsaken = "undead",
@@ -428,7 +431,7 @@ local function buildTarget(L, s, t, MT, xp)
 		}
 	end
 
-	local wall = (HERO_WALL[t] or 0.54) * s
+	local wall = (HERO_WALL[L.theme] or HERO_WALL[t] or 0.54) * s
 	L.heroWallTop = wall
 
 	-- Target of target: a small unit icon standing on the wall above the
@@ -823,7 +826,7 @@ local function build(W, H, o, X0, chatW)
 	-- `art` is the theme's art folder, `t` the faction whose shapes it has.
 	local s, m, art = o.s, o.m, o.theme
 	local t = Layout.BASE[art] or art
-	local layers = LAYERS[t]
+	local layers = LAYERS[art] or LAYERS[t]
 	local L = { W = W, H = H, s = s, m = m, theme = art, base = t, pieces = {}, byKey = {} }
 
 	-- Art pieces. `frame` says which of the original addon's frames the piece belongs to,

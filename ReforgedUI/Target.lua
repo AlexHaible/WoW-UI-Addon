@@ -13,7 +13,8 @@
 --    (Hero.CreateLevelPlate, Hero.MakeBar).
 --
 -- In both, the target's target is a small unit icon on the wall above the
--- portrait. Clicks go to our own secure unit buttons: left-click targets the
+-- portrait, and its buffs and debuffs are rows of icons beside it (above the
+-- plate in plate mode); hover one for its tooltip. Clicks go to our own secure unit buttons: left-click targets the
 -- unit, right-click opens its menu. Their visibility follows the units
 -- through RegisterUnitWatch, so nothing secure is shown, hidden or moved in
 -- combat; the swap itself only changes non-secure visuals.
@@ -27,6 +28,8 @@ local Target = ns:RegisterModule("target", {})
 
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
 local MAX_COMBO = 5
+local AURA_ROWS = 2 -- rows each for debuffs and buffs
+local DEBUFF_DEFAULT = { r = 0.8, g = 0, b = 0 }
 Target.MODES = { "swap", "plate" }
 
 local REACTION = {
@@ -371,6 +374,144 @@ function Target:CreateToT()
 	self.tot = b
 end
 
+----------------------------------------------------------------------------
+-- Buffs and debuffs. Aura data can hold secret values: they only ever go
+-- into widgets, and anything that would compare or do sums on them runs
+-- under pcall (a failure leaves that part blank).
+
+local function getAura(index, filter)
+	local auraAPI = _G.C_UnitAuras or {}
+	if auraAPI.GetAuraDataByIndex then
+		local ok, data = pcall(auraAPI.GetAuraDataByIndex, "target", index, filter)
+		return ok and data or nil
+	end
+	local unitAura = _G.UnitAura
+	if unitAura then
+		local ok, name, icon, count, dispel, duration, expires = pcall(unitAura, "target", index, filter)
+		if ok and name then
+			return { name = name, icon = icon, applications = count, dispelName = dispel, duration = duration,
+				expirationTime = expires }
+		end
+	end
+end
+
+local function auraButton(parent, filter)
+	local b = CreateFrame("Frame", nil, parent)
+	b:EnableMouse(true)
+	b.filter = filter
+	b.border = b:CreateTexture(nil, "BACKGROUND")
+	b.border:SetTexture(ns:ArtPath("other\\white_background"))
+	b.border:SetPoint("TOPLEFT", b, "TOPLEFT", -1, 1)
+	b.border:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetAllPoints(b)
+	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
+	b.cd:SetAllPoints(b)
+	if b.cd.SetHideCountdownNumbers then
+		b.cd:SetHideCountdownNumbers(true)
+	end
+	b.count = b:CreateFontString(nil, "OVERLAY")
+	font(b.count, 9)
+	b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -1)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
+		local byID = self.filter == "HELPFUL" and GameTooltip.SetUnitBuffByAuraInstanceID
+			or GameTooltip.SetUnitDebuffByAuraInstanceID
+		if byID and self.auraID then
+			pcall(byID, GameTooltip, "target", self.auraID, self.filter)
+		elseif GameTooltip.SetUnitAura then
+			pcall(GameTooltip.SetUnitAura, GameTooltip, "target", self.index, self.filter)
+		end
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	return b
+end
+
+local function setAura(b, data, index)
+	local auraAPI = _G.C_UnitAuras or {}
+	b.index, b.auraID = index, data.auraInstanceID
+	b.icon:SetTexture(data.icon)
+	-- Stacks.
+	local stacks
+	if auraAPI.GetAuraApplicationDisplayCount and data.auraInstanceID then
+		local ok, text = pcall(auraAPI.GetAuraApplicationDisplayCount, "target", data.auraInstanceID, 2, 999)
+		stacks = ok and text or ""
+	else
+		local ok, text = pcall(function()
+			return (data.applications or 0) > 1 and tostring(data.applications) or ""
+		end)
+		stacks = ok and text or ""
+	end
+	b.count:SetText(stacks)
+	-- Time left, as a sweep.
+	local timed = pcall(function()
+		if data.duration and data.duration > 0 then
+			b.cd:SetCooldown(data.expirationTime - data.duration, data.duration)
+		else
+			b.cd:Clear()
+		end
+	end)
+	if not timed then
+		b.cd:Clear()
+	end
+	-- Debuffs framed in their dispel colour, buffs in black.
+	if b.filter == "HARMFUL" then
+		local ok, c = pcall(function()
+			local colors = _G.DebuffTypeColor
+			return colors and colors[data.dispelName or "none"]
+		end)
+		c = ok and c or DEBUFF_DEFAULT
+		b.border:SetVertexColor(c.r, c.g, c.b, 1)
+	else
+		b.border:SetVertexColor(0, 0, 0, 1)
+	end
+end
+
+function Target:CreateAuras()
+	local f = CreateFrame("Frame", nil, ns.root)
+	f:SetFrameStrata("LOW")
+	f:SetFrameLevel(20)
+	f:SetAllPoints(ns.root)
+	f:Hide()
+	self.auras = { frame = f, HARMFUL = {}, HELPFUL = {} }
+end
+
+function Target:UpdateAuras()
+	local A, L = self.auras, self.layout
+	local v = self:View()
+	A.frame:SetShown(v ~= nil and L ~= nil)
+	if not (v and L) then
+		return
+	end
+	local T = L.targetAuras
+	local spot = v == self.plate and T.plate or T.swap
+	local step = T.size + T.gap
+	local perRow = math.max(1, math.floor((spot.x1 - spot.x0 + T.gap) / step))
+	local row = 0
+	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
+		local list, shown = A[filter], 0
+		for i = 1, perRow * AURA_ROWS do
+			local data = getAura(i, filter)
+			if not data then
+				break
+			end
+			local b = list[i] or auraButton(A.frame, filter)
+			list[i] = b
+			local col, line = (i - 1) % perRow, math.floor((i - 1) / perRow)
+			place(b, { x = spot.x0 + col * step, y = spot.y + (row + line) * step, w = T.size, h = T.size })
+			setAura(b, data, i)
+			b:Show()
+			shown = i
+		end
+		for i = shown + 1, #list do
+			list[i]:Hide()
+		end
+		row = row + math.ceil(shown / perRow)
+	end
+end
+
 function Target:OnEnable()
 	ns:Conceal(TargetFrame)
 	ns:Conceal(TargetFrameToT)
@@ -381,6 +522,7 @@ function Target:OnEnable()
 	-- plate in plate mode (above the hero's own player button).
 	self.button = secureButton("ReforgedUITargetButton", "target", 30)
 	self:CreateToT()
+	self:CreateAuras()
 
 	local function unitEvent(events, fn)
 		for _, e in ipairs(events) do
@@ -396,6 +538,7 @@ function Target:OnEnable()
 	unitEvent({ "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION", "UNIT_CLASSIFICATION_CHANGED" }, self.UpdateName)
 	unitEvent({ "UNIT_MODEL_CHANGED", "UNIT_PORTRAIT_UPDATE" }, self.UpdateModel)
 	unitEvent({ "UNIT_TARGET" }, self.UpdateToT)
+	unitEvent({ "UNIT_AURA" }, self.UpdateAuras)
 	unitEvent({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }, self.UpdateCast)
@@ -433,6 +576,7 @@ function Target:Refresh()
 	if active then
 		self:UpdateAll()
 	end
+	self:UpdateAuras()
 end
 
 function Target:UpdateAll()

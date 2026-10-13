@@ -130,7 +130,7 @@ end
 function methods:SetRotation(r) assert(type(r) == "number" and r == r, "bad rotation"); self._rotation = r end
 function methods:GetZoom() return 2 end
 function methods:GetZoomLevels() return 6 end
-function methods:SetTexture(path) if path then assert(type(path) == "string") end self._tex = path end
+function methods:SetTexture(path) if path then assert(type(path) == "string" or type(path) == "number") end self._tex = path end
 function methods:SetTexCoord(...)
 	for i = 1, select("#", ...) do
 		local v = select(i, ...)
@@ -1275,6 +1275,42 @@ do
 	for i, pip in ipairs(target.swap.combo) do
 		assert(pip.gem:IsShown() == (i <= 3) and pip.socket:IsShown(), "three combo points lit")
 	end
+	-- Buffs and debuffs: debuffs in the first row, buffs after them, each
+	-- capped at two rows; secret durations leave the sweep blank.
+	local secretDuration = setmetatable({}, { __lt = function() error("compared a secret value") end,
+		__le = function() error("compared a secret value") end,
+		__sub = function() error("did sums on a secret value") end })
+	C_UnitAuras = {
+		GetAuraDataByIndex = function(_, i, filter)
+			if filter == "HARMFUL" and i <= 3 then
+				return { icon = 100 + i, auraInstanceID = i, applications = i, dispelName = i == 1 and "Magic" or nil,
+					duration = i == 2 and secretDuration or 10, expirationTime = 20 }
+			elseif filter == "HELPFUL" and i <= 60 then
+				return { icon = 200 + i, auraInstanceID = 100 + i, applications = 0, duration = 0 }
+			end
+		end,
+	}
+	DebuffTypeColor = { Magic = { r = 0.2, g = 0.6, b = 1 }, none = { r = 0.8, g = 0, b = 0 } }
+	fire("UNIT_AURA", "target")
+	do
+		local A, T = target.auras, ns.layout.targetAuras
+		local perRow = math.floor((T.swap.x1 - T.swap.x0 + T.gap) / (T.size + T.gap))
+		local function shown(list)
+			local n = 0
+			for _, b in ipairs(list) do if b:IsShown() then n = n + 1 end end
+			return n
+		end
+		assert(A.frame:IsShown() and shown(A.HARMFUL) == 3 and shown(A.HELPFUL) == 2 * perRow,
+			"target debuffs, and buffs capped at two rows")
+		assert(perRow >= 8, "room for a row of target auras beside the target of target")
+		assert(A.HARMFUL[1].border._vertex[3] == 1 and A.HARMFUL[3].border._vertex[1] == 0.8,
+			"debuffs framed in their dispel colour")
+		A.HARMFUL[2]:GetScript("OnEnter")(A.HARMFUL[2])
+		A.HARMFUL[2]:GetScript("OnLeave")(A.HARMFUL[2])
+	end
+	C_UnitAuras = nil
+	fire("UNIT_AURA", "target")
+	assert(target.auras.HARMFUL[1]:IsShown() == false, "auras gone with the target's auras")
 	-- Secret health: still reaches the bar, never compared, text left empty.
 	secretTarget = true
 	fire("UNIT_HEALTH", "target")
@@ -1312,7 +1348,7 @@ do
 		"clearing the target restores the player's name and level")
 	assert(hero.xp.name._r == 1 and hero.xp.name._g == 1, "the player's name colour is restored")
 	assert(hero.stats[1]:IsShown() and hero.stats[4]:IsShown() and hero.xp.bar:IsShown(), "stat icons come back")
-	assert(not target.swap.frame:IsShown(), "the target bars go away")
+	assert(not target.swap.frame:IsShown() and not target.auras.frame:IsShown(), "the target bars and auras go away")
 	-- Switching the mode in combat: visuals now, the click area after combat.
 	SlashCmdList.REFORGEDUI("target plate")
 	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "/rui target plate")

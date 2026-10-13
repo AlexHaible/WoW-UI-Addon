@@ -44,8 +44,10 @@ screen stays free on either side).
   options (or `/rui target plate`) instead puts the target in a small
   portrait arch standing on the wall above the stats panel. Either way the
   target's target is a small unit icon above the portrait (blue when it is
-  you, else green, yellow or red). Left-click targets, right-click opens the
-  unit menu.
+  you, else green, yellow or red), with the target's debuffs and buffs in
+  rows of icons beside it (above the plate in plate mode; debuffs framed in
+  their dispel colour, a sweep for the time left, hover for the tooltip).
+  Left-click targets, right-click opens the unit menu.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,

@@ -502,6 +502,19 @@ local function buildTarget(L, s, t, MT, xp)
 			or { x = I.x + (I.w - rowW) / 2, y = comboY, size = pip, step = step }
 		L.targetPlate = P
 	end
+
+	-- The target's buffs and debuffs: rows of small icons standing on the
+	-- wall between the target of target and the stance row (above the plate
+	-- in plate mode), debuffs nearest the wall.
+	do
+		local size, gap = 0.085 * s, 0.01 * s
+		local x0, x1 = right(L.tot.frame) + 4, L.stance.x - 4
+		L.targetAuras = {
+			size = size, gap = gap,
+			swap = { x0 = x0, x1 = x1, y = wall + 6 }, -- level with the target of target
+			plate = { x0 = x0, x1 = x1, y = L.targetPlate.top + 4 },
+		}
+	end
 end
 
 local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)

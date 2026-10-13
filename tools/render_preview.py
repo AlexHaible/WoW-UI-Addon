@@ -344,6 +344,14 @@ def render(path, w, theme, s=240, m=10, target=None):
         plate(c, L["targetPlate"], T)
     if target:
         tot(c, L)
+        # Its debuffs (3) on the first row, buffs (5) on the next.
+        A = L["targetAuras"]
+        spot, size, step = A[target], A["size"], A["size"] + A["gap"]
+        for row, (n, edge, seed0) in enumerate(((3, (200, 0, 0, 255), 600), (5, (0, 0, 0, 255), 650))):
+            for i in range(n):
+                x, y = spot["x0"] + i * step, spot["y"] + row * step
+                c.rect(x - 1, y - 1, size + 2, size + 2, fill=edge)
+                c.paste(icon(seed0 + i), x, y, size, size)
     # Action bars 1-3.
     seed = 100
     for key in ("main", "bar2", "bar3"):

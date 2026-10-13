@@ -10,12 +10,14 @@ local TopBar = ns:RegisterModule("topbar", {})
 local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 
 -- Label, Blizzard micro button to click (secure), and a fallback function for
--- clients without that button.
+-- clients without that button. `cover` is a Blizzard button laid, invisible,
+-- over ours so the player clicks it directly: the game menu button opens on
+-- its own mouse-up (a secure click does nothing), and opening the menu from
+-- addon code is blocked (ToggleGameMenu stops spell casts) or taints the menu
+-- and the Edit Mode button in it.
 local BUTTONS = {
 	{ label = QUESTLOG_BUTTON or "Quests", micro = { "QuestLogMicroButton" }, fallback = "ToggleQuestLog" },
-	-- The game menu micro button opens on mouse-up rather than OnClick, so a
-	-- secure click on it does nothing; open the menu directly instead.
-	{ label = MAINMENU_BUTTON or "Menu", micro = {}, fallback = "ToggleGameMenu" },
+	{ label = MAINMENU_BUTTON or "Menu", micro = {}, cover = "MainMenuMicroButton" },
 	{ label = SOCIAL_BUTTON or "Allies", micro = { "SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton" },
 		fallback = "ToggleFriendsFrame" },
 	{ label = WORLD_MAP or "Map", micro = { "WorldMapMicroButton" }, fallback = "ToggleWorldMap" },
@@ -333,13 +335,19 @@ function TopBar:OnEnable()
 	for i, spec in ipairs(BUTTONS) do
 		local target = firstGlobal(spec.micro)
 		local fallback = spec.fallback and _G[spec.fallback]
-		if target or fallback then
+		local cover = spec.cover and _G[spec.cover]
+		if cover and ns.IsForbidden(cover) then
+			cover = nil
+		end
+		if target or fallback or cover then
 			local plate = ns.Art.CreateInset(self.holder, 50)
 			plate.text = plate:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			plate.text:SetPoint("CENTER")
 			plate.text:SetText(spec.label)
 			local btn
-			if target then
+			if cover then
+				self:SetupCover(plate, cover)
+			elseif target then
 				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate, "SecureActionButtonTemplate")
 				btn:SetAttribute("type", "click")
 				btn:SetAttribute("clickbutton", target)
@@ -348,8 +356,10 @@ function TopBar:OnEnable()
 				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate)
 				btn:SetScript("OnClick", function() fallback() end)
 			end
-			btn:SetAllPoints()
-			btn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+			if btn then
+				btn:SetAllPoints()
+				btn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+			end
 			plate.button = btn
 			self.buttons[#self.buttons + 1] = plate
 		end
@@ -367,6 +377,50 @@ function TopBar:OnEnable()
 			end
 		end)
 	end
+end
+
+-- Makes Blizzard's button `b` an invisible, clickable cover for `plate`: it
+-- stays transparent and takes the mouse whatever else sets, and lights the
+-- plate up on hover. Nothing of Blizzard's runs from our code.
+function TopBar:SetupCover(plate, b)
+	plate.cover = b
+	plate.hl = plate:CreateTexture(nil, "OVERLAY")
+	plate.hl:SetAllPoints()
+	plate.hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+	plate.hl:SetBlendMode("ADD")
+	plate.hl:Hide()
+	b:HookScript("OnEnter", function() plate.hl:Show() end)
+	b:HookScript("OnLeave", function() plate.hl:Hide() end)
+	local busy
+	local function keep(f)
+		if busy then
+			return
+		end
+		busy = true
+		f:SetAlpha(0)
+		if not InCombatLockdown() then
+			f:EnableMouse(true)
+		end
+		busy = false
+	end
+	hooksecurefunc(b, "SetAlpha", keep)
+	hooksecurefunc(b, "EnableMouse", keep)
+	keep(b)
+end
+
+-- Lays `b` exactly over `plate`, on top of the top bar.
+local function coverPlate(b, plate)
+	local left, bottom = plate:GetLeft(), plate:GetBottom()
+	if not left then
+		return
+	end
+	local parent = b:GetParent() or UIParent
+	local pe = plate:GetEffectiveScale()
+	b:SetScale(pe / parent:GetEffectiveScale())
+	b:SetSize(plate:GetWidth(), plate:GetHeight())
+	b:SetFrameStrata("HIGH")
+	b:ClearAllPoints()
+	b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * pe / b:GetEffectiveScale(), bottom * pe / b:GetEffectiveScale())
 end
 
 function TopBar:UpdateClock()
@@ -391,6 +445,9 @@ function TopBar:OnLayout()
 			place(plate, r)
 		end
 		plate:SetShown(r and true or false)
+		if plate.cover and r then
+			ns:Lock(plate.cover, function(b) coverPlate(b, plate) end, { "SetScale" })
+		end
 	end
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)

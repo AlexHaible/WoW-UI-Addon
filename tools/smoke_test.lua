@@ -70,6 +70,10 @@ function methods:ClearAllPoints() self._points = {} end
 function methods:GetPoint(i) local p = self._points[i or 1]; if p then return unpack(p) end end
 function methods:GetTop() return 100 end
 function methods:GetBottom() return 10 end
+function methods:GetLeft() return 20 end
+function methods:SetFrameStrata(s) self._strata = s end
+function methods:SetBlendMode() end
+function methods:HookScript(k, fn) self._hooks = self._hooks or {}; self._hooks[k] = fn end
 function methods:SetShown(v) self._shown = not not v end
 function methods:Show() self._shown = true end
 function methods:Hide() self._shown = false end
@@ -660,5 +664,15 @@ for _, e in ipairs({ "UNIT_HEALTH", "UNIT_POWER_UPDATE", "PLAYER_XP_UPDATE", "BA
 end
 flushTimers()
 slash("feeds")
+-- The top bar's Menu button is Blizzard's game menu button laid over it,
+-- invisible and clickable, so no addon code opens the menu.
+do
+	local b = MainMenuMicroButton
+	local _, rel = b:GetPoint(1)
+	assert(rel == UIParent, "game menu button anchored to UIParent")
+	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button invisible but clickable")
+	b:SetAlpha(1); b:EnableMouse(false)
+	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button stays invisible and clickable")
+end
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

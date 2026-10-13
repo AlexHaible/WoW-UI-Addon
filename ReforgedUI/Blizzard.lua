@@ -53,10 +53,11 @@ function Blizzard:OnEnable()
 		self.micro = nil
 	elseif not self.micro then
 		-- Classic-style clients: micro buttons are loose children of the main
-		-- bar, so line them up one by one.
+		-- bar, so line them up one by one. The game menu button sits over the
+		-- top bar's Menu button instead.
 		self.microButtons = {}
 		for _, name in ipairs(MICRO_NAMES) do
-			if _G[name] then
+			if _G[name] and name ~= "MainMenuMicroButton" then
 				self.microButtons[#self.microButtons + 1] = _G[name]
 			end
 		end

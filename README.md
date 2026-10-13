@@ -55,7 +55,12 @@ screen stays free on either side).
   left. Clicks go through Blizzard's own bag buttons, so bag addons such as
   BetterBags open as usual; drag a bag onto a slot to equip it.
 - **Chat area**: the main chat window and its input box fill the black area
-  at the right end of the console, which can be raised.
+  at the right end of the console, which can be raised. The options
+  cogwheel sits in its bottom-right corner.
+- **End caps**: a pillar in the theme's style closes each end of the
+  console, since it always stands in mid-screen. On 21:9 the chat area
+  narrows a little where it needs to for both to fit; on 16:9 they are past
+  the screen edges.
 - **Top bar** (Reforged UI) with Quests, Menu, Allies and Map buttons, the
   day/night clock in the middle with Blizzard's micro buttons either side of
   it (character, professions, talents, achievements, group finder,
@@ -82,8 +87,7 @@ click-through; only their buttons move into the console.)
 
 ## Options
 
-Move the mouse to the bottom-right corner of the screen and click the
-cogwheel (or type `/rui config`, or use Options > AddOns > Reforged UI). The
+Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI). The
 menu keeps the original addon's options, minus the layout ones (the centre modes, chat
 area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
@@ -220,6 +224,12 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   the original faction art: a gradient map per material (stone, trim, accents,
   dark fills) that keeps alpha and the original's shading. Palettes are at the
   top of the script. Needs Pillow and NumPy.
+- `python3 tools/make_endcaps.py [theme ...]` builds the stand-in end caps
+  (`art/<theme>/endcaps/endcap_{left,right}_gen.tga`) from each theme's
+  inventory pillar. Real end cap art goes in as `endcap_left.tga` /
+  `endcap_right.tga` and is listed in `Layout.ENDCAP_ART` with its size and
+  overlap; it then replaces the stand-ins. Dwarf (hand-built art) borrows
+  Human's until its own exist.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

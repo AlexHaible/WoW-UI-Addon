@@ -23,7 +23,7 @@ REPO = os.path.normpath(os.path.join(HERE, ".."))
 ADDON = os.path.join(REPO, "ReforgedUI")
 OUT = os.path.join(REPO, "docs", "previews")
 
-FRAMES = {"bg": 0, "left": 1, "grid": 2, "right": 3}
+FRAMES = {"bg": 0, "left": 1, "grid": 2, "right": 3, "cap": 4}
 LAYERS = {"BACKGROUND": 0, "BORDER": 1, "ARTWORK": 2, "OVERLAY": 3}
 TOPBAR = {  # mirrors Themes.lua
     "human": ("Human", (255, 209, 0), (5, 10, 26, 224), (217, 173, 77)),
@@ -351,6 +351,9 @@ def render(path, w, theme, s=240, m=10, target=None):
         c.rect(ch["x"], ch["y"], ch["w"], ch["h"], outline=(255, 255, 0, 90))
         e = L["chatEdit"]
         c.rect(e["x"], e["y"] + 2, e["w"], e["h"] - 4, fill=(20, 20, 20, 255), outline=(110, 110, 110, 255))
+    if L.get("cogwheel"):
+        g = L["cogwheel"]
+        c.paste(art("other\\cogwheel"), g["x"], g["y"], g["w"], g["h"])
     # Top bar, rendered at its own scale and laid over the console.
     T = L["topBar"]
     tc = Canvas(T["W"], T["H"], world=False)

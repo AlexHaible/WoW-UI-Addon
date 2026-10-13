@@ -939,16 +939,21 @@ for _, key in ipairs(ns.THEME_ORDER) do
 		local path = ADDON .. "Media/" .. theme.folder .. "/" .. file .. ".tga"
 		assert(exists(path), "missing " .. path)
 	end
-	local files = {}
+	local files, borrowed = {}, {}
 	for _, s in ipairs({ 240, 250, 270 }) do
 		local LL = Layout.Compute(1792, 768, { s = s, m = 10, theme = key, zoneTextPos = 1 })
 		for _, piece in ipairs(LL.pieces) do
 			files[piece.file] = true
+			-- A theme without end caps of its own borrows its base faction's.
+			if LL.endcaps.fallback and piece.key:find("^endcap_") then
+				borrowed[piece.file] = true
+			end
 		end
 	end
 	for file in pairs(files) do
-		assert(file:sub(1, #key + 1) == key .. "\\" or file:sub(1, 6) == "other\\",
-			file .. " is not in " .. key .. "'s folder")
+		local folder = borrowed[file] and base or key
+		assert(file:sub(1, #folder + 1) == folder .. "\\" or file:sub(1, 6) == "other\\",
+			file .. " is not in " .. folder .. "'s folder")
 		local path = ADDON .. "art/" .. file:gsub("\\", "/") .. ".tga"
 		assert(exists(path), "missing " .. path)
 	end
@@ -990,6 +995,81 @@ for _, key in ipairs(ns.THEME_ORDER) do
 		end
 	end
 end
+-- End caps: every theme has a pillar at each end of the console (its own,
+-- or its base faction's while its art is missing), standing outside the
+-- console's content; on 21:9 and 32:9 both are on screen and the whole
+-- console, caps included, is centred.
+do
+	local O = Layout.Overlaps
+	for _, key in ipairs(ns.THEME_ORDER) do
+		local C = Layout.EndcapArt(key)
+		assert(C.fallback == (key == "dwarf"), key .. ": only Dwarf (hand-built art) borrows its end caps")
+		for _, side in ipairs({ "left", "right" }) do
+			local path = ADDON .. "art/" .. C.folder .. "/" .. C[side]:gsub("\\", "/") .. ".tga"
+			assert(exists(path), "missing end cap " .. path)
+		end
+		for _, W in ipairs({ 1792, 1834.67, 2730.67, 1365.33 }) do
+			for _, s in ipairs({ 240, 250, 260, 270 }) do
+				for _, m in ipairs({ 0, 10, 150 }) do
+					for _, above in ipairs({ false, true }) do
+						local LL = Layout.Compute(W, 768, { s = s, m = m, theme = key, zoneTextPos = 1, chatInputAbove = above })
+						local where = ("%s W %s s %d m %d"):format(key, W, s, m)
+						local E = LL.endcaps
+						local l, r = E.left, E.right
+						assert(LL.byKey.endcap_left and LL.byKey.endcap_right_head, "end cap pieces missing: " .. where)
+						assert(l.x + l.w > LL.minimapArt.x and l.x + l.w <= LL.minimapArt.x + E.overlap + 0.01
+							and l.x < LL.minimapArt.x, "left cap not at the console's left end: " .. where)
+						assert(r.x < LL.rightPoint and r.x >= LL.rightPoint - E.overlap - 0.01
+							and r.x + r.w > LL.rightPoint, "right cap not at the console's right end: " .. where)
+						for _, cap in ipairs({ E.leftShaft, E.rightShaft }) do
+							for _, what in ipairs({ "minimap", "chat", "chatEdit", "cogwheel" }) do
+								assert(not O(cap, LL[what]), "end cap over the " .. what .. ": " .. where)
+							end
+							for _, b in ipairs(LL.minimapSlots) do
+								assert(not O(cap, b), "end cap over a minimap slot: " .. where)
+							end
+						end
+						for _, cap in ipairs({ l, r }) do
+							assert(cap.h > LL.s * 0.5 and cap.y == 0, "end caps stand on the floor: " .. where)
+						end
+						-- The caps rise above the wall at their end.
+						assert(r.y + r.h > LL.rightWallTop, "right cap below the chat wall: " .. where)
+						-- The cogwheel: in the chat area's bottom-right corner, inside
+						-- its frame, clear of the chat input box.
+						local g, bg = LL.cogwheel, LL.byKey.chat_bg.rect
+						assert(g.x + g.w <= LL.byKey.br_middle.rect.x and g.x + g.w > LL.chat.x + LL.chat.w - 30
+							and g.y < LL.chat.y + 30 and g.y >= bg.y, "cogwheel not in the chat area's corner: " .. where)
+						assert(not O(g, LL.chatEdit) and g.x + g.w <= bg.x + bg.w, "cogwheel over the input box: " .. where)
+						if W >= 1792 then
+							assert(l.x >= -0.01 and r.x + r.w <= W + 0.01, "end caps off screen: " .. where)
+							local gapL, gapR = l.x, W - (r.x + r.w)
+							assert(math.abs(gapL - gapR) <= 2, ("console with caps not centred (%.1f vs %.1f): %s"):format(gapL, gapR, where))
+							assert(LL.byKey.endcap_left.shown and LL.byKey.endcap_right.shown, "end caps hidden: " .. where)
+							if W >= 2730 then
+								assert(math.abs(LL.byKey.chat_bg.rect.w - 2.2 * s) < 0.01, "32:9 keeps the original addon's chat width: " .. where)
+							end
+						else
+							-- 16:9 as in the original addon: the chat area reaches the screen edge,
+							-- the caps go past the edges.
+							assert(LL.shift == 0 and math.abs(LL.rightPoint - W) < 0.01, "16:9 layout changed: " .. where)
+						end
+					end
+				end
+			end
+		end
+	end
+	-- A theme listed with real end cap art uses it.
+	Layout.ENDCAP_ART.orc = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right", w = 0.3, h = 0.9, overlap = 0.05, head = 0.2 }
+	local LL = Layout.Compute(2730.67, 768, { s = 240, m = 10, theme = "orc", zoneTextPos = 1 })
+	assert(LL.byKey.endcap_left.file == "orc\\endcaps\\endcap_left" and LL.endcaps.real, "real end cap art is preferred")
+	assert(math.abs(LL.endcaps.left.w - 72) < 0.01 and math.abs(LL.endcaps.left.h - 216) < 0.01, "real caps keep their size")
+	Layout.ENDCAP_ART.orc = nil
+	-- In the game: the cogwheel follows the layout and stays above the chat.
+	local cog = ns.modules.config.cogwheel
+	at(cog, ns.layout.cogwheel.x, ns.layout.cogwheel.y, "cogwheel")
+	assert(cog._strata == "HIGH", "the cogwheel stays clickable above the chat frame")
+end
+
 updateContainerFrameAnchors()
 slash("status")
 slash("bogus")

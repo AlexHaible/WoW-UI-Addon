@@ -244,6 +244,66 @@ local FILLER_ART = {
 Layout.FILLER_ART = FILLER_ART
 
 ----------------------------------------------------------------------------
+-- End caps: the console is always centred, so both of its ends stand in
+-- mid-screen; a pillar closes each end. Sizes are in units of the UI scale
+-- `s`: `w` and `h` the cap's natural size, `overlap` how far it reaches over
+-- the console's edge (the minimap block's left edge, the chat area's right
+-- edge), `head` the share of its height at the top (the crown) that keeps its
+-- proportions when the cap is stretched or squeezed to the wall's height,
+-- `inset` (optional) the share of its width on either side that only the
+-- crown reaches (the shaft below is that much narrower).
+-- With `rise` the cap's top is fitted to `rise` above that end's wall top;
+-- without it the cap keeps its natural height (taller where the chat area
+-- is raised above it). Files are under art/<theme>/.
+--
+-- Themes with real end cap art are listed in ENDCAP_ART; every other theme
+-- uses the stand-in caps tools/make_endcaps.py builds from its own art
+-- (ENDCAP_GEN), and a theme without those (Dwarf, whose hand-built art does
+-- not go through that tool) borrows its base faction's.
+Layout.ENDCAP_ART = {
+	-- human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+	--	w = 0.25, h = 0.8, overlap = 0.02, head = 0.3 },
+}
+Layout.ENDCAP_GEN = {
+	left = "endcaps\\endcap_left_gen", right = "endcaps\\endcap_right_gen",
+	w = 0.26, h = 0.8125, overlap = 0.065, head = 0.25, inset = 0.2, rise = 0.07,
+}
+-- Themes tools/make_endcaps.py builds stand-in caps for.
+Layout.ENDCAP_GEN_THEMES = {
+	human = true, orc = true, undead = true, nightelf = true, gnome = true, tauren = true, troll = true,
+	highorder = true, windshapers = true,
+}
+-- The chat area gives up width so the caps fit beside it, down to this
+-- (times s); below that the caps go past the screen edges instead.
+Layout.ENDCAP_CHAT_MIN = 1.6
+
+-- The cap spec for a theme, with `folder` the art folder its files are in
+-- and `fallback` set when it is borrowed from the base faction.
+function Layout.EndcapArt(theme)
+	local real = Layout.ENDCAP_ART[theme]
+	local spec, folder, fallback = real, theme, false
+	if not real then
+		spec = Layout.ENDCAP_GEN
+		if not Layout.ENDCAP_GEN_THEMES[theme] then
+			folder, fallback = Layout.BASE[theme] or "human", true
+			if Layout.ENDCAP_ART[folder] then
+				spec = Layout.ENDCAP_ART[folder]
+			end
+		end
+	end
+	local out = { folder = folder, fallback = fallback, real = real ~= nil }
+	for k, v in pairs(spec) do
+		out[k] = v
+	end
+	return out
+end
+
+-- Where each end's wall tops out: the minimap block's battlement (share of
+-- s) and the BottomRight_Top piece's (share of its height from its top).
+local LEFT_WALL = { human = 0.734, orc = 0.664, undead = 0.697, nightelf = 0.693 }
+local RIGHT_WALL = { human = 73 / 128, orc = 46 / 128, undead = 50 / 128, nightelf = 54 / 128 }
+
+----------------------------------------------------------------------------
 -- Target display (Target.lua).
 
 -- The art of the target's wall plate, all in one place so better art can
@@ -337,7 +397,7 @@ local function buildTarget(L, s, t, MT, PT, xp, themed)
 	end
 end
 
-local function buildRight(L, o, W, g, add, themed, themedLayer)
+local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 	local s, m, t = o.s, o.m, Layout.BASE[o.theme] or o.theme
 	local d1 = ({ human = 2, orc = 1, undead = 1 })[t] or 0
 	local d2 = ({ human = 2, orc = 1 })[t] or 0
@@ -358,8 +418,9 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	local lid = rect(RM.x + 0.2833333333 * s - shiftWidth, -0.3166 * s + m, s, s)
 	local lidTc
 	local bg = rect(right(RL) + 3, 0, 0, 0.5578 * s + m)
-	-- The original addon's default width, or up to the screen edge where that is less.
-	bg.w = max(0, min(2.2 * s, W - bg.x))
+	-- The original addon's default width, or up to the screen edge where that is less
+	-- (Compute narrows it further to make room for the end caps).
+	bg.w = chatW or max(0, min(2.2 * s, W - bg.x))
 
 	local aeh = 0
 	if s >= 250 and s <= 259 then aeh = -3 elseif s > 259 then aeh = -6 end
@@ -585,6 +646,8 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	end
 
 	L.rightPoint = right(bg)
+	L.chatBgX = bg.x
+	L.rightWallTop = brTop.y + brTop.h * (1 - RIGHT_WALL[t])
 
 	-- Chat window: inside the black area, clear of the frame pieces, down to
 	-- the floor trim (the bottom pieces' art is about 0.03s tall).
@@ -594,12 +657,16 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 		local y0 = brBot.y + 0.03 * s + 1
 		local y1 = brTop.y + 0.03 * s
 		local edit = 26
+		-- The options cogwheel stands in the bottom-right corner of the chat
+		-- area; an input box along the bottom stops short of it.
+		local cog = 22
+		L.cogwheel = rect(x1 + 4 - cog, y0 + 1, cog, cog)
 		if o.chatInputAbove then
 			L.chat = rect(x0, y0, x1 - x0, y1 - y0 - edit)
 			L.chatEdit = rect(x0 - 4, y1 - edit + 2, x1 - x0 + 8, edit - 2)
 		else
 			L.chat = rect(x0, y0 + edit, x1 - x0, y1 - y0 - edit)
-			L.chatEdit = rect(x0 - 4, y0, x1 - x0 + 8, edit - 2)
+			L.chatEdit = rect(x0 - 4, y0, x1 - x0 + 8 - cog - 4, edit - 2)
 		end
 	end
 	-- Bags in the 2x3 inventory, the key ring standing to its left.
@@ -618,7 +685,45 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	L.consoleTop = max(top(brTop), L.stanceTop) + 4
 end
 
-local function build(W, H, o, X0)
+-- The end caps: a pillar at each end of the console, its crown (`head`)
+-- kept in proportion and its shaft fitted to the height.
+local function buildCaps(L, W, add)
+	local s, t = L.s, L.base
+	local C = Layout.EndcapArt(L.theme)
+	local w, ov = C.w * s, C.overlap * s
+	local headH = C.head * C.h * s
+	local function capTop(wall)
+		if C.rise then
+			return wall + C.rise * s
+		end
+		return max(C.h * s, wall + 0.02 * s)
+	end
+	local leftX = L.minimapArt.x + ov - w
+	local rightX = L.rightPoint - ov
+	L.endcaps = {
+		fallback = C.fallback, real = C.real, overlap = ov,
+		left = rect(leftX, 0, w, capTop(LEFT_WALL[t] * s)),
+		right = rect(rightX, 0, w, capTop(L.rightWallTop)),
+	}
+	-- The shafts (below the crowns), which must stay clear of the content.
+	local inset = (C.inset or 0) * w
+	for _, side in ipairs({ "left", "right" }) do
+		local r = L.endcaps[side]
+		L.endcaps[side .. "Shaft"] = rect(r.x + inset, 0, w - 2 * inset, r.h - min(headH, r.h) * 0.5)
+	end
+	for _, side in ipairs({ "left", "right" }) do
+		local r = L.endcaps[side]
+		local file = C.folder .. "\\" .. C[side]
+		local hh = min(headH, r.h)
+		local shown = right(r) > 0 and r.x < W
+		local shaft = add("endcap_" .. side, "cap", file, "ARTWORK", 0, rect(r.x, 0, w, r.h - hh), { 0, 1, C.head, 1 })
+		local head = add("endcap_" .. side .. "_head", "cap", file, "OVERLAY", 0, rect(r.x, r.h - hh, w, hh),
+			{ 0, 1, 0, C.head })
+		shaft.shown, head.shown = shown, shown
+	end
+end
+
+local function build(W, H, o, X0, chatW)
 	-- `art` is the theme's art folder, `t` the faction whose shapes it has.
 	local s, m, art = o.s, o.m, o.theme
 	local t = Layout.BASE[art] or art
@@ -814,18 +919,36 @@ local function build(W, H, o, X0)
 	add("ext2", "left", themed("actionbar\\ext1"), l2, s2, ext2, tc2)
 	add("ext3", "left", themed("actionbar\\ext2"), l3, s3, ext3, tc3)
 
-	buildRight(L, o, W, g, add, themed, themedLayer)
+	buildRight(L, o, W, g, add, themed, themedLayer, chatW)
+	buildCaps(L, W, add)
 	return L
 end
 
 -- o: s (240-270), m (raise the chat area, 0-150), theme, zoneTextPos (1-3), portraitX/Y (100 = default), portraitScale (0-35),
 -- chatInputAbove.
+--
+-- The whole console, end caps included, is centred: with the original addon's chat
+-- width where it fits, else the chat area narrows to make room for the caps
+-- (down to ENDCAP_CHAT_MIN), else (16:9) the chat area reaches the screen
+-- edge as in the original addon and the caps go past the screen edges.
 function Layout.Compute(W, H, o)
-	local L = build(W, H, o, 0)
-	local dx = max(0, floor((W - L.rightPoint) / 2))
-	if dx > 0 then
-		L = build(W, H, o, dx)
+	local s = o.s
+	local fixed = build(W, H, o, 0).chatBgX -- everything left of the chat area
+	local C = Layout.EndcapArt(o.theme)
+	local room = (C.w - C.overlap) * s -- what each cap adds outside the console
+	local full = 2.2 * s
+	local dx, chatW
+	if W >= fixed + full + 2 * room then
+		chatW = full
+		dx = floor((W - fixed - full) / 2)
+	elseif W - 2 * math.ceil(room) - fixed >= Layout.ENDCAP_CHAT_MIN * s then
+		dx = math.ceil(room)
+		chatW = W - 2 * dx - fixed
+	else
+		chatW = max(0, min(full, W - fixed))
+		dx = max(0, floor((W - fixed - chatW) / 2))
 	end
+	local L = build(W, H, o, dx, chatW)
 	L.shift = dx
 	return L
 end

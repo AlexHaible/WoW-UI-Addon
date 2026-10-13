@@ -1,9 +1,10 @@
 -- The original addon's console art: the minimap and portrait blocks, the wall over the
 -- action grid, the grid itself, the inventory and the frame of the chat area
--- in the bottom-right corner. Every piece is a texture on one of four frames
--- that stack like the original addon's: background < left part < grid < right part
--- (levels 2 and 3, between the background and the left part, hold the
--- portrait: see Hero.lua).
+-- in the bottom-right corner, and the end caps that close the console at both
+-- ends. Every piece is a texture on one of five frames that stack like
+-- The original addon's: background < left part < grid < right part, with the end caps on
+-- top, over the console's edges (levels 2 and 3, between the background and
+-- the left part, hold the portrait: see Hero.lua).
 -- Positions come from Layout.lua; all frames are our own and click-through,
 -- as in the original addon.
 
@@ -17,6 +18,7 @@ local FRAMES = {
 	{ key = "left", level = 4 },
 	{ key = "grid", level = 5 },
 	{ key = "right", level = 6 },
+	{ key = "cap", level = 7 },
 }
 
 function Console:OnEnable()

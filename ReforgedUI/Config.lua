@@ -1,5 +1,5 @@
--- The original addon's options menu, opened with the cogwheel that appears when the mouse
--- is over the bottom-right corner of the screen (or /rui config). The original addon's
+-- The original addon's options menu, opened with the cogwheel in the bottom-right corner of
+-- the chat area (or /rui config). The original addon's
 -- "General" tab in its wording, kept minimal: the console is always laid out
 -- like the original addon's "Center UI" with its chat area and inventory, so the centre
 -- modes, chat width, chat placement and "Hide bags" options are gone.
@@ -286,23 +286,33 @@ function Config:Toggle()
 end
 
 ----------------------------------------------------------------------------
--- The cogwheel: shown while the mouse is over the bottom-right corner.
+-- The cogwheel: in the bottom-right corner of the chat area (Layout.lua
+-- leaves room for it beside the input box), dimmed until the mouse is over
+-- it.
+
+local COG_IDLE = 0.55
 
 function Config:BuildCogwheel()
 	local hover = CreateFrame("Button", "ReforgedUICogwheel", UIParent)
 	hover:SetSize(30, 30)
 	hover:SetPoint("BOTTOMRIGHT", 7, -6)
-	hover:SetFrameStrata("HIGH")
+	hover:SetFrameStrata("HIGH") -- above the chat frame
 	local icon = hover:CreateTexture(nil, "OVERLAY")
 	icon:SetAllPoints()
 	icon:SetTexture(ns:ArtPath("other\\cogwheel"))
-	icon:Hide()
-	hover:SetScript("OnEnter", function() icon:Show() end)
-	hover:SetScript("OnLeave", function() icon:Hide() end)
+	icon:SetAlpha(COG_IDLE)
+	hover:SetScript("OnEnter", function() icon:SetAlpha(1) end)
+	hover:SetScript("OnLeave", function() icon:SetAlpha(COG_IDLE) end)
 	hover:SetScript("OnMouseDown", function() icon:SetVertexColor(0.75, 0.75, 0.75, 1) end)
 	hover:SetScript("OnMouseUp", function() icon:SetVertexColor(1, 1, 1, 1) end)
 	hover:SetScript("OnClick", function() self:Toggle() end)
 	self.cogwheel = hover
+end
+
+function Config:OnLayout(L)
+	if self.cogwheel and L.cogwheel then
+		ns:PlaceRect(self.cogwheel, L.cogwheel)
+	end
 end
 
 -- A page in the game's options (AddOns tab) that opens the menu.

@@ -541,7 +541,7 @@ local LAYOUT_ALIASES = {
 }
 
 local function usage()
-	ns:Print("commands (the console's own options are in its menu: the cogwheel in the bottom-right corner):")
+	ns:Print("commands (the console's own options are in its menu: the cogwheel in the chat area's bottom-right corner):")
 	print("  /rui config  (open that menu)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds and top bar slots)")

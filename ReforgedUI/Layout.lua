@@ -273,6 +273,8 @@ Layout.ENDCAP_ART = {
 		w = 0.0977, h = 0.9375, overlap = 0.002, head = 0.125, rise = 0 },
 	nightelf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.1895, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
+	forsaken = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.168, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
 	-- Hand-built "Great Forge" versions of the same pillars.
 	dwarf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
@@ -318,8 +320,9 @@ end
 -- These are the tops of the end pieces the caps continue: Orc's beam ends
 -- below the fur tufts and palisade spikes, and Undead's minimap art has the
 -- same stray column as Human's.
-local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693 }
-local RIGHT_WALL = { human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128 }
+-- Keyed by faction, or by theme where a theme's art has its own ends.
+local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693, forsaken = 0.709 }
+local RIGHT_WALL = { human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128, forsaken = 57 / 128 }
 
 ----------------------------------------------------------------------------
 -- Target display (Target.lua).
@@ -350,6 +353,8 @@ Layout.TARGET_ART = {
 			info = { 195, 56, 284, 193 } },
 		nightelf = { portrait = { 39, 57, 121, 143 }, health = { 40, 205, 121, 20 }, power = { 41, 231, 120, 17 },
 			info = { 187, 54, 281, 194 } },
+		forsaken = { portrait = { 87, 85, 104, 121 }, health = { 87, 207, 101, 21 }, power = { 87, 234, 104, 14 },
+			info = { 218, 75, 212, 173 } },
 		dwarf = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
 			info = { 187, 50, 293, 198 } },
 	},
@@ -738,7 +743,7 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 
 	L.rightPoint = right(bg)
 	L.chatBgX = bg.x
-	L.rightWallTop = brTop.y + brTop.h * (1 - RIGHT_WALL[t])
+	L.rightWallTop = brTop.y + brTop.h * (1 - (RIGHT_WALL[o.theme] or RIGHT_WALL[t]))
 
 	-- Chat window: inside the black area, clear of the frame pieces, down to
 	-- the floor trim (the bottom pieces' art is about 0.03s tall).
@@ -793,7 +798,7 @@ local function buildCaps(L, W, add)
 	local rightX = L.rightPoint - ov
 	L.endcaps = {
 		fallback = C.fallback, real = C.real, overlap = ov,
-		left = rect(leftX, 0, w, capTop(LEFT_WALL[t] * s)),
+		left = rect(leftX, 0, w, capTop((LEFT_WALL[L.theme] or LEFT_WALL[t]) * s)),
 		right = rect(rightX, 0, w, capTop(L.rightWallTop)),
 	}
 	-- The shafts (below the crowns), which must stay clear of the content.

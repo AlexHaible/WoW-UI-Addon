@@ -242,6 +242,7 @@ TargetFrame = new("secure", "TargetFrame", UIParent)
 TargetFrameToT = new("secure", "TargetFrameToT", TargetFrame)
 TargetFrame.TargetFrameContainer = new("frame", nil, TargetFrame)
 TargetFrame.TargetFrameContent = new("frame", nil, TargetFrame)
+local targetHealthArt = new("texture", nil, TargetFrame.TargetFrameContent)
 TargetFrameSpellBar = new("frame", "TargetFrameSpellBar", TargetFrame)
 TargetFrameBuff1 = new("button", "TargetFrameBuff1", TargetFrame)
 local targetFrameArt = new("texture", nil, TargetFrame)
@@ -570,18 +571,24 @@ assert(py == -4, "the player frame must not be moved")
 -- target: invisible and click-through, never moved or reparented, all but
 -- the target frame's own aura icons (only Blizzard's code may read them in
 -- combat).
-for _, f in ipairs({ TargetFrameToT, TargetFrame.TargetFrameContainer, TargetFrame.TargetFrameContent,
-	TargetFrameSpellBar }) do
+for _, f in ipairs({ TargetFrameToT, TargetFrameSpellBar, targetHealthArt }) do
 	assert(f._alpha == 0 and #f._points == 0, tostring(f._name) .. " should be concealed, not moved")
 end
+-- Its unnamed inner frames hold the aura icons on modern clients: what is
+-- in them is hidden, not they themselves.
+assert(TargetFrame.TargetFrameContent._alpha ~= 0 and TargetFrame.TargetFrameContent._mouse == false,
+	"the target frame's inner frames stay visible, click-through")
 assert(TargetFrame._alpha ~= 0 and TargetFrame._mouse == false and #TargetFrame._points == 0,
 	"the target frame stays visible for its auras, click-through and not moved")
 assert(targetFrameArt._alpha == 0 and TargetFrameBuff1._alpha ~= 0, "only the target frame's aura icons show")
+-- An aura button made later inside an inner frame shows, and is found.
+local lateAura = new("button", nil, TargetFrame.TargetFrameContent)
+lateAura.Icon, lateAura.Cooldown = {}, {}
 do
 	local lines = ns.modules.target:DescribeAuras()
 	local all = table.concat(lines, "\n")
-	assert(all:find("\nTargetFrame: ") and all:find("aura icons shown: 1") and all:find("TargetFrameBuff1, ")
-		and all:find("TargetFrameSpellBar %(ours%)"), "/rui auras")
+	assert(all:find("\nTargetFrame: ") and all:find("aura icons shown: 2") and all:find("TargetFrameBuff1, ")
+		and all:find("TargetFrameSpellBar %(hidden by us%)") and all:find("%(parts hidden%)"), "/rui auras")
 	SlashCmdList.REFORGEDUI("auras")
 end
 assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")

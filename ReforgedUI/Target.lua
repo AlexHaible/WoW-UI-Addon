@@ -393,13 +393,18 @@ function Target:AuraSpot()
 	return (self:Mode() == "swap" and ns.modules.hero.enabled) and T.swap or T.plate
 end
 
--- Everything of Blizzard's target frame that exists at login is made
--- invisible, its own regions and child frames alike (modern clients group
--- them in a container and a content frame, older ones don't), except aura
--- buttons. Aura buttons made later, as auras appear, stay visible.
+-- Blizzard's target frame keeps only its aura icons. Its named parts (cast
+-- bar, target of target, combo points...) are hidden whole. The unnamed
+-- frames it groups the rest in are not, as the aura icons live in one of
+-- them on modern clients: only what they hold at login is hidden, their
+-- textures and text and, frame by frame, everything inside. Aura buttons,
+-- which are made as auras appear, stay visible.
 local function isAuraButton(f)
 	local name = f.GetName and f:GetName()
-	return type(name) == "string" and (name:find("Buff%d") or name:find("Debuff%d")) and true or false
+	if type(name) == "string" and (name:find("Buff%d") or name:find("Debuff%d")) then
+		return true
+	end
+	return (f.Icon or f.icon) and (f.Cooldown or f.cooldown) and true or false
 end
 
 local hiddenByUs = {}
@@ -407,20 +412,34 @@ local function concealedByUs(f)
 	return hiddenByUs[f] or false
 end
 
+local function keepAuras(frame, depth)
+	for _, region in ipairs({ frame:GetRegions() }) do
+		ns:ConcealRegion(region)
+	end
+	for _, child in ipairs({ frame:GetChildren() }) do
+		if not isAuraButton(child) then
+			if child:GetName() or depth >= 5 then
+				ns:Conceal(child)
+				hiddenByUs[child] = true
+			else
+				keepAuras(child, depth + 1)
+				hiddenByUs[child] = "parts"
+				ns:RunOutOfCombat(child, function()
+					if child.EnableMouse then
+						child:EnableMouse(false)
+					end
+				end)
+			end
+		end
+	end
+end
+
 function Target:KeepBlizzardAuras()
 	local tf = TargetFrame
 	if not tf then
 		return
 	end
-	for _, region in ipairs({ tf:GetRegions() }) do
-		ns:ConcealRegion(region)
-	end
-	for _, child in ipairs({ tf:GetChildren() }) do
-		if not isAuraButton(child) then
-			ns:Conceal(child)
-			hiddenByUs[child] = true
-		end
-	end
+	keepAuras(tf, 1)
 	for _, f in ipairs({ tf.spellbar or _G.TargetFrameSpellBar, tf.totFrame or TargetFrameToT,
 		_G.TargetFrameNumericalThreat }) do
 		ns:Conceal(f)
@@ -462,13 +481,24 @@ function Target:DescribeAuras()
 	local auras, kids = {}, {}
 	for _, child in ipairs({ tf:GetChildren() }) do
 		local name = child:GetName() or ("<" .. child:GetObjectType() .. ">")
+		local by = concealedByUs(child)
 		kids[#kids + 1] = ("%s%s%s"):format(name, child:IsShown() and "" or " (hidden)",
-			concealedByUs(child) and " (ours)" or "")
-		if child:IsShown() and (isAuraButton(child) or child.Icon or child.icon) then
-			auras[#auras + 1] = ("%s at %s,%s alpha %s"):format(name, n(child:GetLeft()), n(child:GetBottom()),
-				n(child:GetAlpha() * 100))
+			by == "parts" and " (parts hidden)" or by and " (hidden by us)" or "")
+	end
+	local function scan(frame, path, depth)
+		for i, child in ipairs({ frame:GetChildren() }) do
+			local name = child:GetName() or (path .. "." .. i)
+			if isAuraButton(child) then
+				if child:IsShown() then
+					auras[#auras + 1] = ("%s at %s,%s alpha %s"):format(name, n(child:GetLeft()), n(child:GetBottom()),
+						n((child.GetEffectiveAlpha and child:GetEffectiveAlpha() or child:GetAlpha()) * 100))
+				end
+			elseif depth < 5 then
+				scan(child, name, depth + 1)
+			end
 		end
 	end
+	scan(tf, "TargetFrame", 1)
 	lines[#lines + 1] = ("children (%d): %s"):format(#kids, table.concat(kids, ", "))
 	lines[#lines + 1] = ("aura icons shown: %d%s"):format(#auras, #auras > 0 and (": " .. table.concat(auras, "; ", 1,
 		math.min(#auras, 4))) or "")

@@ -108,7 +108,7 @@ class Canvas:
         f = font(size)
         x0, y0, x1, y1 = self.box(x, y, w, h)
         tw = d.textlength(s, font=f)
-        tx = x0 + (x1 - x0 - tw) / 2 if align == "center" else x0
+        tx = x0 + (x1 - x0 - tw) / 2 if align == "center" else (x1 - tw if align == "right" else x0)
         ty = y0 + (y1 - y0 - size) / 2
         d.text((tx + 1, ty + 1), s, font=f, fill=(0, 0, 0, 255))
         d.text((tx, ty), s, font=f, fill=color)
@@ -164,8 +164,63 @@ def top_bar(c, theme_key, T, hour=15):
             c.text(b["x"], b["y"], b["w"], b["h"], ["87%", "34 / 80", "123"][i], 12, (255, 255, 255))
 
 
-def render(path, w, theme, s=240, m=10):
+def face(skin, body):
+    """Placeholder portrait."""
+    port = Image.new("RGBA", (100, 100), (30, 30, 40, 255))
+    d = ImageDraw.Draw(port)
+    d.ellipse([28, 14, 72, 62], fill=skin + (255,))
+    d.rectangle([18, 62, 82, 100], fill=body + (255,))
+    return port
+
+
+# The fake target: a hostile elite casting, three combo points on it, its
+# target is you.
+TARGET = {"name": "Hogger", "colour": (255, 51, 38), "info": "Level 11 Elite Humanoid",
+          "health": (412, 666), "power": (30, 100), "powerColour": (255, 0, 0), "cast": ("Rabid Bite", 0.6), "combo": 3}
+
+
+def bar(c, r, frac, colour, label=None, size=10):
+    c.rect(r["x"], r["y"], r["w"], r["h"], fill=(0, 0, 0, 160))
+    c.rect(r["x"], r["y"], r["w"] * frac, r["h"], fill=colour + (255,))
+    if label:
+        c.text(r["x"], r["y"], r["w"], r["h"], label, size, (255, 255, 255))
+
+
+def pips(c, P, n):
+    for i in range(5):
+        x = P["x"] + i * P["step"]
+        sz = P["size"]
+        cx, cy = x + sz / 2, P["y"] + sz / 2
+        x0, y0, x1, y1 = c.box(cx - sz / 2 - 1, cy - sz / 2 - 1, sz + 2, sz + 2)
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        rr = (x1 - x0) / 2 * 1.2
+        d = ImageDraw.Draw(c.img)
+        d.polygon([(mx, my - rr), (mx + rr, my), (mx, my + rr), (mx - rr, my)], fill=(0, 0, 0, 220))
+        if i < n:
+            rr = rr - 2
+            d.polygon([(mx, my - rr), (mx + rr, my), (mx, my + rr), (mx - rr, my)], fill=(255, 199, 26, 255))
+
+
+def target_bits(c, v, T, pair_text=True):
+    """Health, power, combo points and cast bar of the target view `v`."""
+    h, hm = T["health"]
+    pw, pm = T["power"]
+    bar(c, v["health"], h / hm, (26, 217, 26), "%d / %d" % (h, hm) if pair_text else None, 11)
+    bar(c, v["power"], pw / pm, T["powerColour"], "%d / %d" % (pw, pm) if pair_text else None, 10)
+
+
+def tot(c, L):
+    t = L["tot"]
+    i = t["icon"]
+    c.rect(i["x"] - 2, i["y"] - 2, i["w"] + 4, i["h"] + 4, fill=(64, 140, 255, 255))  # it's you: blue
+    c.paste(face((120, 150, 90), (90, 60, 40)), i["x"], i["y"], i["w"], i["h"])
+    c.paste(art("other\\golden_frame"), i["x"], i["y"], i["w"], i["h"])
+    bar(c, t["health"], 0.67, (26, 230, 26))
+
+
+def render(path, w, theme, s=240, m=10, target=None):
     L = dump(w, theme, s, m)
+    T = TARGET
     c = Canvas(L["W"], L["H"])
     # Black backgrounds (backgroundMain) and the portrait.
     eb = L["extBg"]
@@ -173,10 +228,8 @@ def render(path, w, theme, s=240, m=10):
     pb = L["portraitBg"]
     c.rect(pb["x"], pb["y"], pb["w"], pb["h"], fill=(0, 0, 0, 255))
     p = L["portrait"]
-    port = Image.new("RGBA", (100, 100), (30, 30, 40, 255))
-    d = ImageDraw.Draw(port)
-    d.ellipse([28, 14, 72, 62], fill=(120, 150, 90, 255))
-    d.rectangle([18, 62, 82, 100], fill=(90, 60, 40, 255))
+    swap = target == "swap"
+    port = face((150, 110, 70), (110, 40, 30)) if swap else face((120, 150, 90), (90, 60, 40))
     c.paste(port, p["x"], p["y"], p["w"], p["h"])
     pieces = sorted(enumerate(L["pieces"]), key=lambda ip: (FRAMES[ip[1]["frame"]], LAYERS[ip[1]["layer"]], ip[1]["sub"], ip[0]))
     for _, pc in pieces:
@@ -208,20 +261,58 @@ def render(path, w, theme, s=240, m=10):
         c.text(b["x"], b["y"], b["w"], b["h"], label, 10, (255, 255, 255))
     # Experience bar.
     xp = L["xp"]
-    bar = xp["bar"]
-    c.paste(art("other\\xpProgressBar"), bar["x"], bar["y"], bar["w"] * 0.6, bar["h"])
+    xbar = xp["bar"]
+    if not swap:
+        c.paste(art("other\\xpProgressBar"), xbar["x"], xbar["y"], xbar["w"] * 0.6, xbar["h"])
     for key, f in (("left", "xp1"), ("middle", "xp2"), ("right", "xp3")):
         r = xp[key]
         c.paste(art("other\\" + f), r["x"], r["y"], r["w"], r["h"])
-    c.text(xp["cx"] - 100, xp["nameY"] - 10, 200, 20, "Thrall", 16, (255, 209, 0))
-    c.text(xp["cx"] - 100, xp["levelY"] - 8, 200, 16, "Level 12 Shaman", 12, (255, 255, 255))
+    if swap:
+        c.text(xp["cx"] - 100, xp["nameY"] - 10, 200, 20, T["name"], 16, T["colour"])
+        c.text(xp["cx"] - 100, xp["levelY"] - 8, 200, 16, T["info"], 12, (255, 255, 255))
+        S = L["targetSwap"]
+        target_bits(c, S, T)
+        pips(c, S["combo"], T["combo"])
+        name, frac = T["cast"]
+        bar(c, S["cast"], frac, (255, 179, 0), name, 9)
+    else:
+        c.text(xp["cx"] - 100, xp["nameY"] - 10, 200, 20, "Thrall", 16, (255, 209, 0))
+        c.text(xp["cx"] - 100, xp["levelY"] - 8, 200, 16, "Level 12 Shaman", 12, (255, 255, 255))
     for i, (r, (lab, val)) in enumerate(zip(L["statIcons"], [("Damage:", "10 - 16"), ("Damage:", "N/A"), ("Spell:", "70"),
                                                               ("Armor:", "21.3%")])):
+        if swap:
+            break
         c.paste(icon(30 + i), r["x"], r["y"], r["w"], r["h"])
         c.paste(art("other\\golden_frame"), r["x"], r["y"], r["w"], r["h"])
         lr, vr = r["label"], r["value"]
         c.text(lr["x"], lr["y"], lr["w"], lr["h"], lab, 10, (255, 209, 0), "left")
         c.text(vr["x"], vr["y"] + vr["h"] - 15, vr["w"], 15, val, 10, (255, 255, 255), "left")
+    if target == "plate":
+        P = L["targetPlate"]
+        r = P["portraitBg"]
+        c.rect(r["x"], r["y"], r["w"], r["h"], fill=(0, 0, 0, 255))
+        r = P["portrait"]
+        c.paste(face((150, 110, 70), (110, 40, 30)), r["x"], r["y"], r["w"], r["h"])
+        for pc in P["pieces"]:
+            r = pc["rect"]
+            c.paste(art(pc["file"]), r["x"], r["y"], r["w"], r["h"], pc["tc"])
+        target_bits(c, P, T, pair_text=False)
+        b = P["box"]
+        folder, title, inset, line = TOPBAR[theme]
+        c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
+        c.text(P["name"]["x"], P["name"]["y"], P["name"]["w"], P["name"]["h"], T["name"], 13, T["colour"], "left")
+        c.text(P["info"]["x"], P["info"]["y"], P["info"]["w"], P["info"]["h"], T["info"], 10, (255, 255, 255), "left")
+        h, hm = T["health"]
+        pw, pm = T["power"]
+        r = P["healthText"]
+        c.text(r["x"], r["y"], r["w"], r["h"], "%d / %d" % (h, hm), 10, (64, 255, 64), "left")
+        r = P["powerText"]
+        c.text(r["x"], r["y"], r["w"], r["h"], "%d / %d" % (pw, pm), 10, (255, 128, 128), "right")
+        pips(c, P["combo"], T["combo"])
+        name, frac = T["cast"]
+        bar(c, P["cast"], frac, (255, 179, 0), name, 8)
+    if target:
+        tot(c, L)
     # Action bars 1-3.
     seed = 100
     for key in ("main", "bar2", "bar3"):
@@ -267,6 +358,12 @@ def render(path, w, theme, s=240, m=10):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--target":
+        # python3 tools/render_preview.py --target swap|plate out.png [width theme scale chatUp]
+        a = sys.argv[2:]
+        render(a[1], float(a[2]) if len(a) > 2 else 1365.33, a[3] if len(a) > 3 else "orc",
+               int(a[4]) if len(a) > 4 else 240, int(a[5]) if len(a) > 5 else 10, target=a[0])
+        return
     if len(sys.argv) > 2:
         a = sys.argv[1:]
         render(a[0], float(a[1]), a[2], int(a[3]) if len(a) > 3 else 240, int(a[4]) if len(a) > 4 else 10)

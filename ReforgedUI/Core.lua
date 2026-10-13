@@ -23,6 +23,7 @@ local DEFAULTS = {
 		inventory = true,
 		blizzard = true,
 		topbar = true,
+		target = true,
 		config = true,
 	},
 	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
@@ -44,6 +45,7 @@ local DEFAULTS = {
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
+		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
 		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
 	},
 }
@@ -487,9 +489,10 @@ local function usage()
 	print("  /rui slot <number> <feed name>||none")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
-	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, topbar,"
-		.. " config; needs /reload)")
+	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
+		.. " topbar, config; needs /reload)")
 	print("  /rui status")
+	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui reset")
 end
 
@@ -527,6 +530,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "module" and arg and ns.modules[arg] and (arg2 == "on" or arg2 == "off") then
 		ns.db.modules[arg] = arg2 == "on"
 		ns:Print(arg, arg2, "- type /reload to apply.")
+	elseif cmd == "target" and (arg == "swap" or arg == "plate") and ns.modules.target.enabled then
+		ns.modules.target:SetMode(arg)
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
 	elseif cmd == "status" then
 		local L, T = ns.layout, ns.topLayout
 		ns:Print(("theme %s, UI scale %d, console shifted %d, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(

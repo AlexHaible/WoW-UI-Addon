@@ -39,4 +39,7 @@ read_globals = {
 	"PaperDollFrame_GetArmorReduction", "PlaceAction", "ReloadUI", "Settings", "UISpecialFrames", "UnitAffectingCombat",
 	"UnitAttackSpeed", "UnitHealthPercent", "UnitIsGroupLeader", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitPowerPercent",
 	"issecretvalue", "tinsert",
+	-- target display
+	"AbbreviateLargeNumbers", "GetTime", "TargetFrameToT", "UnitCanAttack", "UnitCastingInfo", "UnitChannelInfo",
+	"UnitIsUnit",
 }

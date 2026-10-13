@@ -140,6 +140,7 @@ function methods:SetStatusBarColor(r, g, b) assert(r and g and b, "colour needs 
 function methods:SetMinMaxValues(lo, hi) self._min, self._max = lo, hi end
 function methods:SetValue(v) self._value = v end
 function methods:GetStringHeight() return 12 end
+function methods:SetEnabled(v) self._enabled = v end
 function methods:Click() self._clicks = (self._clicks or 0) + 1 end
 function methods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a } end
 
@@ -223,6 +224,7 @@ end
 MainMenuBarBackpackButton = new("button", "MainMenuBarBackpackButton", UIParent)
 for i = 0, 3 do new("button", "CharacterBag" .. i .. "Slot", UIParent) end
 TargetFrame = new("secure", "TargetFrame", UIParent)
+TargetFrameToT = new("secure", "TargetFrameToT", TargetFrame)
 StanceBar = new("secure", "StanceBar", UIParent)
 PetActionBar = new("secure", "PetActionBar", UIParent)
 for i = 1, 10 do
@@ -258,7 +260,13 @@ local function flushTimers()
 end
 function securecallfunction(fn, ...) return fn(...) end
 function RegisterUnitWatch() end
-function UnitExists() return true end
+-- No target until the target display tests pick one.
+local hasTarget, totIsPlayer = false, false
+function UnitExists(u) return u == "player" or hasTarget end
+function UnitIsUnit(a, b) return a == b or (a == "targettarget" and b == "player" and totIsPlayer) end
+function UnitCastingInfo() return nil end
+function UnitChannelInfo() return nil end
+function GetTime() return 100 end
 function UnitIsPlayer() return false end
 function UnitReaction() return 2 end
 function UnitClassification() return "elite" end
@@ -443,7 +451,12 @@ assert(PlayerFrame:GetParent() == UIParent and PlayerFrame._alpha == 0 and Playe
 	"the player frame should be invisible and click-through")
 local _, _, _, _, py = PlayerFrame:GetPoint(1)
 assert(py == -4, "the player frame must not be moved")
-assert(TargetFrame._alpha == nil and #TargetFrame._points == 0, "the target frame must be left alone")
+-- Our target display replaces Blizzard's target frame and its target of
+-- target: invisible and click-through, never moved or reparented.
+for _, f in ipairs({ TargetFrame, TargetFrameToT }) do
+	assert(f._alpha == 0 and f._mouse == false and #f._points == 0, f._name .. " should be concealed, not moved")
+end
+assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")
 assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil and #MinimapCluster._points == 0,
 	"the minimap cluster must be left alone")
 assert(Minimap:GetParent() == UIParent, "the minimap keeps its parent")
@@ -881,6 +894,144 @@ do
 	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button invisible but clickable")
 	b:SetAlpha(1); b:EnableMouse(false)
 	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button stays invisible and clickable")
+end
+
+-- Target display.
+do
+	local target, hero = ns.modules.target, ns.modules.hero
+	assert(target.enabled and ReforgedUIDB.consoleOpts.targetMode == "swap", "swap is the default target display")
+	assert(hero.viewUnit == "player" and not target.swap.frame:IsShown() and not target.plate.frame:IsShown(),
+		"no target: the hero screen is the player's")
+	-- A hostile elite targeted in combat: the hero screen swaps without
+	-- touching a secure frame.
+	local orig = {}
+	for _, fn in ipairs({ "UnitName", "UnitLevel", "UnitClass", "UnitHealth", "UnitHealthMax", "UnitPower",
+		"UnitPowerMax", "UnitPowerType", "UnitReaction", "UnitIsPlayer" }) do
+		orig[fn] = _G[fn]
+	end
+	local reaction, totReaction = 2, 5
+	local secretTarget = false
+	UnitName = function(u) if u == "target" then return "Hogger" elseif u == "targettarget" then return "Thrall" end return "Thrall" end
+	UnitLevel = function(u) return u == "target" and 11 or 12 end
+	UnitHealth = function(u)
+		if u == "target" then
+			if secretTarget then return setmetatable({}, { __lt = function() error("compared a secret value") end,
+				__le = function() error("compared a secret value") end, __tostring = function() return "secret" end }) end
+			return 412
+		end
+		return 300
+	end
+	UnitHealthMax = function(u) return u == "target" and 666 or 450 end
+	UnitPowerType = function(u) if u == "target" then return 1, "RAGE" end return 0, "MANA" end
+	UnitPower = function(u) return u == "target" and 30 or 120 end
+	UnitPowerMax = function(u) return u == "target" and 100 or 200 end
+	UnitReaction = function(u) if u == "targettarget" then return totReaction end return reaction end
+	PowerBarColor.RAGE = { r = 1, g = 0, b = 0 }
+
+	local guarded = {}
+	for _, m in ipairs({ "SetPoint", "ClearAllPoints", "Show", "Hide", "SetShown", "SetAttribute", "SetSize", "SetParent" }) do
+		guarded[m] = methods[m]
+		methods[m] = function(self, ...)
+			assert(not (inCombat and self._kind == "secure"), m .. " on a secure frame in combat")
+			return guarded[m](self, ...)
+		end
+	end
+	inCombat = true
+	hasTarget = true
+	fire("PLAYER_TARGET_CHANGED")
+	assert(hero.viewUnit == "target", "swap: the hero screen shows the target")
+	assert(hero.xp.name._text == "Hogger" and hero.xp.level._text == "Level 11 Elite Beast", "swap: target name and level")
+	assert(not hero.xp.bar:IsShown() and not hero.stats[1]:IsShown() and not hero.stats[4]:IsShown(),
+		"swap: no experience fill and no stat icons")
+	assert(target.swap.frame:IsShown() and target.swap.health._value == 412 and target.swap.health.text._text == "412 / 666",
+		"swap: target health with numbers")
+	assert(target.swap.power.text._text == "30 / 100" and target.swap.power._color[1] == 1, "swap: target rage")
+	assert(hero.health._value == 300 and hero.health.text._text == "300 / 450", "the small bars stay the player's")
+	for i, pip in ipairs(target.swap.combo) do
+		assert(pip.gem:IsShown() == (i <= 3) and pip.socket:IsShown(), "three combo points lit")
+	end
+	-- Secret health: still reaches the bar, never compared, text left empty.
+	secretTarget = true
+	fire("UNIT_HEALTH", "target")
+	assert(type(target.swap.health._value) == "table", "secret health reaches the bar")
+	secretTarget = false
+	fire("UNIT_HEALTH", "target")
+	-- Reaction colours: hostile red, neutral yellow, friendly green.
+	local function nameRGB() local fs = hero.xp.name; return fs._r, fs._g, fs._b end
+	local oldColor = methods.SetTextColor
+	methods.SetTextColor = function(self, r, g, b) oldColor(self, r, g, b); self._r, self._g, self._b = r, g, b end
+	for r, want in pairs({ [2] = "hostile", [4] = "neutral", [6] = "friendly" }) do
+		reaction = r
+		fire("UNIT_FACTION", "target")
+		local cr, cg = nameRGB()
+		assert(target.ReactionKind("target") == want, "reaction " .. r)
+		assert((want == "hostile" and cr == 1 and cg < 0.5) or (want == "neutral" and cr == 1 and cg > 0.8)
+			or (want == "friendly" and cr < 0.5 and cg == 1), "name colour for " .. want)
+	end
+	reaction = 2
+	-- Target of target: tinted by who it is.
+	totIsPlayer = true
+	target:UpdateToT()
+	assert(target.tot.kind == "player" and target.tot.glow._vertex[3] == 1, "ToT: you are tinted blue")
+	totIsPlayer = false
+	for r, want in pairs({ [2] = "hostile", [6] = "friendly" }) do
+		totReaction = r
+		target:UpdateToT()
+		assert(target.tot.kind == want, "ToT tint " .. want)
+	end
+	assert(target.tot.glow._vertex[2] == 1 and target.tot.glow._vertex[1] < 0.5, "friendly ToT is green")
+	-- Clearing the target restores the player, in combat.
+	hasTarget = false
+	fire("PLAYER_TARGET_CHANGED")
+	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall" and hero.xp.level._text == "Level 12 Shaman",
+		"clearing the target restores the player's name and level")
+	assert(hero.xp.name._r == 1 and hero.xp.name._g == 1, "the player's name colour is restored")
+	assert(hero.stats[1]:IsShown() and hero.stats[4]:IsShown() and hero.xp.bar:IsShown(), "stat icons come back")
+	assert(not target.swap.frame:IsShown(), "the target bars go away")
+	-- Switching the mode in combat: visuals now, the click area after combat.
+	SlashCmdList.REFORGEDUI("target plate")
+	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "/rui target plate")
+	hasTarget = true
+	fire("PLAYER_TARGET_CHANGED")
+	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall", "plate mode: the hero screen stays the player's")
+	assert(target.plate.frame:IsShown() and not target.swap.frame:IsShown(), "plate mode shows the plate")
+	assert(target.plate.name._text == "Hogger" and target.plate.healthText._text == "412 / 666", "plate: name and health")
+	methods.SetTextColor = oldColor
+	inCombat = false
+	for m, fn in pairs(guarded) do methods[m] = fn end
+	fire("PLAYER_REGEN_ENABLED")
+	-- The plate stands on the wall above the stats panel, left of the stance row.
+	local LL, P = ns.layout, ns.layout.targetPlate
+	assert(math.abs(P.arch.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
+	assert(P.arch.x >= LL.xp.left.x - 0.05 * LL.s and P.box.x + P.box.w <= LL.stance.x, "the plate sits above the stats panel")
+	assert(P.pieces[1].file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.left, "the plate uses the theme's arch art")
+	local p = ReforgedUITargetButton._points[1]
+	assert(p and p[2] == ns.root and math.abs(p[4] - P.arch.x) < 0.01, "the target button moved onto the plate after combat")
+	-- Swap mode puts the target button over the hero's portrait.
+	SlashCmdList.REFORGEDUI("target swap")
+	p = ReforgedUITargetButton._points[1]
+	assert(math.abs(p[4] - LL.portrait.x) < 0.01 and ReforgedUITargetButton:GetFrameLevel() > 1, "target button over the portrait")
+	assert(ReforgedUITargetButton:GetAttribute("unit") == "target" and ReforgedUIPortraitButton:GetAttribute("unit") == "player"
+		and ReforgedUITargetTarget:GetAttribute("unit") == "targettarget", "secure unit buttons")
+	assert(hero.viewUnit == "target", "back to swap with a target")
+	-- The setting persists and the options menu shows it.
+	assert(ReforgedUIDB.consoleOpts.targetMode == "swap", "the target mode is saved")
+	config:Refresh()
+	assert(not config.targetButtons[1]._enabled and config.targetButtons[2]._enabled, "options show the target mode")
+	config.targetButtons[2]._scripts.OnClick()
+	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "the options button switches to the plate")
+	config.targetButtons[1]._scripts.OnClick()
+	-- Every theme's plate art exists.
+	for _, key in ipairs(ns.THEME_ORDER) do
+		local PL = Layout.Compute(1792, 768, { s = 250, m = 10, theme = key, zoneTextPos = 1 }).targetPlate
+		for _, piece in ipairs(PL.pieces) do
+			assert(exists(ADDON .. "art/" .. piece.file:gsub("\\", "/") .. ".tga"), "missing plate art " .. piece.file)
+		end
+	end
+	hasTarget = false
+	fire("PLAYER_TARGET_CHANGED")
+	for fn, f in pairs(orig) do _G[fn] = f end
+	checkAnchors()
 end
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

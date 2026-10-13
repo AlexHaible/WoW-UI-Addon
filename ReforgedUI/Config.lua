@@ -160,6 +160,18 @@ function Config:Build()
 		self:Refresh()
 	end)
 
+	-- Target display: on the hero screen (Warcraft III) or a plate on the wall.
+	label(f, "Target display", x, -332)
+	self.targetButtons = {}
+	for i, spec in ipairs({ { "swap", "Swap" }, { "plate", "Wall plate" } }) do
+		local b = button(f, spec[2], 90, x + 112 + (i - 1) * 94, -328, function()
+			ns.modules.target:SetMode(spec[1])
+			self:Refresh()
+		end)
+		b.mode = spec[1]
+		self.targetButtons[i] = b
+	end
+
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
@@ -262,6 +274,10 @@ function Config:Refresh()
 		for _, b in ipairs(list) do
 			b:SetEnabled(choices[row] ~= b.kind)
 		end
+	end
+	local target = ns.modules.target
+	for _, b in ipairs(self.targetButtons) do
+		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
 end

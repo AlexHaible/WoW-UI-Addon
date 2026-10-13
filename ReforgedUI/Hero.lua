@@ -10,6 +10,10 @@
 
 local _, ns = ...
 local Hero = ns:RegisterModule("hero", {})
+-- The unit the hero screen shows: "player", or "target" while Target.lua's
+-- swap mode shows the target (portrait, name and level, and its own bars in
+-- place of the stat icons). The bars under the portrait stay the player's.
+Hero.viewUnit = "player"
 
 local floor, ceil = math.floor, math.ceil
 local isSecret = issecretvalue or function() return false end
@@ -114,7 +118,7 @@ function Hero:CreatePortrait()
 	model:SetFrameLevel(3)
 	self.model = model
 	local function refresh()
-		model:SetUnit("player")
+		model:SetUnit(Hero.viewUnit)
 		if model.SetPortraitZoom then
 			model:SetPortraitZoom(1)
 		end
@@ -124,7 +128,7 @@ function Hero:CreatePortrait()
 	end
 	model:SetScript("OnShow", refresh)
 	ns:On("UNIT_MODEL_CHANGED", function(_, unit)
-		if unit == "player" then refresh() end
+		if unit == Hero.viewUnit then refresh() end
 	end)
 	ns:On("PLAYER_ENTERING_WORLD", refresh)
 	self.RefreshModel = refresh
@@ -274,6 +278,9 @@ function Hero:CreateXP(holder)
 	local hover = CreateFrame("Frame", nil, holder)
 	hover:EnableMouse(true)
 	hover:SetScript("OnEnter", function(f)
+		if self.viewUnit ~= "player" then
+			return
+		end
 		self.hovering = true
 		self:UpdateXP()
 		showInfo(f, function()
@@ -299,6 +306,13 @@ function Hero:UpdateXP()
 	if not L then
 		return
 	end
+	if self.viewUnit ~= "player" then
+		-- The target's name and level are Target.lua's to write.
+		xp.bar:Hide()
+		xp.rested:Hide()
+		return
+	end
+	xp.bar:Show()
 	local full = L.xp.bar.w
 	local cur, max = UnitXP("player"), UnitXPMax("player")
 	local atMax = IsPlayerAtEffectiveMaxLevel and IsPlayerAtEffectiveMaxLevel()
@@ -319,6 +333,7 @@ function Hero:UpdateXP()
 	xp.rested:SetShown(not atMax and (c[4] or 0) > 0)
 
 	xp.name:SetText(UnitName("player"))
+	xp.name:SetTextColor(1, 1, 1)
 	if self.hovering and not atMax then
 		xp.level:SetFormattedText("XP %d / %d", cur, max)
 	else
@@ -504,6 +519,18 @@ local function formIcons()
 end
 
 function Hero:UpdateStats()
+	local mine = self.viewUnit == "player"
+	if not mine then
+		hideInfo()
+	end
+	for _, f in ipairs(self.stats) do
+		f:SetShown(mine)
+		f.label:SetShown(mine)
+		f.value:SetShown(mine)
+	end
+	if not mine then
+		return
+	end
 	local choices = self:IconChoices()
 	local form = formIcons()
 	for i = 1, 3 do
@@ -531,6 +558,19 @@ function Hero:UpdateStats()
 	local ok, text = pcall(armourText)
 	armour.value:SetText(ok and text or "")
 	armour.icon:SetTexture((form and form[2]) or GetInventoryItemTexture("player", 5) or CAPE)
+end
+
+-- Show `unit` ("player" or "target") on the hero screen. Touches no secure
+-- frame, so it is safe in combat.
+function Hero:SetView(unit)
+	self.viewUnit = unit
+	if self.model then
+		self.model:ClearModel()
+		self.RefreshModel()
+	end
+	self.hovering = false
+	self:UpdateXP()
+	self:UpdateStats()
 end
 
 function Hero:SetIconChoice(index, kind)

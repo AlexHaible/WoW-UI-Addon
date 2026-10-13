@@ -35,6 +35,16 @@ screen stays free on either side).
   ranged, ammo (yellow under 400, red under 200), spell power, healing or
   nothing, chosen per class in the options. Druid forms and Ghost Wolf swap
   the icons like the original addon.
+- **Target**: by default the hero screen switches to your target, as
+  selecting a unit in Warcraft III: its portrait, name (coloured by reaction
+  or class), level and classification, health and power bars with numbers,
+  your combo points and its cast bar. Your own bars under the portrait stay
+  yours; clearing the target brings your hero back. "Wall plate" in the
+  options (or `/rui target plate`) instead puts the target in a small
+  portrait arch standing on the wall above the stats panel. Either way the
+  target's target is a small unit icon above the portrait (blue when it is
+  you, else green, yellow or red). Left-click targets, right-click opens the
+  unit menu.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
@@ -58,7 +68,7 @@ character; if you turn bar 8 off later, the slots are empty sockets whose
 tooltip says how to turn it back on.
 
 Buffs and debuffs are held in the top-right corner just below the top bar.
-Other frames that Edit Mode manages (cast bar, target and party
+Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
 this client. (The stance and pet bars' own frames stay put too, empty and
@@ -132,7 +142,7 @@ of your faction. Saved themes from earlier versions keep working.
    logs in. Only the first three buttons of bar 8 are used (the slots beside
    the minimap); the rest are parked off screen, so you can set it to as few
    icons as Edit Mode allows.
-3. Move the cast bar, target frame and anything else Edit Mode manages to
+3. Move the cast bar, focus frame and anything else Edit Mode manages to
    where you want them around the console.
 
 ## Commands
@@ -144,7 +154,8 @@ of your faction. Saved themes from earlier versions keep working.
 /rui slot <number> <feed>|none   put a feed in a top bar slot
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
-/rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|topbar|config> on|off   (then /reload)
+/rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset
 ```
@@ -177,8 +188,9 @@ the client now does itself:
   minimap buttons.
 - The **chat scroll arrows** option hides the chat buttons beside the window
   instead (the client has no scroll arrows).
-- Blizzard's player frame is hidden (our portrait block replaces it); the
-  target frame is left to Edit Mode.
+- Blizzard's player and target frames (and its target of target) are
+  hidden: the portrait block and our target display replace them. The focus
+  frame is left to Edit Mode.
 
 ## Art and licences
 

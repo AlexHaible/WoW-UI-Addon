@@ -36,6 +36,7 @@ Art.lua
 Console.lua
 TopBar.lua
 Hero.lua
+Target.lua
 ActionBars.lua
 Minimap.lua
 Chat.lua

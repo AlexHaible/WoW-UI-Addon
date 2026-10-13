@@ -164,6 +164,100 @@ local FILLER_ART = {
 }
 Layout.FILLER_ART = FILLER_ART
 
+----------------------------------------------------------------------------
+-- Target display (Target.lua).
+
+-- The art of the target's wall plate, all in one place so better art can
+-- replace it: for now a smaller copy of the hero's portrait arch, cut from
+-- the right end of the minimap block (u0 to 1) and the left end of the
+-- portrait block (0 to u1), from v0 down to the floor. `scale` is its size
+-- against the hero's arch.
+Layout.TARGET_ART = {
+	left = "minimap_portrait\\minimap",
+	right = "minimap_portrait\\portrait",
+	u0 = 0.80, u1 = 0.205, v0 = 0.40,
+	scale = 0.6,
+}
+-- Top of the portrait block's wall above the stats panel, per faction art.
+local HERO_WALL = { human = 0.543, orc = 0.53, undead = 0.578, nightelf = 0.56 }
+
+local function buildTarget(L, s, t, MT, PT, xp, themed)
+	-- Swap mode (Warcraft III): the hero screen shows the target. Its name and
+	-- level take the experience bar's place; its health and power bars,
+	-- combo points and cast bar take the stat icons'.
+	do
+		local x0, w = xp.left.x + 1, xp.width - 2
+		local hh, ph, pip = 0.055 * s, 0.042 * s, 0.04 * s
+		local hy = xp.left.y - 0.02 * s - hh
+		local py = hy - 0.012 * s - ph
+		local gap = 0.03 * s
+		local rowW = 5 * pip + 4 * gap
+		L.targetSwap = {
+			health = rect(x0, hy, w, hh),
+			power = rect(x0, py, w, ph),
+			combo = { x = x0 + (w - rowW) / 2, y = py - 0.02 * s - pip, size = pip, step = pip + gap },
+			cast = rect(x0, 0.04 * s, w, 0.045 * s),
+		}
+	end
+
+	-- Wall plate: a small portrait arch standing on the wall above the stats
+	-- panel, with a name plate beside it.
+	local wall = (HERO_WALL[t] or 0.54) * s
+	L.heroWallTop = wall
+	do
+		local A = Layout.TARGET_ART
+		local k = A.scale
+		local ox = MT.x + A.u0 * s -- where the cut starts in the hero's arch
+		local leftW, rightW, h = (1 - A.u0) * s, A.u1 * s, (1 - A.v0) * s
+		local px, py = PT.x + 0.2 * s, wall - 3
+		local function scaled(r)
+			return rect(px + (r.x - ox) * k, py + r.y * k, r.w * k, r.h * k)
+		end
+		local arch = rect(px, py, (leftW + rightW) * k, h * k)
+		local P = {
+			pieces = {
+				{ file = themed(A.left), rect = rect(px, py, leftW * k, h * k), tc = { A.u0, 1, A.v0, 1 } },
+				{ file = themed(A.right), rect = rect(px + leftW * k, py, rightW * k, h * k), tc = { 0, A.u1, A.v0, 1 } },
+			},
+			arch = arch,
+			-- The hero's portrait, background and bars at their default places.
+			portraitBg = scaled(L.portraitBg),
+			portrait = scaled(rect(MT.x + 0.86 * s, 0.10 * s, 0.27 * s, 0.27 * s)),
+			health = scaled(rect(right(MT) - 0.147 * s, 0.07 * s, 0.27 * s, 0.03 * s)),
+			power = scaled(rect(right(MT) - 0.147 * s, 0.02 * s, 0.27 * s, 0.03 * s)),
+		}
+		-- Name plate: name, level line, health and power, combo points, cast.
+		local bx, bh = right(arch) + 2, arch.h - 0.04 * s
+		local box = rect(bx, py + 2, 0.46 * s, bh)
+		local ix, iw, by = bx + 7, box.w - 14, top(box) - 5
+		P.box = box
+		P.name = rect(ix, by - 15, iw, 15)
+		P.info = rect(ix, by - 28, iw, 12)
+		-- Health and power numbers side by side, as under a Warcraft III
+		-- portrait.
+		P.healthText = rect(ix, by - 42, iw / 2, 12)
+		P.powerText = rect(ix + iw / 2, by - 42, iw / 2, 12)
+		P.cast = rect(ix, box.y + 5, iw, 9)
+		local pip = 7
+		P.combo = { x = ix + 1, y = P.cast.y + 9 + 5, size = pip, step = pip + 6 }
+		P.top = max(top(arch), top(box))
+		L.targetPlate = P
+	end
+
+	-- Target of target: a small unit icon standing on the wall above the
+	-- hero's portrait, its health bar underneath.
+	do
+		local size = 0.13 * s
+		local cx = MT.x + 0.995 * s
+		local x = cx - size / 2
+		L.tot = {
+			frame = rect(x - 3, wall - 3, size + 6, size + 12),
+			icon = rect(x, wall + 6, size, size),
+			health = rect(x, wall - 1, size, 5),
+		}
+	end
+end
+
 local function buildRight(L, o, W, g, add, themed, themedLayer)
 	local s, m, t = o.s, o.m, Layout.BASE[o.theme] or o.theme
 	local d1 = ({ human = 2, orc = 1, undead = 1 })[t] or 0
@@ -547,6 +641,7 @@ local function build(W, H, o, X0)
 		statIcon(0.3607 * s, -0.1412 * s, 0.1294 * s, valueY, 30),
 		statIcon(0, -0.14 * s, 0.14 * s, -0.1111111111111 * s, 15), -- armour
 	}
+	buildTarget(L, s, t, MT, PT, L.xp, themed)
 
 	-- Black background behind the action grid.
 	L.extBg = rect(right(PT) - 0.18 * s, 0, 2.1 * s, 0.5 * s)

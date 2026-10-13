@@ -263,11 +263,6 @@ end
 -- A feature Forever doesn't have, the container's own border, and a stray
 -- frame left in the container.
 HousingMicroButton = new("button", "HousingMicroButton", MicroMenu)
--- The game menu button's backing: one anchor, a size of its own.
-local menuBacking = MainMenuMicroButton:CreateTexture()
-menuBacking:SetPoint("CENTER", MainMenuMicroButton, "CENTER", 0, 0)
-menuBacking:SetSize(MainMenuMicroButton._w, MainMenuMicroButton._h)
-menuBacking._atlas, menuBacking._shown = "UI-HUD-MicroMenu-ButtonBG-Up", true
 -- Forever's classic talent and spellbook buttons, next to the newer one.
 for _, name in ipairs({ "TalentMicroButton", "SpellbookMicroButton", "LegacyMicroButton" }) do
 	local b = new("button", name, MicroMenu)
@@ -534,14 +529,14 @@ local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")
 -- Blizzard's micro buttons live in the top bar, either side of the clock:
 -- still Blizzard's (same parent, visible), anchored to UIParent, scaled to
--- the bar. The plates' own buttons stay invisible.
+-- the bar. The quest log, social and map buttons stay hidden.
 local function microAt(b, r, what)
 	local p = b._points[1]
 	assert(p and #b._points == 1 and p[2] == UIParent and p[1] == "BOTTOMLEFT", what .. " should be anchored to UIParent")
 	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
 	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
 	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
-	assert(b:GetParent() == (b == ns.modules.topbar.menuMicro and UIParent or MicroMenu), what .. " keeps its parent")
+	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
 	assert(b:GetAlpha() == 1 and b._shown and b._mouse ~= false, what .. " should be visible and clickable")
 end
 local function checkMicro(expected)
@@ -568,24 +563,16 @@ local function checkMicro(expected)
 	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
 		"micro buttons should hug the clock")
 end
--- The Adventure Guide and shop are left out; Legacy and a game menu button
--- of our own close the row.
-local menuMicro = ns.modules.topbar.menuMicro
-assert(menuMicro, "a game menu button at the end of the micro row")
-local copiedBacking
-for _, t in ipairs({ menuMicro:GetRegions() }) do
-	if t._atlas == menuBacking._atlas then
-		assert(t._w == menuMicro._w and t._h == menuMicro._h, "the copied backing is the button's size")
-		copiedBacking = true
-	end
-end
-assert(copiedBacking, "the game menu button's backing is copied")
+-- The Adventure Guide and shop are left out; Legacy and the game menu
+-- button close the row.
 local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, unnamedMicro, LegacyMicroButton, menuMicro }
+	LFDMicroButton, CollectionsMicroButton, unnamedMicro, LegacyMicroButton, MainMenuMicroButton }
 checkMicro(MOVED)
 assert(#StoreMicroButton._points == 0 and StoreMicroButton._alpha == 0, "the shop button is hidden, not placed")
 assert(#EJMicroButton._points == 0 and EJMicroButton._alpha == 0, "the Adventure Guide button is hidden, not placed")
-assert(WorldMapMicroButton._alpha == 0 and #WorldMapMicroButton._points == 0, "the Map plate's micro button stays invisible")
+for _, b in ipairs({ WorldMapMicroButton, QuestLogMicroButton, SocialsMicroButton }) do
+	assert(b._alpha == 0 and #b._points == 0, b:GetName() .. " stays hidden, not placed")
+end
 assert(MicroMenuContainer._alpha == nil and MicroMenu._alpha == nil and #MicroMenuContainer._points == 0,
 	"the micro menu stays where Edit Mode puts it, alpha untouched")
 assert(MicroMenuContainer._mouse == false and MicroMenu._mouse == false, "the empty micro menu lets clicks through")
@@ -599,7 +586,7 @@ unnamedMicro._shown = false
 unnamedMicro._hooks.OnShow(unnamedMicro)
 flushTimers()
 checkMicro({ CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, LegacyMicroButton, menuMicro })
+	LFDMicroButton, CollectionsMicroButton, LegacyMicroButton, MainMenuMicroButton })
 unnamedMicro._shown = true
 unnamedMicro._hooks.OnShow(unnamedMicro)
 flushTimers()
@@ -608,32 +595,6 @@ checkMicro(MOVED)
 StoreMicroButton._shown = true
 flushTimers()
 checkMicro(MOVED)
--- The game menu button covers whichever of its two buttons the mouse enters.
-do
-	local b, plate = MainMenuMicroButton
-	for _, p in ipairs(ns.modules.topbar.buttons) do
-		if p.cover == b then plate = p end
-	end
-	local moves = 0
-	local orig = b.SetPoint
-	b.SetPoint = function(...) moves = moves + 1; return orig(...) end
-	menuMicro._scripts.OnEnter(menuMicro)
-	assert(plate.coverAt == menuMicro and moves > 0, "the game menu button moves over the micro row's menu button")
-	local _, rel = b:GetPoint(1)
-	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, "still invisible, clickable, on UIParent")
-	moves = 0
-	plate._hooks.OnEnter(plate)
-	assert(plate.coverAt == nil and moves > 0, "and back over the Menu plate")
-	b.SetPoint = nil
-end
--- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
--- over the top bar's plates and clicked directly.
-for _, b in ipairs({ QuestLogMicroButton, MainMenuMicroButton, SocialsMicroButton }) do
-	local _, rel = b:GetPoint(1)
-	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, b:GetName() .. " should cover its top bar plate")
-	assert(b:GetParent() == MicroMenu, b:GetName() .. " keeps its parent")
-end
-
 -- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
 	local row = L.bars[key]
@@ -807,9 +768,9 @@ assert(math.abs(tb.dial._rotation + math.pi) < 1e-6, "midnight should turn the m
 gameHour = 12
 tb:UpdateClock()
 assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
-assert(tb.slots[1].text._text:find("20%%"), "slot 1 should show durability")
+assert(tb.slots[1].text._text == "123", "slot 1 should show gold")
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
-assert(tb.slots[3].text._text == "123", "slot 3 should show gold")
+assert(tb.slots[3].text._text:find("20%%"), "slot 3 should show durability")
 assert(tb.slots[4].text._text == "", "slot 4 should start empty")
 local ldb = LibStub("LibDataBroker-1.1")
 local feed = ldb:NewDataObject("Test Feed", { type = "data source", text = "hello" })
@@ -872,8 +833,8 @@ end
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
 
--- The top bar's pieces never collide: plates, micro buttons, clock and feed
--- slots (slots give way first), the clock centred.
+-- The top bar's pieces never collide: micro buttons, clock and feed slots
+-- (slots give way first), the clock centred.
 local function checkTopBar()
 	local T, O = ns.topLayout, ns.Layout.Overlaps
 	assert(math.abs(T.clock.cx - T.W / 2) <= 1, "the clock stays centred")
@@ -884,12 +845,21 @@ local function checkTopBar()
 		assert(r.h >= ns.Layout.TOP_SIZES.microMinH - 0.01, "micro buttons shrink only so far")
 		pieces[#pieces + 1] = r
 	end
-	for _, r in ipairs(T.topButtons) do
-		if r then
-			assert(not O(r, T.clockArt), "a plate overlaps the clock")
-			pieces[#pieces + 1] = r
+	-- Slots: the first on each side the same distance from the centre, all
+	-- on the bar's pattern (which starts at the first right-hand slot), and
+	-- centred in the band above the trim.
+	local cx, nearL, nearR = T.clock.cx
+	local period = ns.Layout.TOP_SIZES.slotW + ns.Layout.TOP_SIZES.slotGap
+	for _, r in ipairs(T.topSlots) do
+		if r.x >= cx then
+			nearR = math.min(nearR or math.huge, r.x - cx)
+		else
+			nearL = math.min(nearL or math.huge, cx - (r.x + r.w))
 		end
+		local phase = (r.x - T.topBar.originX) % period
+		assert(phase < 0.01 or period - phase < 0.01, "a slot off the bar's pattern")
 	end
+	assert(not (nearL and nearR) or math.abs(nearL - nearR) < 0.01, "slots either side of the centre at different distances")
 	for _, r in ipairs(T.topSlots) do
 		assert(not O(r, T.clockArt) and r.x >= 0 and r.x + r.w <= T.W, "a slot overlaps the clock or leaves the screen")
 		pieces[#pieces + 1] = r
@@ -1184,17 +1154,6 @@ assert(settingValues.PROXY_SHOW_ACTIONBAR_2 and settingValues.PROXY_SHOW_ACTIONB
 settingValues.PROXY_SHOW_ACTIONBAR_8 = false
 ns.modules.actionbars:EnableBars()
 assert(settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "bars are only turned on once; the player's choice stands")
--- The top bar's Menu button is Blizzard's game menu button laid over it,
--- invisible and clickable, so no addon code opens the menu.
-do
-	local b = MainMenuMicroButton
-	local _, rel = b:GetPoint(1)
-	assert(rel == UIParent, "game menu button anchored to UIParent")
-	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button invisible but clickable")
-	b:SetAlpha(1); b:EnableMouse(false)
-	assert(b:GetAlpha() == 0 and b._mouse == true, "game menu button stays invisible and clickable")
-end
-
 -- Target display.
 do
 	local target, hero = ns.modules.target, ns.modules.hero

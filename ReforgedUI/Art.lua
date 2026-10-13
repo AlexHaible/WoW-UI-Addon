@@ -84,11 +84,13 @@ local function PlacePanel(f, r, root, showCorners)
 	f.fill:SetPoint(outer .. "LEFT", l, dir * 4)
 	f.fill:SetPoint(inner .. "RIGHT", -rt, 0)
 	-- Offset texture coordinates by absolute position so neighbouring panels
-	-- continue the same pattern instead of restarting it.
-	local u0, v0 = (r.x + l) / PANEL_PERIOD, r.y / PANEL_PERIOD
+	-- continue the same pattern instead of restarting it; `originX` moves
+	-- where the pattern starts (the top bar's slots sit on it).
+	local ox = r.originX or 0
+	local u0, v0 = (r.x + l - ox) / PANEL_PERIOD, r.y / PANEL_PERIOD
 	f.fill:SetTexCoord(u0, u0 + (r.w - l - rt) / PANEL_PERIOD, v0 + (r.h - 4) / PANEL_PERIOD, v0)
 	local vh = (r.h - EDGE + 2) / EDGE_PERIOD
-	local e0 = r.x / EDGE_PERIOD
+	local e0 = (r.x - ox) / EDGE_PERIOD
 	if f.hanging then
 		f.top:SetTexCoord(e0, e0 + r.w / EDGE_PERIOD, 1, 0)
 		f.left:SetTexCoord(0, 1, vh, 0)

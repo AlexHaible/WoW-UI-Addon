@@ -41,7 +41,7 @@ Layout.PROFILES = {
 Layout.PROFILE_ORDER = { "standard", "wide", "superwide" }
 
 local TOP = {
-	topH = 40, topBtnW = 84, slotW = 120, slotGap = 8,
+	topH = 40, slotW = 120, slotGap = 8,
 	dialR = 52, clockW = 176, clockH = 88,
 	-- Width of the clock frame's art where it crosses the bar (the rest of
 	-- the frame's width is transparent there, for every theme).
@@ -71,7 +71,14 @@ Layout.Overlaps = overlaps
 -- The top bar in its own units (W x H, origin bottom-left). `micro` lists
 -- the width/height ratio of each of Blizzard's micro buttons to place beside
 -- the clock, in order: the first half go on the left, the rest on the right.
-function Layout.ComputeTopBar(W, H, profile, micro)
+-- How far the inner edge of each top bar trim (Media/<folder>/edge.tga) is
+-- see-through, in units: the bar's open band reaches that far into the trim.
+local TRIM_OPEN = {
+	Undead = 3.5, NightElf = 3, HighOrder = 3, Windshapers = 3,
+	Orc = 2.5, Tauren = 2.5, Troll = 2.5, Forsaken = 0.5,
+}
+
+function Layout.ComputeTopBar(W, H, profile, micro, folder)
 	if not Layout.PROFILES[profile] then
 		profile = Layout.DetectProfile(W, H)
 	end
@@ -89,13 +96,15 @@ function Layout.ComputeTopBar(W, H, profile, micro)
 	T.clock = { cx = cx, cy = cy, radius = TOP.dialR }
 	T.clockFrame = rect(cx - TOP.clockW / 2, H - TOP.clockH, TOP.clockW, TOP.clockH)
 	T.clockArt = rect(cx - TOP.clockArtW / 2, H - TOP.topH, TOP.clockArtW, TOP.topH)
-	-- Plates sit on the bar above its trim (the bottom 16 units).
-	local plateY, plateH = H - TOP.topH + 18, TOP.topH - 22
+	-- Slots sit centred in the bar's open band, between the top of the
+	-- screen and its trim (the bottom 16 units, less any see-through edge).
+	local plateH = TOP.topH - 22
+	local bandBottom = H - TOP.topH + 16 - (TRIM_OPEN[folder] or 0)
+	local plateY = bandBottom + (H - bandBottom - plateH) / 2
 
 	-- Micro buttons hug the clock's art, half on each side, centred on the
-	-- plates. Where the menu plates (left) or the screen edge (right) leave
-	-- too little room they shrink, down to microMinH; past that the menu
-	-- plates give way, the last first (as they do to the clock).
+	-- slots. Where the core's left edge (left) or the screen edge (right)
+	-- leave too little room they shrink, down to microMinH.
 	local n = #micro
 	local nL = math.ceil(n / 2)
 	local artL, artR = T.clockArt.x - TOP.microClockGap, right(T.clockArt) + TOP.microClockGap
@@ -106,22 +115,11 @@ function Layout.ComputeTopBar(W, H, profile, micro)
 		end
 		return sum, max(0, i1 - i0) * TOP.microGap
 	end
-	local function fit(plates)
-		local platesEnd = coreX + 16 + plates * (TOP.topBtnW + 6) - 6
-		local h = TOP.microH
-		for _, side in ipairs({ { 1, nL, artL - (platesEnd + TOP.slotGap) }, { nL + 1, n, W - 8 - artR } }) do
-			local sum, gaps = ratios(side[1], side[2])
-			if sum > 0 then
-				h = min(h, (side[3] - gaps) / sum)
-			end
-		end
-		return h
-	end
-	local h
-	for plates = 4, 0, -1 do
-		h = fit(plates)
-		if h >= TOP.microMinH then
-			break
+	local h = TOP.microH
+	for _, side in ipairs({ { 1, nL, artL - (coreX + 16 + TOP.slotGap) }, { nL + 1, n, W - 8 - artR } }) do
+		local sum, gaps = ratios(side[1], side[2])
+		if sum > 0 then
+			h = min(h, (side[3] - gaps) / sum)
 		end
 	end
 	h = max(TOP.microMinH, h)
@@ -144,52 +142,31 @@ function Layout.ComputeTopBar(W, H, profile, micro)
 	end
 	T.microSpan = rect(microL, my, microR - microL, h)
 
-	-- Menu plates from the core's left edge, as long as they clear the micro
-	-- buttons (or the clock).
 	local clockL, clockR = T.clockFrame.x - 6, T.clockFrame.x + T.clockFrame.w + 6
 	local innerL, innerR = clockL, clockR
 	if n > 0 then
 		innerL, innerR = microL - TOP.slotGap, microR + TOP.slotGap
 	end
-	T.topButtons = {}
-	local bx = coreX + 16
-	for i = 1, 4 do
-		local r = rect(bx, plateY, TOP.topBtnW, plateH)
-		T.topButtons[i] = (r.x + r.w <= innerL) and r or false
-		bx = bx + TOP.topBtnW + 6
-	end
-	local buttonsEnd = coreX + 16 + 4 * (TOP.topBtnW + 6)
 
-	-- Data feed slots in order of preference: from the core's right edge in
-	-- towards the micro buttons (where Warcraft III shows its resources),
-	-- then from the menu plates towards them, then the right and left wings.
-	-- Slots only take the room the plates and buttons leave.
+	-- Data feed slots, the same distance either side of the centre: clear
+	-- of the wider of the micro button halves (or the clock), then outwards
+	-- to the screen edges. The right side is numbered first, from the
+	-- centre out (where Warcraft III shows its resources), then the left.
 	local slots, step = {}, TOP.slotW + TOP.slotGap
-	local function add(sx)
-		local r = rect(sx, plateY, TOP.slotW, plateH)
-		if not overlaps(r, T.microSpan) and not overlaps(r, T.clockArt) then
-			slots[#slots + 1] = r
-		end
-	end
-	local coreR = coreX + coreW - 16
-	local sx = coreR - TOP.slotW
-	while sx >= innerR do
-		add(sx)
-		sx = sx - step
-	end
-	sx = buttonsEnd + TOP.slotGap
-	while sx + TOP.slotW <= innerL do
-		add(sx)
-		sx = sx + step
-	end
-	sx = coreR + 16 + TOP.slotGap
+	-- Both sides land on the same place in the bar's pattern, which repeats
+	-- every slot plus gap (128 units) from the first right-hand slot.
+	local d = max(cx - innerL, innerR - cx)
+	local half, base = step / 2, TOP.slotGap / 2
+	d = base + half * math.ceil((d - base) / half)
+	T.topBar.originX = cx + d
+	local sx = cx + d
 	while sx + TOP.slotW <= W - 8 do
-		add(sx)
+		slots[#slots + 1] = rect(sx, plateY, TOP.slotW, plateH)
 		sx = sx + step
 	end
-	sx = coreX - TOP.slotGap - TOP.slotW
+	sx = cx - d - TOP.slotW
 	while sx >= 8 do
-		add(sx)
+		slots[#slots + 1] = rect(sx, plateY, TOP.slotW, plateH)
 		sx = sx - step
 	end
 	T.topSlots = slots

@@ -447,7 +447,7 @@ function ns:Relayout()
 		-- The top bar makes room beside its clock for Blizzard's micro
 		-- buttons (TopBar.lua).
 		local micro = self.TopBarMicroRatios and self:TopBarMicroRatios()
-		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout, micro)
+		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout, micro, self.theme and self.theme.folder)
 
 		local L = self.Layout.Compute(W, 768, self:LayoutOptions())
 		self.layout = L

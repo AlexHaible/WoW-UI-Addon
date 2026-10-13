@@ -61,13 +61,14 @@ screen stays free on either side).
   console, since it always stands in mid-screen. On 21:9 the chat area
   narrows a little where it needs to for both to fit; on 16:9 they are past
   the screen edges.
-- **Top bar** (Reforged UI) with Quests, Menu, Allies and Map buttons, the
-  day/night clock in the middle with Blizzard's micro buttons either side of
-  it (character, professions, talents, group finder, collections, ...:
-  every one the plates don't already stand for, in Blizzard's order, then
-  Legacy and a second game menu button to close the row; no adventure
-  guide or shop), and slots for LibDataBroker feeds:
-  gold, bag space and durability fill the first three; right-click an empty
+- **Top bar** (Reforged UI): the day/night clock in the middle with
+  Blizzard's micro buttons either side of it (character, professions,
+  talents, group finder, collections, ... in Blizzard's order, then Legacy
+  and the game menu to close the row; no quest log, social or map buttons,
+  which have their keys, and no adventure guide or shop), and slots for
+  LibDataBroker feeds, the same distance either side of the centre and out
+  to the screen edges: gold, bag space and durability fill the first three
+  (right of the clock); right-click an empty
   slot (Alt-right-click a filled one) to choose any feed. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and

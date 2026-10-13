@@ -128,7 +128,8 @@ def icon(seed):
 
 
 def dump(w, theme, s, m):
-    out = subprocess.check_output(["lua5.1", os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m)])
+    folder = TOPBAR.get(theme, TOPBAR["human"])[0]
+    out = subprocess.check_output(["lua5.1", os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m), folder])
     return json.loads(out)
 
 
@@ -136,13 +137,21 @@ def panel(c, folder, r):
     """The top bar: a hanging Reforged UI panel (see Art.lua)."""
     media = os.path.join(ADDON, "Media", folder)
     fill, edge = tex(os.path.join(media, "panel.tga")), tex(os.path.join(media, "edge.tga"))
-    strip = Image.new("RGBA", (int(r["w"]), int(r["h"])))
-    for x in range(0, strip.width, fill.width):
-        strip.alpha_composite(fill, (x, 0))
-    e = edge.resize((256, 32))
-    e = e.resize((128, 16))
-    for x in range(0, strip.width, e.width):
-        strip.alpha_composite(e.transpose(Image.FLIP_TOP_BOTTOM), (x, strip.height - 16))
+    # The pattern starts at originX (the first right-hand slot): tile a strip
+    # one period wider, then crop it to that phase.
+    ox = r.get("originX", 0)
+    W, H = int(r["w"]), int(r["h"])
+    e = edge.resize((256, 32)).resize((128, 16)).transpose(Image.FLIP_TOP_BOTTOM)
+    big = Image.new("RGBA", (W + 2 * 256, H))
+    for x in range(0, big.width, fill.width):
+        big.alpha_composite(fill, (x, 0))
+    fx = int((r["x"] - ox) % fill.width)
+    strip = big.crop((fx, 0, fx + W, H))
+    big = Image.new("RGBA", (W + 256, 16))
+    for x in range(0, big.width, e.width):
+        big.alpha_composite(e, (x, 0))
+    ex = int((r["x"] - ox) % 128)
+    strip.alpha_composite(big.crop((ex, 0, ex + W, 16)), (0, H - 16))
     c.paste(strip, r["x"], r["y"], r["w"], r["h"])
 
 
@@ -155,20 +164,16 @@ def top_bar(c, theme_key, T, hour=15):
     c.paste(dial, cl["cx"] - cl["radius"], cl["cy"] - cl["radius"], 2 * cl["radius"], 2 * cl["radius"])
     cf = T["clockFrame"]
     c.paste(tex(os.path.join(ADDON, "Media", folder, "clockframe.tga")), cf["x"], cf["y"], cf["w"], cf["h"])
-    for b, label in zip(T["topButtons"], ["Quests", "Menu", "Allies", "Map"]):
-        if b:
-            c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
-            c.text(b["x"], b["y"], b["w"], b["h"], label, 12, title)
     # Blizzard's micro buttons beside the clock (stand-ins: a framed icon
     # and a letter each).
-    for i, (b, letter) in enumerate(zip(T["micro"], "CPTAGLJS")):
+    for i, (b, letter) in enumerate(zip(T["micro"], "CPTAGLJSM")):
         c.paste(icon(500 + i), b["x"] + 1, b["y"] + 1, b["w"] - 2, b["h"] - 2)
         c.rect(b["x"], b["y"], b["w"], b["h"], outline=(214, 170, 72, 255))
         c.text(b["x"], b["y"], b["w"], b["h"], letter, 13, (255, 236, 160))
     for i, b in enumerate(T["topSlots"]):
         c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
         if i < 3:
-            c.text(b["x"], b["y"], b["w"], b["h"], ["87%", "34 / 80", "123"][i], 12, (255, 255, 255))
+            c.text(b["x"], b["y"], b["w"], b["h"], ["123", "34 / 80", "87%"][i], 12, (255, 255, 255))
 
 
 def face(skin, body):

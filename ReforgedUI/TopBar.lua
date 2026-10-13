@@ -1,31 +1,18 @@
--- The Warcraft III top bar: menu buttons on the left, the day/night clock in
--- the middle turning with the game's server time (sun at the bottom of the
--- window at noon, moon at midnight) with Blizzard's own micro buttons
--- (character, talents, achievements, group finder, ...) either side of it,
--- and slots for LibDataBroker feeds, like Titan Panel, everywhere else. Gold, bag space and durability are feeds of
--- our own and fill the first three slots by default. Right-click an empty
--- slot, or Alt-right-click a filled one, to choose its feed.
+-- The Warcraft III top bar: the day/night clock in the middle turning with
+-- the game's server time (sun at the bottom of the window at noon, moon at
+-- midnight) with Blizzard's own micro buttons (character, talents, group
+-- finder, ..., game menu) either side of it, and slots for LibDataBroker
+-- feeds, like Titan Panel, everywhere else. Gold, bag space and durability
+-- are feeds of our own and fill the first three slots by default.
+-- Right-click an empty slot, or Alt-right-click a filled one, to choose its
+-- feed.
 
 local _, ns = ...
 local TopBar = ns:RegisterModule("topbar", {})
 local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 
--- Label, Blizzard micro button to click (secure), and a fallback function for
--- clients without that button. `cover` is a Blizzard button laid, invisible,
--- over ours so the player clicks it directly: the game menu, quest log and
--- social buttons open on their own mouse-up (a secure click does nothing),
--- and opening the menu from addon code is blocked (ToggleGameMenu stops
--- spell casts) or taints the menu and the Edit Mode button in it.
-local BUTTONS = {
-	{ label = QUESTLOG_BUTTON or "Quests", micro = {}, cover = { "QuestLogMicroButton" }, fallback = "ToggleQuestLog" },
-	{ label = MAINMENU_BUTTON or "Menu", micro = {}, cover = { "MainMenuMicroButton" } },
-	{ label = SOCIAL_BUTTON or "Allies", micro = {}, cover = { "SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton" },
-		fallback = "ToggleFriendsFrame" },
-	{ label = WORLD_MAP or "Map", micro = { "WorldMapMicroButton" }, fallback = "ToggleWorldMap" },
-}
-
 local FEED_GOLD, FEED_BAGS, FEED_REPAIR = "Reforged: Gold", "Reforged: Bags", "Reforged: Durability"
-local DEFAULT_SLOTS = { FEED_REPAIR, FEED_BAGS, FEED_GOLD } -- slot 1 is at the core's right edge
+local DEFAULT_SLOTS = { FEED_GOLD, FEED_BAGS, FEED_REPAIR } -- slot 1 is nearest the clock, on its right
 
 local Container = C_Container or {}
 local numFreeSlots = Container.GetContainerNumFreeSlots or GetContainerNumFreeSlots
@@ -35,14 +22,6 @@ local function place(region, r)
 	region:ClearAllPoints()
 	region:SetPoint("BOTTOMLEFT", ns.topRoot, "BOTTOMLEFT", r.x, r.y)
 	region:SetSize(r.w, r.h)
-end
-
-local function firstGlobal(names)
-	for _, name in ipairs(names) do
-		if _G[name] then
-			return _G[name]
-		end
-	end
 end
 
 ----------------------------------------------------------------------------
@@ -294,6 +273,16 @@ function TopBar:OnEnable()
 			db.slots[i] = name
 		end
 		db.initialised = true
+		db.centred = true
+	end
+	-- Slots used to count in from the core's right edge; they now count out
+	-- from the clock. Keep the default feeds in the order they read.
+	if not db.centred then
+		local s = db.slots
+		if s[1] == FEED_REPAIR and s[2] == FEED_BAGS and s[3] == FEED_GOLD then
+			s[1], s[3] = FEED_GOLD, FEED_REPAIR
+		end
+		db.centred = true
 	end
 
 	-- The top bar has its own root and scale (see Core.lua).
@@ -336,43 +325,7 @@ function TopBar:OnEnable()
 		end
 	end)
 
-	self.buttons = {}
-	local covers = {}
-	for i, spec in ipairs(BUTTONS) do
-		local target = firstGlobal(spec.micro)
-		local fallback = spec.fallback and _G[spec.fallback]
-		local cover = spec.cover and firstGlobal(spec.cover)
-		if cover and ns.IsForbidden(cover) then
-			cover = nil
-		end
-		if target or fallback or cover then
-			local plate = ns.Art.CreateInset(self.holder, 50)
-			plate.text = plate:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-			plate.text:SetPoint("CENTER")
-			plate.text:SetText(spec.label)
-			local btn
-			if cover then
-				covers[cover] = true
-				self:SetupCover(plate, cover)
-			elseif target then
-				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate, "SecureActionButtonTemplate")
-				btn:SetAttribute("type", "click")
-				btn:SetAttribute("clickbutton", target)
-				btn:RegisterForClicks("AnyUp")
-			else
-				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate)
-				btn:SetScript("OnClick", function() fallback() end)
-			end
-			if btn then
-				btn:SetAllPoints()
-				btn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
-			end
-			plate.button = btn
-			self.buttons[#self.buttons + 1] = plate
-		end
-	end
-
-	self:TakeMicroButtons(covers)
+	self:TakeMicroButtons()
 
 	self:CreateFeeds()
 	if LDB then
@@ -388,60 +341,15 @@ function TopBar:OnEnable()
 	end
 end
 
--- Makes Blizzard's button `b` an invisible, clickable cover for `plate`: it
--- stays transparent and takes the mouse whatever else sets, and lights the
--- plate up on hover. Nothing of Blizzard's runs from our code.
-function TopBar:SetupCover(plate, b)
-	plate.cover = b
-	plate.hl = plate:CreateTexture(nil, "OVERLAY")
-	plate.hl:SetAllPoints()
-	plate.hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-	plate.hl:SetBlendMode("ADD")
-	plate.hl:Hide()
-	b:HookScript("OnEnter", function() (plate.coverAt or plate).hl:Show() end)
-	b:HookScript("OnLeave", function() (plate.coverAt or plate).hl:Hide() end)
-	local busy
-	local function keep(f)
-		if busy then
-			return
-		end
-		busy = true
-		f:SetAlpha(0)
-		if not InCombatLockdown() then
-			f:EnableMouse(true)
-		end
-		busy = false
-	end
-	hooksecurefunc(b, "SetAlpha", keep)
-	hooksecurefunc(b, "EnableMouse", keep)
-	keep(b)
-end
-
--- Lays `b` exactly over `plate`, on top of the top bar.
-local function coverPlate(b, plate)
-	plate = plate.coverAt or plate
-	local left, bottom = plate:GetLeft(), plate:GetBottom()
-	if not left then
-		return
-	end
-	local parent = b:GetParent() or UIParent
-	local pe = plate:GetEffectiveScale()
-	b:SetScale(pe / parent:GetEffectiveScale())
-	b:SetSize(plate:GetWidth(), plate:GetHeight())
-	b:SetFrameStrata("HIGH")
-	b:ClearAllPoints()
-	b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * pe / b:GetEffectiveScale(), bottom * pe / b:GetEffectiveScale())
-end
-
 ----------------------------------------------------------------------------
 -- Blizzard's micro buttons beside the clock
 
--- Blizzard's order. The plates already stand for the quest log, game menu,
--- social and world map buttons: those stay invisible, as covers over their
--- plates or where they are. Every other micro button the client has (found
--- by name, or among the micro menu's children) moves into the top bar, half
--- either side of the clock, still Blizzard's own button with its own clicks,
--- tooltip, alerts and enabled state; only its position and scale are ours.
+-- Blizzard's order. The quest log, social and world map buttons stay
+-- hidden (their keys open them). Every other micro button the client has
+-- (found by name, or among the micro menu's children) moves into the top
+-- bar, half either side of the clock, still Blizzard's own button with its
+-- own clicks, tooltip, alerts and enabled state; only its position and
+-- scale are ours.
 local MICRO_ORDER = {
 	"CharacterMicroButton", "SpellbookMicroButton", "ProfessionMicroButton", "PlayerSpellsMicroButton",
 	"TalentMicroButton", "LegacyMicroButton", "AchievementMicroButton", "QuestLogMicroButton", "HousingMicroButton",
@@ -452,9 +360,8 @@ local MICRO_ORDER = {
 -- Buttons for features Forever doesn't have (yet).
 -- Nor the Adventure Guide or the shop, which the top bar leaves out.
 local SKIP_MICRO = { HousingMicroButton = true, EJMicroButton = true, StoreMicroButton = true }
-local PLATE_MICRO = {
-	QuestLogMicroButton = true, MainMenuMicroButton = true, SocialsMicroButton = true,
-	FriendsMicroButton = true, WorldMapMicroButton = true,
+local HIDDEN_MICRO = {
+	QuestLogMicroButton = true, SocialsMicroButton = true, FriendsMicroButton = true, WorldMapMicroButton = true,
 }
 
 local function microName(b)
@@ -483,7 +390,7 @@ local function artHeight(b)
 	return h, 0
 end
 
-function TopBar:TakeMicroButtons(covers)
+function TopBar:TakeMicroButtons()
 	local rank = {}
 	for i, name in ipairs(MICRO_ORDER) do
 		rank[name] = i
@@ -491,7 +398,7 @@ function TopBar:TakeMicroButtons(covers)
 	local found, seen, byLayout = {}, {}, true
 	local function consider(b, n)
 		local name = microName(b)
-		if not name or seen[b] or covers[b] then
+		if not name or seen[b] then
 			return
 		end
 		-- Forever has the classic talent button and the newer spells and
@@ -506,8 +413,8 @@ function TopBar:TakeMicroButtons(covers)
 			return
 		end
 		seen[b] = true
-		if PLATE_MICRO[name] then
-			ns:Conceal(b) -- e.g. the world map button, which the Map plate clicks
+		if HIDDEN_MICRO[name] then
+			ns:Conceal(b)
 			return
 		end
 		local index = b.layoutIndex
@@ -530,21 +437,21 @@ function TopBar:TakeMicroButtons(covers)
 		end
 		return a.rank < b.rank
 	end)
-	-- Legacy and a second game menu button close the row, on the right.
+	-- Legacy and the game menu close the row, on the right.
 	self.micro = {}
-	local legacy
+	local last = {}
 	for _, entry in ipairs(found) do
-		if entry.button == _G.LegacyMicroButton then
-			legacy = entry.button
+		local b = entry.button
+		if b == _G.LegacyMicroButton then
+			last[1] = b
+		elseif b == _G.MainMenuMicroButton then
+			last[2] = b
 		else
-			self.micro[#self.micro + 1] = entry.button
+			self.micro[#self.micro + 1] = b
 		end
 	end
-	self.micro[#self.micro + 1] = legacy
-	for _, plate in ipairs(self.buttons or {}) do
-		if plate.cover and plate.cover == _G.MainMenuMicroButton then
-			self.micro[#self.micro + 1] = self:CreateMenuMicro(plate, self.micro[1])
-		end
+	for i = 1, 2 do
+		self.micro[#self.micro + 1] = last[i]
 	end
 	ns.microButtons = self.micro
 	if #self.micro == 0 then
@@ -557,9 +464,6 @@ function TopBar:TakeMicroButtons(covers)
 	-- eye keep theirs.
 	local keep = { [_G.QueueStatusButton or false] = true, [_G.QueueStatusFrame or false] = true }
 	for _, b in ipairs(self.micro) do
-		keep[b] = true
-	end
-	for b in pairs(covers) do
 		keep[b] = true
 	end
 	for _, name in ipairs({ "MicroMenuContainer", "MicroMenu" }) do
@@ -592,106 +496,6 @@ function TopBar:TakeMicroButtons(covers)
 			p = p:GetParent()
 		end
 	end
-end
-
--- Copies `src`'s texture onto a new texture of `owner`'s.
-local function copyTexture(owner, src)
-	local layer, sub = src:GetDrawLayer()
-	local t = owner:CreateTexture(nil, layer or "ARTWORK", nil, sub)
-	local atlas = src.GetAtlas and src:GetAtlas()
-	if atlas then
-		t:SetAtlas(atlas)
-	else
-		t:SetTexture(src:GetTexture())
-		t:SetTexCoord(src:GetTexCoord())
-	end
-	t:SetVertexColor(src:GetVertexColor())
-	if src.GetBlendMode then
-		t:SetBlendMode(src:GetBlendMode())
-	end
-	return t
-end
-
--- The game menu has two buttons in the top bar: its plate on the left and a
--- micro button at the right end of the row. Both are ours, drawn with
--- Blizzard's art; the game menu button itself (which only opens the menu
--- when clicked directly) is the invisible cover of whichever the mouse
--- last entered.
-function TopBar:CreateMenuMicro(plate, like)
-	local b = plate.cover
-	local f = CreateFrame("Frame", "ReforgedUIGameMenuMicroButton", UIParent)
-	local ref = like or b
-	f:SetSize(ref:GetWidth(), ref:GetHeight())
-	-- Copy the shown art of Blizzard's button, keeping its anchors.
-	local hl, copies = b.GetHighlightTexture and b:GetHighlightTexture(), {}
-	local skip = { [hl or false] = true }
-	for _, getter in ipairs({ "GetPushedTexture", "GetDisabledTexture" }) do
-		if b[getter] then
-			skip[b[getter](b) or false] = true
-		end
-	end
-	-- Its latency bar would only be a still picture here.
-	for key, v in pairs(b) do
-		if type(key) == "string" and (key:find("Performance") or key:find("Latency")) then
-			skip[v] = true
-		end
-	end
-	for _, region in ipairs({ b:GetRegions() }) do
-		if region.GetObjectType and region:GetObjectType() == "Texture" and not skip[region] and region:IsShown() then
-			copies[region] = copyTexture(f, region)
-		end
-	end
-	-- Sizes and offsets scale from Blizzard's button to ours.
-	local bw, bh = b:GetWidth(), b:GetHeight()
-	local kx = (plain(bw) and bw > 0) and f:GetWidth() / bw or 1
-	local ky = (plain(bh) and bh > 0) and f:GetHeight() / bh or 1
-	for region, t in pairs(copies) do
-		local ok = pcall(function()
-			local n = region:GetNumPoints()
-			for i = 1, n do
-				local point, rel, relPoint, x, y = region:GetPoint(i)
-				rel = (rel == nil or rel == b) and f or copies[rel]
-				assert(rel)
-				t:SetPoint(point, rel, relPoint, (x or 0) * kx, (y or 0) * ky)
-			end
-			-- One anchor: the texture has a size of its own (the button's
-			-- backing, centred on it, for one).
-			if n == 1 then
-				local w, h = region:GetWidth(), region:GetHeight()
-				assert(plain(w) and plain(h))
-				t:SetSize(w * kx, h * ky)
-			end
-		end)
-		if not ok or region:GetNumPoints() == 0 then
-			t:ClearAllPoints()
-			t:SetAllPoints()
-		end
-	end
-	if hl then
-		f.hl = copyTexture(f, hl)
-		f.hl:SetBlendMode("ADD")
-	else
-		f.hl = f:CreateTexture(nil, "OVERLAY")
-		f.hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-		f.hl:SetBlendMode("ADD")
-	end
-	f.hl:SetAllPoints()
-	f.hl:Hide()
-
-	-- Entering either one moves the cover onto it.
-	local function moveCover(to)
-		if plate.coverAt ~= to and not (to == plate and plate.coverAt == nil) then
-			(plate.coverAt or plate).hl:Hide()
-			plate.coverAt = to ~= plate and to or nil
-			coverPlate(b, plate)
-		end
-	end
-	f:EnableMouse(true)
-	f:SetScript("OnEnter", function() moveCover(f) end)
-	plate:EnableMouse(true)
-	plate:HookScript("OnEnter", function() moveCover(plate) end)
-	self.menuMicro = f
-	return f
 end
 
 -- Width/height of each shown micro button, for the layout (Core.lua).
@@ -754,19 +558,7 @@ function TopBar:OnLayout()
 	self.dial:SetPoint("CENTER", ns.topRoot, "BOTTOMLEFT", c.cx, c.cy)
 	self.dial:SetSize(c.radius * 2, c.radius * 2)
 	place(self.clockFrame, L.clockFrame)
-	for i, plate in ipairs(self.buttons) do
-		local r = L.topButtons[i]
-		if r then
-			place(plate, r)
-		end
-		plate:SetShown(r and true or false)
-	end
 	self:PlaceMicro()
-	for i, plate in ipairs(self.buttons) do
-		if plate.cover and L.topButtons[i] then
-			ns:Lock(plate.cover, function(b) coverPlate(b, plate) end, { "SetScale" })
-		end
-	end
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)
 		place(slot, r)
@@ -783,14 +575,6 @@ end
 function TopBar:OnTheme(theme)
 	ns.Art.PaintPanel(self.panel, theme)
 	self.clockArt:SetTexture(ns:Media("clockframe", theme))
-	for _, plate in ipairs(self.buttons) do
-		ns.Art.PaintInset(plate, theme)
-		-- SetFont returns nothing when the game has no such font.
-		if not (theme.font and plate.text:SetFont(theme.font, 11, "")) then
-			plate.text:SetFontObject("GameFontNormalSmall")
-		end
-		plate.text:SetTextColor(unpack(theme.title))
-	end
 	for _, slot in ipairs(self.slots) do
 		ns.Art.PaintInset(slot.plate, theme)
 	end

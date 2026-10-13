@@ -1,6 +1,12 @@
--- Faction themes. The theme key is also the original addon's art folder (art/<key>);
+-- Themes. The theme key is also the console's art folder (art/<key>);
 -- `folder` is the top bar's folder in Media/ (see Media/README.md), and the
--- colours are used by the top bar's plates.
+-- colours are used by the top bar's plates. `font` (optional) is a game font
+-- for the top bar's menu buttons; without it they use GameFontNormalSmall.
+--
+-- Human, Orc, Undead and Night Elf are the original addon's Warcraft III art. The race
+-- themes (Dwarf, Gnome, Tauren, Troll and the two Skyborne factions) are that
+-- art recoloured by tools/make_race_themes.py: see Layout.BASE for which
+-- faction each one is built from.
 
 local _, ns = ...
 
@@ -48,28 +54,130 @@ ns.Themes = {
 		xp = { 0.62, 0.45, 0.95 },
 		health = { 0.40, 1.0, 0.55 },
 	},
+	dwarf = {
+		name = "Dwarf",
+		folder = "Dwarf",
+		font = "Fonts\\SKURRI.TTF",
+		title = { 1.0, 0.78, 0.45 },
+		accent = { 0.88, 0.48, 0.16 },
+		inset = { 0.07, 0.05, 0.04, 0.88 },
+		insetLine = { 0.69, 0.48, 0.23, 0.9 },
+		xp = { 0.88, 0.48, 0.16 },
+		health = { 0.35, 1.0, 0.35 },
+	},
+	gnome = {
+		name = "Gnome",
+		folder = "Gnome",
+		font = "Fonts\\ARIALN.TTF",
+		title = { 0.75, 0.95, 1.0 },
+		accent = { 0.37, 0.82, 0.88 },
+		inset = { 0.04, 0.06, 0.08, 0.88 },
+		insetLine = { 0.72, 0.42, 0.23, 0.9 },
+		xp = { 0.88, 0.38, 0.62 },
+		health = { 0.35, 1.0, 0.45 },
+	},
+	tauren = {
+		name = "Tauren",
+		folder = "Tauren",
+		title = { 1.0, 0.86, 0.62 },
+		accent = { 0.40, 0.70, 0.85 },
+		inset = { 0.09, 0.06, 0.03, 0.88 },
+		insetLine = { 0.79, 0.64, 0.48, 0.9 },
+		xp = { 0.72, 0.27, 0.18 },
+		health = { 0.40, 1.0, 0.30 },
+	},
+	troll = {
+		name = "Troll",
+		folder = "Troll",
+		font = "Fonts\\SKURRI.TTF",
+		title = { 0.90, 0.86, 0.72 },
+		accent = { 0.18, 0.70, 0.68 },
+		inset = { 0.05, 0.06, 0.05, 0.88 },
+		insetLine = { 0.85, 0.80, 0.69, 0.9 },
+		xp = { 0.55, 0.30, 0.65 },
+		health = { 0.40, 1.0, 0.40 },
+	},
+	-- Skyborne, one theme per faction: powder-blue elven stone and twilight
+	-- navy for both; High Order (Alliance) has silver trim and an arcane
+	-- violet accent, Windshapers (Horde) gold trim and storm teal.
+	highorder = {
+		name = "Skyborne (High Order)",
+		folder = "HighOrder",
+		font = "Fonts\\MORPHEUS.TTF",
+		title = { 0.90, 0.93, 0.97 },
+		accent = { 0.55, 0.48, 0.88 },
+		inset = { 0.06, 0.09, 0.16, 0.88 },
+		insetLine = { 0.80, 0.85, 0.90, 0.9 },
+		xp = { 0.55, 0.48, 0.88 },
+		health = { 0.40, 1.0, 0.55 },
+	},
+	windshapers = {
+		name = "Skyborne (Windshapers)",
+		folder = "Windshapers",
+		font = "Fonts\\MORPHEUS.TTF",
+		title = { 0.88, 0.80, 0.54 },
+		accent = { 0.18, 0.77, 0.70 },
+		inset = { 0.06, 0.09, 0.16, 0.88 },
+		insetLine = { 0.85, 0.78, 0.54, 0.9 },
+		xp = { 0.18, 0.77, 0.70 },
+		health = { 0.40, 1.0, 0.55 },
+	},
 }
-ns.THEME_ORDER = { "human", "orc", "undead", "nightelf" }
+ns.THEME_ORDER = { "human", "dwarf", "gnome", "nightelf", "highorder", "orc", "tauren", "troll", "undead", "windshapers" }
+
+-- Theme choices that are not a theme of their own: "auto" follows the
+-- character's race, "skyborne" the character's faction.
+ns.THEME_ALIASES = { auto = true, skyborne = true }
 
 -- Default theme per player race (the second return of UnitRace) for "auto".
+-- Races from later expansions take the theme closest to their looks.
 local RACE_THEME = {
-	Human = "human", Dwarf = "human", Gnome = "human", KulTiran = "human",
-	DarkIronDwarf = "human", Mechagnome = "human", LightforgedDraenei = "human",
-	NightElf = "nightelf", Draenei = "nightelf", Worgen = "nightelf", VoidElf = "nightelf",
-	Orc = "orc", Troll = "orc", Tauren = "orc", Goblin = "orc", MagharOrc = "orc",
-	HighmountainTauren = "orc", ZandalariTroll = "orc", Vulpera = "orc",
-	Scourge = "undead", BloodElf = "undead", Nightborne = "undead",
+	Human = "human", Dwarf = "dwarf", Gnome = "gnome", NightElf = "nightelf",
+	Orc = "orc", Tauren = "tauren", Troll = "troll", Scourge = "undead",
+	Skyborne = "skyborne",
+	KulTiran = "human", LightforgedDraenei = "human", Draenei = "nightelf", Worgen = "nightelf",
+	VoidElf = "nightelf", DarkIronDwarf = "dwarf", Mechagnome = "gnome", EarthenDwarf = "dwarf",
+	Goblin = "orc", MagharOrc = "orc", HighmountainTauren = "tauren", ZandalariTroll = "troll",
+	Vulpera = "tauren", BloodElf = "undead", Nightborne = "undead",
 }
 
+local function isSkyborne(name, raceFile)
+	for _, s in ipairs({ name, raceFile }) do
+		if type(s) == "string" then
+			local l = s:lower()
+			if l:find("skyborne", 1, true) or l:find("shen'dorei", 1, true) or l:find("shendorei", 1, true) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- The theme for "auto": from the race (Skyborne by its race token or its
+-- name, since Forever's token is not documented), else from the faction.
+function ns:RaceThemeKey(name, raceFile, faction)
+	if isSkyborne(name, raceFile) then
+		return "skyborne"
+	end
+	return RACE_THEME[raceFile] or (faction == "Horde" and "orc" or "human")
+end
+
+-- The theme a saved choice stands for: a theme key as it is, "skyborne" the
+-- character's faction's Skyborne theme, anything else ("auto", or a theme
+-- that no longer exists) the race default.
 function ns:ResolveThemeKey(key)
 	if self.Themes[key] then
 		return key
 	end
-	local _, race = UnitRace("player")
-	if race and RACE_THEME[race] then
-		return RACE_THEME[race]
+	local faction = UnitFactionGroup("player")
+	if key ~= "skyborne" then
+		local name, raceFile = UnitRace("player")
+		key = self:RaceThemeKey(name, raceFile, faction)
 	end
-	return UnitFactionGroup("player") == "Horde" and "orc" or "human"
+	if key == "skyborne" then
+		return faction == "Horde" and "windshapers" or "highorder"
+	end
+	return key
 end
 
 function ns:Media(file, theme)

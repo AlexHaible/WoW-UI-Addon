@@ -410,6 +410,10 @@ function TopBar:OnTheme(theme)
 	self.clockArt:SetTexture(ns:Media("clockframe", theme))
 	for _, plate in ipairs(self.buttons) do
 		ns.Art.PaintInset(plate, theme)
+		-- SetFont returns nothing when the game has no such font.
+		if not (theme.font and plate.text:SetFont(theme.font, 11, "")) then
+			plate.text:SetFontObject("GameFontNormalSmall")
+		end
 		plate.text:SetTextColor(unpack(theme.title))
 	end
 	for _, slot in ipairs(self.slots) do

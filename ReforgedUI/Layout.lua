@@ -118,7 +118,12 @@ end
 ----------------------------------------------------------------------------
 -- Console
 
-Layout.THEMES = { "human", "orc", "undead", "nightelf" }
+Layout.THEMES = { "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers" }
+-- The race themes are the original faction art recoloured (tools/make_race_themes.py),
+-- so their pieces have that faction's shapes and take its layout corrections.
+Layout.BASE = {
+	dwarf = "human", gnome = "human", tauren = "orc", troll = "orc", highorder = "nightelf", windshapers = "nightelf",
+}
 Layout.SCALE_MIN, Layout.SCALE_MAX = 240, 270
 Layout.CENTER_MODES = { "off", "center", "slim", "noinv" }
 
@@ -151,7 +156,7 @@ local SLIM_CUT = { human = 512 - 209, orc = 512 - 210, undead = 512 - 221, night
 
 -- Ext pieces, the grid, the inventory and the frame of the chat area.
 local function buildRight(L, o, W, g, add, themed, themedLayer)
-	local s, m, t = o.s, o.m, o.theme
+	local s, m, t = o.s, o.m, Layout.BASE[o.theme] or o.theme
 	local d1 = ({ human = 2, orc = 1, undead = 1 })[t] or 0
 	local d2 = ({ human = 2, orc = 1 })[t] or 0
 	local RM = rect(right(g[4]) - 0.2479 * s - d1, 0, s + 0.01851 * s, s)
@@ -467,9 +472,11 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 end
 
 local function build(W, H, o, X0)
-	local s, m, t = o.s, o.m, o.theme
+	-- `art` is the theme's art folder, `t` the faction whose shapes it has.
+	local s, m, art = o.s, o.m, o.theme
+	local t = Layout.BASE[art] or art
 	local layers = LAYERS[t]
-	local L = { W = W, H = H, s = s, m = m, theme = t, center = o.center, pieces = {}, byKey = {} }
+	local L = { W = W, H = H, s = s, m = m, theme = art, base = t, center = o.center, pieces = {}, byKey = {} }
 
 	-- Art pieces. `frame` says which of the original addon's frames the piece belongs to,
 	-- which decides the stacking: bg < left < grid < right.
@@ -480,7 +487,7 @@ local function build(W, H, o, X0)
 		return p
 	end
 	local function themed(file)
-		return t .. "\\" .. file
+		return art .. "\\" .. file
 	end
 	local function themedLayer(key)
 		local spec = layers[key]

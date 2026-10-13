@@ -2,7 +2,10 @@
 
 The top bar's textures. The console's own art is the original addon's, in `../art`.
 
-Every faction folder (`Human`, `Orc`, `Undead`, `NightElf`) holds the same files.
+Every theme folder (`Human`, `Orc`, `Undead`, `NightElf`, and the race themes
+`Dwarf`, `Gnome`, `Tauren`, `Troll`, `HighOrder`, `Windshapers`) holds the same
+files. The race theme folders are recoloured from a faction folder by
+`tools/make_race_themes.py`; edit the palettes there rather than the files.
 The addon loads them without a file extension, so a `.blp` or `.tga` with the same
 name replaces them. Sizes must stay powers of two.
 

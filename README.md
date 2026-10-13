@@ -1,7 +1,9 @@
 # Reforged UI for WoW: Forever
 
 A World of Warcraft: Forever addon that replaces the bottom of the screen with
-the Warcraft III console, in Human, Orc, Undead and Night Elf themes.
+the Warcraft III console, with a theme for every playable race: Human, Dwarf,
+Gnome, Night Elf, Orc, Tauren, Troll, Undead and Skyborne (High Order and
+Windshapers).
 
 The console is a port of a WoW 1.12 console addon: its layout, art, fonts and options menu,
 rebuilt for the current engine (Edit Mode, secret values, protected frames).
@@ -68,9 +70,43 @@ grid texture, micro buttons, chat icons and bags.
 The previews are rendered from the real layout code and art, with placeholder
 icons, portrait, minimap and chat.
 
-`auto` (the default theme) picks one from your race: Human, Dwarf and Gnome
-use Human; Night Elf uses Night Elf; Orc, Troll and Tauren use Orc; Undead
-uses Undead.
+### Themes
+
+| Theme | Key | Art |
+| --- | --- | --- |
+| Human | `human` | Warcraft III (Human console) |
+| Orc | `orc` | Warcraft III (Orc console) |
+| Undead | `undead` | Warcraft III (Undead console) |
+| Night Elf | `nightelf` | Warcraft III (Night Elf console) |
+| Dwarf | `dwarf` | Human art recoloured: granite, bronze trim, forge-ember accents |
+| Gnome | `gnome` | Human art recoloured: brushed steel, copper trim, teal and pink accents |
+| Tauren | `tauren` | Orc art recoloured: tanned wood and hide, ochre-red bands, totem turquoise |
+| Troll | `troll` | Orc art recoloured: bamboo and bone, teal patina, voodoo purple |
+| Skyborne (High Order) | `highorder` | Night Elf art recoloured: powder-blue stone, silver, arcane violet, twilight navy |
+| Skyborne (Windshapers) | `windshapers` | Night Elf art recoloured: powder-blue stone, gold, storm teal, twilight navy |
+
+| Dwarf | Gnome |
+| --- | --- |
+| ![Dwarf](docs/previews/16x9-dwarf.png) | ![Gnome](docs/previews/16x9-gnome.png) |
+| **Tauren** | **Troll** |
+| ![Tauren](docs/previews/16x9-tauren.png) | ![Troll](docs/previews/16x9-troll.png) |
+| **Skyborne: High Order** | **Skyborne: Windshapers** |
+| ![High Order](docs/previews/16x9-highorder.png) | ![Windshapers](docs/previews/16x9-windshapers.png) |
+
+The race themes keep their base faction's shapes and layout; only the colours
+change. `tools/make_race_themes.py` makes them (see Development).
+
+**Default theme.** `auto` (the default) picks the theme of your character's
+race (`UnitRace("player")`): Human, Dwarf, Gnome, Night Elf, Orc, Tauren,
+Troll and Undead (`Scourge`) each get their own. Skyborne's race token is not
+documented yet, so a race token of `Skyborne`, or a race name containing
+"Skyborne" or "Shen'dorei" (any case), counts as Skyborne; the faction then
+picks the variant: High Order for the Alliance, Windshapers for the Horde.
+Any other race gets its faction's default (Alliance: Human, Horde: Orc), and
+later-expansion races take the closest theme (e.g. Dark Iron Dwarf: Dwarf).
+Choosing a theme in the menu or with `/rui theme` saves it and overrides the
+race default until you pick `auto` again; `skyborne` picks the Skyborne theme
+of your faction. Saved themes from earlier versions keep working.
 
 ## Setting up
 
@@ -86,7 +122,7 @@ uses Undead.
 
 ```
 /rui config                      open the options menu
-/rui theme auto|human|orc|undead|nightelf
+/rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|undead|windshapers|skyborne
 /rui feeds                       list data feeds and top bar slots
 /rui slot <number> <feed>|none   put a feed in a top bar slot
 /rui scale 0.5-1.5               top bar scale
@@ -125,7 +161,8 @@ the client now does itself:
 
 ## Art and licences
 
-`ReforgedUI/art` is the original addon's art and font (`blq55.TTF`), cut from Warcraft III; the one `.dds` was converted to `.tga`. The top bar's
+`ReforgedUI/art` is the original addon's art and font (the race theme folders are
+recoloured copies of it) (`blq55.TTF`), cut from Warcraft III; the one `.dds` was converted to `.tga`. The top bar's
 textures in `ReforgedUI/Media` are cropped from Warcraft III: Reforged (see
 [Media/README.md](ReforgedUI/Media/README.md)). Blizzard owns that art, and
 the console art ships without a licence file, so keep this repository private.
@@ -139,6 +176,11 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
 - `lua5.1 tools/smoke_test.lua` loads the addon against a stubbed game API and
   exercises login, every theme, centre mode, UI scale and screen shape, the
   hero screen, combat queuing and the main events.
+- `python3 tools/make_race_themes.py [race ...]` regenerates the race themes'
+  art (`ReforgedUI/art/<race>` and `ReforgedUI/Media/<Race>`) from the
+  the original faction art: a gradient map per material (stone, trim, accents,
+  dark fills) that keeps alpha and the original's shading. Palettes are at the
+  top of the script. Needs Pillow and NumPy.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

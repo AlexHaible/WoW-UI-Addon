@@ -6,11 +6,17 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 600
+local W, H = 650, 626
 
+-- Two rows: Alliance races, then Horde races. "Skyborne" picks the
+-- character's faction's Skyborne theme; "Auto" the character's race's theme.
 local THEME_BUTTONS = {
-	{ "human", "Human" }, { "orc", "Orc" }, { "undead", "Undead" }, { "nightelf", "Night Elf" }, { "auto", "Auto" },
+	{ "human", "Human" }, { "dwarf", "Dwarf" }, { "gnome", "Gnome" }, { "nightelf", "Night Elf" },
+	{ "highorder", "High Order" }, { "skyborne", "Skyborne" },
+	{ "orc", "Orc" }, { "tauren", "Tauren" }, { "troll", "Troll" }, { "undead", "Undead" },
+	{ "windshapers", "Windshapers" }, { "auto", "Auto" },
 }
+local THEME_COLUMNS = 6
 local CENTER_BOXES = {
 	{ "center", "Center UI" },
 	{ "slim", "Center UI, no chat area" },
@@ -129,7 +135,8 @@ function Config:Build()
 	-- Themes.
 	self.themeButtons = {}
 	for i, spec in ipairs(THEME_BUTTONS) do
-		self.themeButtons[i] = button(f, spec[2], 100, 20 + (i - 1) * 104, -44, function()
+		local col, row = (i - 1) % THEME_COLUMNS, math.floor((i - 1) / THEME_COLUMNS)
+		self.themeButtons[i] = button(f, spec[2], 100, 20 + col * 102, -44 - row * 26, function()
 			ns.db.theme = spec[1]
 			ns:ApplyTheme()
 			self:Refresh()
@@ -138,7 +145,7 @@ function Config:Build()
 	end
 
 	-- Checkboxes, left column.
-	local x, y = 20, -78
+	local x, y = 20, -104
 	local function nextY()
 		y = y - 26
 		return y + 26
@@ -168,7 +175,7 @@ function Config:Build()
 	end)
 
 	-- Number boxes, right column.
-	x, y = 340, -82
+	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
 	self:Edit("Extend bottom right upwards (0-150)", "chatUp", x, y - 42)
 	self:Edit("Black bg chat width (empty: to the screen edge)", "chatWidth", x, y - 84)
@@ -189,7 +196,7 @@ function Config:Build()
 	button(f, "Custom", 64, x + 3 * 68, y - 274, function() self:PickRestedColor() end)
 
 	-- Stat icons.
-	y = -446
+	y = -472
 	self.iconButtons = {}
 	for row, text in ipairs(ICON_ROWS) do
 		label(f, text, 20, y - (row - 1) * 30 - 4, "GameFontNormalSmall")
@@ -204,8 +211,8 @@ function Config:Build()
 		end
 	end
 
-	button(f, "Apply", 120, 20, -560, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -560, ReloadUI)
+	button(f, "Apply", 120, 20, -586, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -586, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).

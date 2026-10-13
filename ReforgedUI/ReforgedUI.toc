@@ -2,7 +2,7 @@
 
 ## Title: Reforged UI
 ## Author: AlexHaible
-## Notes: Ported to WoW Forever: the Warcraft III console with Human, Orc, Undead and Night Elf themes, plus Reforged UI's top bar.
+## Notes: Ported to WoW Forever: the Warcraft III console with a theme for every race (Skyborne included), plus Reforged UI's top bar.
 ## Version: @project-version@
 ## X-Date: @project-date-iso@
 ## X-Category: Interface Enhancements

@@ -282,8 +282,9 @@ local overrides = 0
 function SetOverrideBindingClick(_, _, key, name) assert(_G[name], "binding target missing"); overrides = overrides + 1 end
 function ClearOverrideBindings() overrides = 0 end
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function UnitRace() return "Orc", "Orc" end
-function UnitFactionGroup() return "Horde" end
+playerRace, playerRaceFile, playerFaction = "Orc", "Orc", "Horde"
+function UnitRace() return playerRace, playerRaceFile end
+function UnitFactionGroup() return playerFaction end
 function UnitName() return "Thrall" end
 function UnitLevel() return 12 end
 function UnitClass() return "Shaman", "SHAMAN" end
@@ -547,7 +548,8 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 	assert(ns.topLayout.profile == size[3],
 		("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.topLayout.profile))
 	assert(ns.layout.H == 768, "the console is 768 units tall")
-	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "auto" }) do
+	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
+		"highorder", "windshapers", "skyborne", "auto" }) do
 		slash("theme " .. theme)
 		for _, center in ipairs({ "off", "center", "slim", "noinv" }) do
 			ReforgedUIDB.consoleOpts.center = center
@@ -566,6 +568,81 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 	end
 end
 checkAnchors()
+
+-- Race themes: the default ("auto") follows the race, Skyborne by its token or
+-- its name, with the faction picking the variant; other races fall back by
+-- faction; a chosen theme overrides the race.
+local function themeFor(race, raceFile, faction, saved)
+	playerRace, playerRaceFile, playerFaction = race, raceFile, faction
+	return ns:ResolveThemeKey(saved or "auto")
+end
+for _, c in ipairs({
+	{ "Human", "Human", "Alliance", "human" }, { "Dwarf", "Dwarf", "Alliance", "dwarf" },
+	{ "Gnome", "Gnome", "Alliance", "gnome" }, { "Night Elf", "NightElf", "Alliance", "nightelf" },
+	{ "Orc", "Orc", "Horde", "orc" }, { "Tauren", "Tauren", "Horde", "tauren" },
+	{ "Troll", "Troll", "Horde", "troll" }, { "Undead", "Scourge", "Horde", "undead" },
+	{ "Skyborne", "Skyborne", "Alliance", "highorder" }, { "Skyborne", "Skyborne", "Horde", "windshapers" },
+	-- Skyborne by name only (the token is undocumented), in either faction.
+	{ "Skyborne", "SkyElf", "Alliance", "highorder" }, { "Shen'dorei", "Shendorei", "Horde", "windshapers" },
+	{ "SKYBORNE (Windshapers)", "Unknown", "Horde", "windshapers" },
+	{ "Pandaren", "Pandaren", "Alliance", "human" }, { "Pandaren", "Pandaren", "Horde", "orc" },
+	{ nil, nil, nil, "human" },
+}) do
+	local got = themeFor(c[1], c[2], c[3])
+	assert(got == c[4], ("%s/%s/%s should pick %s, got %s"):format(tostring(c[1]), tostring(c[2]),
+		tostring(c[3]), c[4], got))
+end
+assert(themeFor("Dwarf", "Dwarf", "Alliance", "troll") == "troll", "a chosen theme overrides the race")
+assert(themeFor("Dwarf", "Dwarf", "Alliance", "undead") == "undead", "old saved themes keep working")
+assert(themeFor("Dwarf", "Dwarf", "Alliance", "skyborne") == "highorder", "skyborne follows the faction")
+assert(themeFor("Orc", "Orc", "Horde", "skyborne") == "windshapers", "skyborne follows the faction")
+assert(themeFor("Gnome", "Gnome", "Alliance", "gone") == "gnome", "an unknown saved theme falls back to the race")
+playerRace, playerRaceFile, playerFaction = "Skyborne", "Skyborne", "Horde"
+slash("theme auto")
+assert(ns.themeKey == "windshapers" and ns.layout.theme == "windshapers" and ns.layout.base == "nightelf",
+	"Skyborne Horde: windshapers art with night elf shapes")
+assert(console.textures.minimap._tex:find("art\\windshapers\\", 1, true), "windshapers art is drawn")
+playerRace, playerRaceFile, playerFaction = "Orc", "Orc", "Horde"
+slash("theme auto")
+
+-- Every theme is complete: listed in order and in the layout, and every
+-- texture the console or the top bar can load exists.
+local function exists(path)
+	local f = io.open(path, "rb")
+	if f then f:close() end
+	return f ~= nil
+end
+local Layout = ns.Layout
+local seen = {}
+for _, key in ipairs(ns.THEME_ORDER) do
+	local theme = assert(ns.Themes[key], "THEME_ORDER lists unknown theme " .. key)
+	seen[key] = true
+	assert(tContains(Layout.THEMES, key), key .. " missing from Layout.THEMES")
+	local base = Layout.BASE[key] or key
+	assert(tContains({ "human", "orc", "undead", "nightelf" }, base), key .. " has no faction layout")
+	for _, file in ipairs({ "panel", "edge", "edgev", "corner", "clockframe" }) do
+		local path = ADDON .. "Media/" .. theme.folder .. "/" .. file .. ".tga"
+		assert(exists(path), "missing " .. path)
+	end
+	local files = {}
+	for _, center in ipairs(Layout.CENTER_MODES) do
+		for _, s in ipairs({ 240, 250, 270 }) do
+			local LL = Layout.Compute(1792, 768, { s = s, m = 10, theme = key, center = center, zoneTextPos = 1 })
+			for _, piece in ipairs(LL.pieces) do
+				files[piece.file] = true
+			end
+		end
+	end
+	for file in pairs(files) do
+		assert(file:sub(1, #key + 1) == key .. "\\" or file:sub(1, 6) == "other\\",
+			file .. " is not in " .. key .. "'s folder")
+		local path = ADDON .. "art/" .. file:gsub("\\", "/") .. ".tga"
+		assert(exists(path), "missing " .. path)
+	end
+end
+for key in pairs(ns.Themes) do
+	assert(seen[key], key .. " missing from THEME_ORDER")
+end
 updateContainerFrameAnchors()
 slash("status")
 slash("bogus")

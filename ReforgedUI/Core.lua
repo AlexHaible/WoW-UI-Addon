@@ -10,7 +10,7 @@ ns.modules = {}
 ns.moduleOrder = {}
 
 local DEFAULTS = {
-	theme = "auto", -- auto | human | orc | undead | nightelf
+	theme = "auto", -- auto (race default) | skyborne (by faction) | a key of ns.Themes
 	layout = "auto", -- top bar: auto | standard | wide | superwide
 	scale = 0.75, -- top bar
 	version = 3,
@@ -480,7 +480,7 @@ local LAYOUT_ALIASES = {
 local function usage()
 	ns:Print("commands (the console's own options are in its menu: the cogwheel in the bottom-right corner):")
 	print("  /rui config  (open that menu)")
-	print("  /rui theme auto||human||orc||undead||nightelf")
+	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds and top bar slots)")
 	print("  /rui slot <number> <feed name>||none")
 	print("  /rui scale 0.5-1.5  (top bar)")
@@ -500,13 +500,13 @@ SlashCmdList.REFORGEDUI = function(msg)
 	end
 	local cmd, arg, arg2 = strsplit(" ", strtrim(msg or ""):lower(), 3)
 	if cmd == "theme" and arg then
-		if arg ~= "auto" and not ns.Themes[arg] then
+		if not ns.THEME_ALIASES[arg] and not ns.Themes[arg] then
 			ns:Print("unknown theme", arg)
 			return
 		end
 		ns.db.theme = arg
 		ns:ApplyTheme()
-		ns:Print("theme:", ns.theme.name, arg == "auto" and "(auto)" or "")
+		ns:Print("theme:", ns.theme.name, ns.THEME_ALIASES[arg] and ("(" .. arg .. ")") or "")
 	elseif cmd == "config" and ns.modules.config.enabled then
 		ns.modules.config:Toggle()
 	elseif cmd == "layout" and arg and LAYOUT_ALIASES[arg] then

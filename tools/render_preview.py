@@ -30,7 +30,14 @@ TOPBAR = {  # mirrors Themes.lua
     "orc": ("Orc", (255, 191, 64), (20, 8, 5, 224), (140, 128, 117)),
     "undead": ("Undead", (217, 242, 204), (10, 5, 18, 230), (204, 196, 179)),
     "nightelf": ("NightElf", (204, 235, 255), (5, 13, 20, 224), (140, 115, 84)),
+    "dwarf": ("Dwarf", (255, 199, 115), (18, 13, 10, 224), (176, 122, 59)),
+    "gnome": ("Gnome", (191, 242, 255), (10, 15, 20, 224), (184, 107, 59)),
+    "tauren": ("Tauren", (255, 219, 158), (23, 15, 8, 224), (201, 163, 122)),
+    "troll": ("Troll", (230, 219, 184), (13, 15, 13, 224), (217, 204, 176)),
+    "highorder": ("HighOrder", (230, 237, 247), (15, 23, 41, 224), (204, 217, 230)),
+    "windshapers": ("Windshapers", (224, 204, 138), (15, 23, 41, 224), (217, 199, 138)),
 }
+RACE_THEMES = ("dwarf", "gnome", "tauren", "troll", "highorder", "windshapers")
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 _cache = {}
 
@@ -258,7 +265,7 @@ def main():
         render(a[0], float(a[1]), a[2], int(a[3]) if len(a) > 3 else 240, int(a[4]) if len(a) > 4 else 10,
                a[5] if len(a) > 5 else "off")
         return
-    for theme in ("human", "orc", "undead", "nightelf"):
+    for theme in ("human", "orc", "undead", "nightelf") + RACE_THEMES:
         render(os.path.join(OUT, "16x9-%s.png" % theme), 1365.33, theme)
     render(os.path.join(OUT, "21x9-nightelf-center.png"), 1792, "nightelf", 250, 40, "center")
     render(os.path.join(OUT, "32x9-orc.png"), 2730.67, "orc", 260, 30, "off")

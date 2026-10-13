@@ -431,7 +431,7 @@ local function collectAuras(filter, max)
 	if unitAura then
 		for i = 1, max do
 			local ok, name, icon, count, dispel, duration, expires = pcall(unitAura, "target", i, filter)
-			if not ok or name == nil then
+			if not ok or type(name) == "nil" then
 				break
 			end
 			list[#list + 1] = { name = name, icon = icon, applications = count, dispelName = dispel,
@@ -482,14 +482,16 @@ local function setAura(b, data, index)
 	local auraAPI = _G.C_UnitAuras or {}
 	b.index, b.auraID = index, data.auraInstanceID
 	b.icon:SetTexture(data.icon)
-	-- Stacks.
-	local okCount, stacks = pcall(function()
+	-- Stacks. In combat the count can be a secret string, which may go
+	-- into the text but not be tested, so it is set inside the pcall.
+	b.count:SetText("")
+	pcall(function()
 		if auraAPI.GetAuraApplicationDisplayCount then
-			return auraAPI.GetAuraApplicationDisplayCount("target", data.auraInstanceID, 2, 999)
+			b.count:SetText(auraAPI.GetAuraApplicationDisplayCount("target", data.auraInstanceID, 2, 999))
+		elseif (data.applications or 0) > 1 then
+			b.count:SetText(tostring(data.applications))
 		end
-		return (data.applications or 0) > 1 and tostring(data.applications) or ""
 	end)
-	b.count:SetText(okCount and stacks or "")
 	-- Time left, as a sweep: from the aura's duration object where the
 	-- client has one (it takes secret times), else by sums under pcall.
 	local timed = pcall(function()
@@ -534,8 +536,12 @@ function Target:DescribeAuras()
 		local list, how = collectAuras(filter, 40)
 		local names = {}
 		for _, data in ipairs(list) do
-			local ok, name = pcall(tostring, data.name)
-			names[#names + 1] = ok and name or "?"
+			local name = "(secret)"
+			if not isSecret(data.name) then
+				local ok, text = pcall(tostring, data.name)
+				name = ok and text or "?"
+			end
+			names[#names + 1] = name
 		end
 		local raw = ""
 		if api.GetAuraDataByIndex then
@@ -543,6 +549,9 @@ function Target:DescribeAuras()
 			raw = ok and (" (by index: " .. type(res) .. ")") or (" (by index error: " .. tostring(res) .. ")")
 		end
 		lines[#lines + 1] = ("%s: %d via %s%s %s"):format(filter, #names, how, raw, table.concat(names, ", "))
+	end
+	if self.auraError then
+		lines[#lines + 1] = "last error: " .. tostring(self.auraError)
 	end
 	return lines
 end
@@ -575,7 +584,11 @@ function Target:UpdateAuras()
 			list[i] = b
 			local col, line = (i - 1) % perRow, math.floor((i - 1) / perRow)
 			place(b, { x = spot.x0 + col * step, y = spot.y + (row + line) * step, w = T.size, h = T.size })
-			setAura(b, data, i)
+			-- One aura the client won't let us read fully still shows.
+			local ok, err = pcall(setAura, b, data, i)
+			if not ok then
+				self.auraError = err
+			end
 			b:Show()
 			shown = i
 		end

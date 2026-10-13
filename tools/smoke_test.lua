@@ -1277,6 +1277,7 @@ do
 	end
 	-- Buffs and debuffs: debuffs in the first row, buffs after them, each
 	-- capped at two rows; secret durations leave the sweep blank.
+	local oldSetTexture
 	local secretDuration = setmetatable({}, { __lt = function() error("compared a secret value") end,
 		__le = function() error("compared a secret value") end,
 		__sub = function() error("did sums on a secret value") end })
@@ -1311,6 +1312,19 @@ do
 		A.HARMFUL[2]:GetScript("OnEnter")(A.HARMFUL[2])
 		A.HARMFUL[2]:GetScript("OnLeave")(A.HARMFUL[2])
 	end
+	-- An aura whose stacks can't be read still shows, and the error is kept
+	-- for /rui auras.
+	C_UnitAuras.GetAuraApplicationDisplayCount = function() error("secret stacks") end
+	methods.SetTexture, oldSetTexture = function(self, path)
+		if path == 102 then error("no texture") end
+		return oldSetTexture(self, path)
+	end, methods.SetTexture
+	fire("UNIT_AURA", "target")
+	methods.SetTexture = oldSetTexture
+	C_UnitAuras.GetAuraApplicationDisplayCount = nil
+	assert(target.auras.HARMFUL[2]:IsShown() and target.auras.HARMFUL[3]:IsShown(), "a failing aura still shows")
+	local described = target:DescribeAuras()
+	assert(described[#described]:find("no texture"), "/rui auras shows the last error")
 	-- In combat asking by index may come back empty: the slots are asked.
 	local byIndex = C_UnitAuras.GetAuraDataByIndex
 	C_UnitAuras.GetAuraDataByIndex = function() return nil end

@@ -221,6 +221,24 @@ local function runLock(frame)
 end
 
 -- `also` names further methods that should re-apply the lock (e.g. SetScale).
+-- Keeps a single texture (a frame's border or background) invisible.
+local concealedRegions = setmetatable({}, { __mode = "k" })
+function ns:ConcealRegion(region)
+	if not region or not region.SetAlpha or concealedRegions[region] or forbidden(region) then
+		return
+	end
+	concealedRegions[region] = true
+	region:SetAlpha(0)
+	local busy
+	hooksecurefunc(region, "SetAlpha", function(r)
+		if not busy then
+			busy = true
+			r:SetAlpha(0)
+			busy = false
+		end
+	end)
+end
+
 function ns:Lock(frame, apply, also)
 	if not frame or forbidden(frame) then
 		return

@@ -249,6 +249,12 @@ for _, name in ipairs({ "CharacterMicroButton", "PlayerSpellsMicroButton", "Achi
 	local b = new("button", name, MicroMenu)
 	b._w, b._h = 32, 40
 end
+-- A feature Forever doesn't have, the container's own border, and a stray
+-- frame left in the container.
+HousingMicroButton = new("button", "HousingMicroButton", MicroMenu)
+HousingMicroButton._w, HousingMicroButton._h = 32, 40
+local microBorder = new("texture", nil, MicroMenuContainer)
+local microStray = new("frame", nil, MicroMenuContainer)
 -- The shop is hidden until Blizzard shows it; one micro button we have no
 -- name for, and a forbidden child.
 StoreMicroButton._shown = false
@@ -1154,6 +1160,16 @@ do
 	fire("PLAYER_TARGET_CHANGED")
 	for fn, f in pairs(orig) do _G[fn] = f end
 	checkAnchors()
+end
+-- The micro menu's leftovers are invisible; Housing is left out of the bar.
+assert(microBorder._alpha == 0, "the micro menu's border is hidden")
+microBorder:SetAlpha(1)
+assert(microBorder._alpha == 0, "the micro menu's border stays hidden")
+assert(microStray._alpha == 0, "stray frames in the micro menu are hidden")
+assert(HousingMicroButton._alpha == 0 and #HousingMicroButton._points == 0, "Housing is hidden, not placed")
+for _, b in ipairs(ns.microButtons) do
+	assert(b ~= HousingMicroButton, "Housing is not in the bar")
+	assert(b._alpha ~= 0, b:GetName() .. " stays visible")
 end
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

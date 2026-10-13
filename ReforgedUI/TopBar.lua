@@ -448,6 +448,8 @@ local MICRO_ORDER = {
 	"WorldMapMicroButton", "CollectionsMicroButton", "EJMicroButton", "StoreMicroButton",
 	"MainMenuMicroButton", "HelpMicroButton",
 }
+-- Buttons for features Forever doesn't have (yet).
+local SKIP_MICRO = { HousingMicroButton = true }
 local PLATE_MICRO = {
 	QuestLogMicroButton = true, MainMenuMicroButton = true, SocialsMicroButton = true,
 	FriendsMicroButton = true, WorldMapMicroButton = true,
@@ -469,18 +471,12 @@ end
 
 -- A button's art area: its height and bottom inset, without the part its
 -- hit rectangle leaves out (Classic-style buttons are taller than their art).
+-- Every micro button is scaled by its full height: their hit insets differ
+-- from button to button, and going by those drew some of them oversized.
 local function artHeight(b)
 	local h = b:GetHeight()
 	if not (plain(h) and h > 0) then
 		return
-	end
-	local top, bottom = 0, 0
-	if b.GetHitRectInsets then
-		local _, _, t, bt = b:GetHitRectInsets()
-		top, bottom = plain(t) and t or 0, plain(bt) and bt or 0
-	end
-	if h - top - bottom > 0 then
-		return h - top - bottom, bottom
 	end
 	return h, 0
 end
@@ -494,6 +490,11 @@ function TopBar:TakeMicroButtons(covers)
 	local function consider(b, n)
 		local name = microName(b)
 		if not name or seen[b] or covers[b] then
+			return
+		end
+		if SKIP_MICRO[name] or name:find("Housing") then
+			seen[b] = true
+			ns:Conceal(b)
 			return
 		end
 		seen[b] = true
@@ -530,12 +531,29 @@ function TopBar:TakeMicroButtons(covers)
 		return
 	end
 
-	-- The micro menu stays where Edit Mode puts it, empty now; let clicks
-	-- through it.
+	-- The micro menu stays where Edit Mode puts it, empty now: let clicks
+	-- through it, and make its own art (border, background) and any other
+	-- frame left in it invisible. The moved buttons and the group finder's
+	-- eye keep theirs.
+	local keep = { [_G.QueueStatusButton or false] = true, [_G.QueueStatusFrame or false] = true }
+	for _, b in ipairs(self.micro) do
+		keep[b] = true
+	end
+	for b in pairs(covers) do
+		keep[b] = true
+	end
 	for _, name in ipairs({ "MicroMenuContainer", "MicroMenu" }) do
 		local f = _G[name]
 		if type(f) == "table" and f.EnableMouse and not ns.IsForbidden(f) then
 			ns:RunOutOfCombat("micro mouse " .. name, function() f:EnableMouse(false) end)
+			for _, region in ipairs({ f:GetRegions() }) do
+				ns:ConcealRegion(region)
+			end
+			for _, child in ipairs({ f:GetChildren() }) do
+				if not keep[child] and child ~= _G.MicroMenu and not ns.IsForbidden(child) then
+					ns:Conceal(child)
+				end
+			end
 		end
 	end
 

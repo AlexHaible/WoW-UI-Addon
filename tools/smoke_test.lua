@@ -579,7 +579,9 @@ assert(TargetFrame._alpha ~= 0 and TargetFrame._mouse == false and #TargetFrame.
 assert(targetFrameArt._alpha == 0 and TargetFrameBuff1._alpha ~= 0, "only the target frame's aura icons show")
 do
 	local lines = ns.modules.target:DescribeAuras()
-	assert(lines[#lines - 2]:find("^TargetFrame") and lines[#lines - 1]:find("aura icons shown: 1"), "/rui auras")
+	local all = table.concat(lines, "\n")
+	assert(all:find("\nTargetFrame: ") and all:find("aura icons shown: 1") and all:find("TargetFrameBuff1, ")
+		and all:find("TargetFrameSpellBar %(ours%)"), "/rui auras")
 	SlashCmdList.REFORGEDUI("auras")
 end
 assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")

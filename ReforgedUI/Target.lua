@@ -402,6 +402,11 @@ local function isAuraButton(f)
 	return type(name) == "string" and (name:find("Buff%d") or name:find("Debuff%d")) and true or false
 end
 
+local hiddenByUs = {}
+local function concealedByUs(f)
+	return hiddenByUs[f] or false
+end
+
 function Target:KeepBlizzardAuras()
 	local tf = TargetFrame
 	if not tf then
@@ -413,6 +418,7 @@ function Target:KeepBlizzardAuras()
 	for _, child in ipairs({ tf:GetChildren() }) do
 		if not isAuraButton(child) then
 			ns:Conceal(child)
+			hiddenByUs[child] = true
 		end
 	end
 	for _, f in ipairs({ tf.spellbar or _G.TargetFrameSpellBar, tf.totFrame or TargetFrameToT,
@@ -435,6 +441,11 @@ function Target:DescribeAuras()
 		local ok, info = pcall(api.GetLayouts)
 		if ok and type(info) == "table" then
 			local presets = 2
+			local manager = _G.EditModePresetLayoutManager
+			if manager and manager.GetCopyOfPresetLayouts then
+				local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+				presets = okP and type(list) == "table" and #list or presets
+			end
 			local layout = (info.layouts or {})[(info.activeLayout or 0) - presets]
 			lines[#lines + 1] = ("Edit Mode layout: %s (%s)"):format(tostring(info.activeLayout),
 				layout and tostring(layout.layoutName) or "a preset")
@@ -448,15 +459,46 @@ function Target:DescribeAuras()
 	lines[#lines + 1] = ("TargetFrame: shown %s, alpha %s, left %s, top %s, scale %s, buffs on top %s"):format(
 		tostring(tf:IsShown()), n(tf:GetAlpha() * 100), n(tf:GetLeft()), n(tf:GetTop()), n(tf:GetScale() * 100),
 		tostring(tf.buffsOnTop))
-	local auras = {}
+	local auras, kids = {}, {}
 	for _, child in ipairs({ tf:GetChildren() }) do
+		local name = child:GetName() or ("<" .. child:GetObjectType() .. ">")
+		kids[#kids + 1] = ("%s%s%s"):format(name, child:IsShown() and "" or " (hidden)",
+			concealedByUs(child) and " (ours)" or "")
 		if child:IsShown() and (isAuraButton(child) or child.Icon or child.icon) then
-			auras[#auras + 1] = ("%s at %s,%s alpha %s"):format(tostring(child:GetName() or child:GetObjectType()),
-				n(child:GetLeft()), n(child:GetBottom()), n(child:GetAlpha() * 100))
+			auras[#auras + 1] = ("%s at %s,%s alpha %s"):format(name, n(child:GetLeft()), n(child:GetBottom()),
+				n(child:GetAlpha() * 100))
 		end
 	end
+	lines[#lines + 1] = ("children (%d): %s"):format(#kids, table.concat(kids, ", "))
 	lines[#lines + 1] = ("aura icons shown: %d%s"):format(#auras, #auras > 0 and (": " .. table.concat(auras, "; ", 1,
 		math.min(#auras, 4))) or "")
+	-- Out of combat the auras can be read, to tell "none" from "not drawn".
+	local api2 = _G.C_UnitAuras
+	if api2 and api2.GetAuraDataByIndex then
+		local counts = {}
+		for _, filter in ipairs({ "HELPFUL", "HARMFUL" }) do
+			local count = 0
+			for i = 1, 40 do
+				local ok, data = pcall(api2.GetAuraDataByIndex, "target", i, filter)
+				if not ok then
+					count = "unreadable"
+					break
+				elseif type(data) ~= "table" then
+					break
+				end
+				count = count + 1
+			end
+			counts[#counts + 1] = filter:lower() .. " " .. tostring(count)
+		end
+		lines[#lines + 1] = "target has: " .. table.concat(counts, ", ")
+	end
+	for _, key in ipairs({ "auraPools", "buffPool", "debuffPool" }) do
+		local pool = tf[key]
+		if pool then
+			local ok, active = pcall(function() return pool:GetNumActive() end)
+			lines[#lines + 1] = ("%s: %s active"):format(key, ok and tostring(active) or "?")
+		end
+	end
 	local spot, L = self:AuraSpot(), self.layout
 	if spot and L then
 		local k = UIParent:GetHeight() / 768

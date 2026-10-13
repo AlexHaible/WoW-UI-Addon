@@ -454,13 +454,17 @@ end
 
 -- Settings from version 1 had a scale of 1, now far too big; versions before
 -- 4 had options for the centre modes, chat width and placement and hiding
--- the bags, all gone now.
+-- the bags, all gone now. The console's options were saved under an older
+-- key then.
 ReforgedUIDB = { scale = 1, theme = "auto",
-	consoleOpts = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true } }
+	wiii = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true,
+		targetMode = "plate" } }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
 assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 5, "old default scale not migrated")
 assert(ReforgedUIDB.consoleOpts.uiScale == 240 and ReforgedUIDB.consoleOpts.zoneText == 1, "console option defaults")
+assert(ReforgedUIDB.wiii == nil and ReforgedUIDB.consoleOpts.targetMode == "plate", "options under the old key are kept")
+ReforgedUIDB.consoleOpts.targetMode = "swap"
 do
 	local o = ReforgedUIDB.consoleOpts
 	assert(o.center == nil and o.hideBags == nil and o.chatWidth == nil and o.placeChat == nil and o.hideMicro == nil,

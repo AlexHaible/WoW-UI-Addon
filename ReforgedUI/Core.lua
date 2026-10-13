@@ -51,6 +51,11 @@ local DEFAULTS = {
 
 -- Settings saved by older versions.
 local function migrate(db)
+	-- The console's options used to be saved under a shorter key; keep them.
+	if type(db.wiii) == "table" and db.consoleOpts == nil then
+		db.consoleOpts = db.wiii
+	end
+	db.wiii = nil
 	if (db.version or 1) < 2 then
 		-- Version 1 used 1.0 as its default scale, which turned out far too big.
 		if db.scale == 1 then

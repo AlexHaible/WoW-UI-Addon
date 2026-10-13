@@ -749,12 +749,13 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 	L.rightWallTop = brTop.y + brTop.h * (1 - (RIGHT_WALL[o.theme] or RIGHT_WALL[t]))
 
 	-- Chat window: inside the black area, clear of the frame pieces, down to
-	-- the floor trim (the bottom pieces' art is about 0.03s tall).
+	-- the floor trim (the bottom pieces' art is about 0.03s tall) and up to
+	-- just under the wall (its art reaches the bottom of the top piece).
 	do
 		local x0 = right(RL) + 0.08 * s
 		local x1 = min(right(bg), brMid.x) - 6
 		local y0 = brBot.y + 0.03 * s + 1
-		local y1 = brTop.y + 0.03 * s
+		local y1 = brTop.y - 2
 		local edit = 26
 		-- The options cogwheel stands in the bottom-right corner of the chat
 		-- area; an input box along the bottom stops short of it.

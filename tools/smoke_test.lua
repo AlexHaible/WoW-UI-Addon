@@ -191,6 +191,9 @@ IssueReporterButton = new("button", "IssueReporterButton", UIParent)
 IssueReporterButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 10, 10)
 function IssueReporterButton:GetBottom() local _, _, _, _, y = self:GetPoint(1); return y end
 ChatFrame1 = new("frame", "ChatFrame1", UIParent)
+ChatFrame1.ButtonFrame = new("frame", "ChatFrame1ButtonFrame", ChatFrame1)
+QuickJoinToastButton = new("button", "QuickJoinToastButton", UIParent)
+QuickJoinToastButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 20, 600)
 ChatFrame1EditBox = new("editbox", "ChatFrame1EditBox", UIParent)
 MainMenuBar = new("frame", "MainMenuBar", UIParent)
 MainActionBar = new("frame", "MainActionBar", UIParent)
@@ -817,6 +820,11 @@ ChatFrame1:ClearAllPoints()
 ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 assert(ChatFrame1._points[1][1] == "BOTTOMLEFT" and ChatFrame1._points[1][2] == UIParent, "chat lock failed")
 at(ChatFrame1, L.chat.x, L.chat.y, "chat window")
+assert(L.chat.y + L.chat.h < L.byKey.br_top.rect.y, "the chat's top line stays under the wall")
+-- The social button sits on the chat buttons' column, not up in the world.
+QuickJoinToastButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 20, 600)
+assert(QuickJoinToastButton._points[1][2] == ChatFrame1.ButtonFrame
+	and QuickJoinToastButton._points[1][3] == "TOPLEFT", "social button over the chat buttons")
 
 -- Protected frames moved in combat are queued until combat ends.
 inCombat = true

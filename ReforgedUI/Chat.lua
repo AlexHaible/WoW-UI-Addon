@@ -47,4 +47,14 @@ function Chat:OnLayout(L)
 			ns:PlaceRect(f, L.chatEdit)
 		end)
 	end
+	-- The social (quick join) button sits on the wall above the chat
+	-- buttons rather than up in the game world.
+	local column = cf.ButtonFrame or _G.ChatFrame1ButtonFrame
+	local social = _G.QuickJoinToastButton
+	if social and column and not ns.db.consoleOpts.hideChatIcons then
+		ns:Lock(social, function(f)
+			f:ClearAllPoints()
+			f:SetPoint("BOTTOMLEFT", column, "TOPLEFT", 0, 2)
+		end)
+	end
 end

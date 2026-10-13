@@ -398,8 +398,8 @@ function TopBar:SetupCover(plate, b)
 	plate.hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
 	plate.hl:SetBlendMode("ADD")
 	plate.hl:Hide()
-	b:HookScript("OnEnter", function() plate.hl:Show() end)
-	b:HookScript("OnLeave", function() plate.hl:Hide() end)
+	b:HookScript("OnEnter", function() (plate.coverAt or plate).hl:Show() end)
+	b:HookScript("OnLeave", function() (plate.coverAt or plate).hl:Hide() end)
 	local busy
 	local function keep(f)
 		if busy then
@@ -419,6 +419,7 @@ end
 
 -- Lays `b` exactly over `plate`, on top of the top bar.
 local function coverPlate(b, plate)
+	plate = plate.coverAt or plate
 	local left, bottom = plate:GetLeft(), plate:GetBottom()
 	if not left then
 		return
@@ -449,7 +450,8 @@ local MICRO_ORDER = {
 	"MainMenuMicroButton", "HelpMicroButton",
 }
 -- Buttons for features Forever doesn't have (yet).
-local SKIP_MICRO = { HousingMicroButton = true }
+-- Nor the Adventure Guide or the shop, which the top bar leaves out.
+local SKIP_MICRO = { HousingMicroButton = true, EJMicroButton = true, StoreMicroButton = true }
 local PLATE_MICRO = {
 	QuestLogMicroButton = true, MainMenuMicroButton = true, SocialsMicroButton = true,
 	FriendsMicroButton = true, WorldMapMicroButton = true,
@@ -528,9 +530,21 @@ function TopBar:TakeMicroButtons(covers)
 		end
 		return a.rank < b.rank
 	end)
+	-- Legacy and a second game menu button close the row, on the right.
 	self.micro = {}
-	for i, entry in ipairs(found) do
-		self.micro[i] = entry.button
+	local legacy
+	for _, entry in ipairs(found) do
+		if entry.button == _G.LegacyMicroButton then
+			legacy = entry.button
+		else
+			self.micro[#self.micro + 1] = entry.button
+		end
+	end
+	self.micro[#self.micro + 1] = legacy
+	for _, plate in ipairs(self.buttons or {}) do
+		if plate.cover and plate.cover == _G.MainMenuMicroButton then
+			self.micro[#self.micro + 1] = self:CreateMenuMicro(plate, self.micro[1])
+		end
 	end
 	ns.microButtons = self.micro
 	if #self.micro == 0 then
@@ -578,6 +592,88 @@ function TopBar:TakeMicroButtons(covers)
 			p = p:GetParent()
 		end
 	end
+end
+
+-- Copies `src`'s texture onto a new texture of `owner`'s.
+local function copyTexture(owner, src)
+	local layer, sub = src:GetDrawLayer()
+	local t = owner:CreateTexture(nil, layer or "ARTWORK", nil, sub)
+	local atlas = src.GetAtlas and src:GetAtlas()
+	if atlas then
+		t:SetAtlas(atlas)
+	else
+		t:SetTexture(src:GetTexture())
+		t:SetTexCoord(src:GetTexCoord())
+	end
+	t:SetVertexColor(src:GetVertexColor())
+	if src.GetBlendMode then
+		t:SetBlendMode(src:GetBlendMode())
+	end
+	return t
+end
+
+-- The game menu has two buttons in the top bar: its plate on the left and a
+-- micro button at the right end of the row. Both are ours, drawn with
+-- Blizzard's art; the game menu button itself (which only opens the menu
+-- when clicked directly) is the invisible cover of whichever the mouse
+-- last entered.
+function TopBar:CreateMenuMicro(plate, like)
+	local b = plate.cover
+	local f = CreateFrame("Frame", "ReforgedUIGameMenuMicroButton", UIParent)
+	local ref = like or b
+	f:SetSize(ref:GetWidth(), ref:GetHeight())
+	-- Copy the shown art of Blizzard's button, keeping its anchors.
+	local hl, copies = b.GetHighlightTexture and b:GetHighlightTexture(), {}
+	local skip = { [hl or false] = true }
+	for _, getter in ipairs({ "GetPushedTexture", "GetDisabledTexture" }) do
+		if b[getter] then
+			skip[b[getter](b) or false] = true
+		end
+	end
+	for _, region in ipairs({ b:GetRegions() }) do
+		if region.GetObjectType and region:GetObjectType() == "Texture" and not skip[region] and region:IsShown() then
+			copies[region] = copyTexture(f, region)
+		end
+	end
+	for region, t in pairs(copies) do
+		local ok = pcall(function()
+			for i = 1, region:GetNumPoints() do
+				local point, rel, relPoint, x, y = region:GetPoint(i)
+				rel = (rel == nil or rel == b) and f or copies[rel]
+				assert(rel)
+				t:SetPoint(point, rel, relPoint, x, y)
+			end
+		end)
+		if not ok or region:GetNumPoints() == 0 then
+			t:ClearAllPoints()
+			t:SetAllPoints()
+		end
+	end
+	if hl then
+		f.hl = copyTexture(f, hl)
+		f.hl:SetBlendMode("ADD")
+	else
+		f.hl = f:CreateTexture(nil, "OVERLAY")
+		f.hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+		f.hl:SetBlendMode("ADD")
+	end
+	f.hl:SetAllPoints()
+	f.hl:Hide()
+
+	-- Entering either one moves the cover onto it.
+	local function moveCover(to)
+		if plate.coverAt ~= to and not (to == plate and plate.coverAt == nil) then
+			(plate.coverAt or plate).hl:Hide()
+			plate.coverAt = to ~= plate and to or nil
+			coverPlate(b, plate)
+		end
+	end
+	f:EnableMouse(true)
+	f:SetScript("OnEnter", function() moveCover(f) end)
+	plate:EnableMouse(true)
+	plate:HookScript("OnEnter", function() moveCover(plate) end)
+	self.menuMicro = f
+	return f
 end
 
 -- Width/height of each shown micro button, for the layout (Core.lua).
@@ -646,11 +742,13 @@ function TopBar:OnLayout()
 			place(plate, r)
 		end
 		plate:SetShown(r and true or false)
-		if plate.cover and r then
+	end
+	self:PlaceMicro()
+	for i, plate in ipairs(self.buttons) do
+		if plate.cover and L.topButtons[i] then
 			ns:Lock(plate.cover, function(b) coverPlate(b, plate) end, { "SetScale" })
 		end
 	end
-	self:PlaceMicro()
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)
 		place(slot, r)

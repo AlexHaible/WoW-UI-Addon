@@ -265,6 +265,9 @@ Layout.ENDCAP_ART = {
 	-- Warcraft III's own end pillars (humanuitile05/06), crown on the wall top.
 	human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
+	-- Hand-built "Great Forge" versions of the same pillars.
+	dwarf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
 }
 Layout.ENDCAP_GEN = {
 	left = "endcaps\\endcap_left_gen", right = "endcaps\\endcap_right_gen",
@@ -329,6 +332,8 @@ Layout.TARGET_ART = {
 	genFile = "targetplate_gen",
 	themes = {
 		human = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
+			info = { 187, 50, 293, 198 } },
+		dwarf = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
 			info = { 187, 50, 293, 198 } },
 	},
 	gen = {

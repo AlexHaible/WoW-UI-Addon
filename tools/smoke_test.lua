@@ -1309,7 +1309,9 @@ do
 	end
 	assert(math.abs(P.frame.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
 	assert(P.frame.x >= R(LL.tot.frame) and R(P.frame) <= LL.stance.x, "the plate sits between the ToT icon and the stance row")
-	assert(P.file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.genFile, "the plate uses the theme's own plate art")
+	local TA = ns.Layout.TARGET_ART
+	assert(P.file == LL.theme .. "\\" .. (TA.themes[LL.theme] and TA.file or TA.genFile),
+		"the plate uses the theme's own plate art (real where there is some)")
 	-- A miniature hero screen: bars under the portrait, info window beside it.
 	assert(inside(P.portrait, P.frame) and inside(P.info, P.frame), "plate windows inside the plate")
 	assert(T(P.health) <= P.portrait.y + 0.01 and T(P.power) <= P.health.y + 0.01, "health and power under the portrait")

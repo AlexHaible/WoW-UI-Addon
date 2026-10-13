@@ -492,7 +492,10 @@ function TopBar:TakeMicroButtons(covers)
 		if not name or seen[b] or covers[b] then
 			return
 		end
-		if SKIP_MICRO[name] or name:find("Housing") then
+		-- Forever has the classic talent button and the newer spells and
+		-- talents one; with a spellbook button of its own, keep the classic.
+		local duplicate = name == "PlayerSpellsMicroButton" and _G.TalentMicroButton and _G.SpellbookMicroButton
+		if SKIP_MICRO[name] or name:find("Housing") or duplicate then
 			seen[b] = true
 			ns:Conceal(b)
 			return

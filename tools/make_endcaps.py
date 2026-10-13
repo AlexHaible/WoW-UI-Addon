@@ -18,7 +18,8 @@ decorated pillar with its crown that the original addon stands beside the invent
 narrowed to a buttress: the pillar's finished left side (crown overhang,
 frame and a strip of its face) and the same mirrored for the right side, so
 both outer faces are finished. The crown keeps its proportions; the shaft
-is stretched to the cap's height.
+is stretched to the cap's height, and the crown is cut back to the shaft's
+width (no overhang, so no T shape).
 
 Themes in make_race_themes.HAND_BUILT (Dwarf) are skipped: their art comes
 from the art pipeline, and until it does Layout.lua falls back to the base
@@ -85,6 +86,13 @@ def make(theme):
     # A darker foot where the pillar meets the floor.
     n = 18
     arr[-n:, :, :3] *= np.linspace(1.0, 0.65, n)[:, None, None]
+    # No T: the crown's slab is cut back to the shaft's width, so the cap
+    # stands as one straight pillar.
+    body_a = arr[crown_h:, :, 3] > 128
+    cols = np.nonzero(body_a.mean(axis=0) > 0.5)[0]
+    if len(cols):
+        arr[:crown_h, :cols[0], 3] = 0
+        arr[:crown_h, cols[-1] + 1:, 3] = 0
     cap = Image.fromarray(arr.round().clip(0, 255).astype(np.uint8), "RGBA").resize((OUT_W, OUT_H), Image.LANCZOS)
     out = os.path.join(ART, theme, "endcaps")
     os.makedirs(out, exist_ok=True)

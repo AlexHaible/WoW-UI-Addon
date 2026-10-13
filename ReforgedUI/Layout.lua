@@ -762,10 +762,12 @@ local function buildCaps(L, W, add)
 	end
 	local leftX = L.minimapArt.x + ov - w
 	local rightX = L.rightPoint - ov
+	-- Both caps stand as tall as the taller end needs.
+	local capH = max(capTop(LEFT_WALL[t] * s), capTop(L.rightWallTop))
 	L.endcaps = {
 		fallback = C.fallback, real = C.real, overlap = ov,
-		left = rect(leftX, 0, w, capTop(LEFT_WALL[t] * s)),
-		right = rect(rightX, 0, w, capTop(L.rightWallTop)),
+		left = rect(leftX, 0, w, capH),
+		right = rect(rightX, 0, w, capH),
 	}
 	-- The shafts (below the crowns), which must stay clear of the content.
 	local inset = (C.inset or 0) * w

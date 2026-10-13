@@ -21,6 +21,14 @@ name replaces them. Sizes must stay powers of two.
 top. It turns with the server time and only its lower half shows below the top
 bar.
 
+`Common/iconframe` (128x128) is Warcraft III's steel command-button frame with
+a transparent centre and a soft inner shadow, to lay over action, bag and
+inventory icons (SetAllPoints on the button, above the icon). The frame band is
+6 px of 128 (about 5% per side), so crop the icon's own border with texcoords
+around 0.07-0.93 as before. Taken from the HD BTN icons, where the frame is
+baked in (the PASBTN versions have none), by
+`D:\Blizzard\wc3-ui-extract\make_iconframe.py`.
+
 The faction files and `Common/dial` are cropped from Warcraft III: Reforged's HD
 console art (`_hd.w3mod/ui/console/<race>/<race>uitile0N`, `-timeindicatorframe`
 and the `humanuitile-timeindicator` sky strip). Blizzard owns that art, so keep

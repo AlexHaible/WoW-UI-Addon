@@ -248,6 +248,9 @@ Layout.ENDCAP_ART = {
 	-- Warcraft III's own end pillars (humanuitile05/06), crown on the wall top.
 	human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
+	-- Hand-built Gnomeregan ends on Human's shapes.
+	gnome = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
 	-- Each faction's own end pieces (tile05's left end, tile06's right end).
 	orc = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0547, h = 0.75, overlap = 0.002, head = 0.125, rise = 0 },
@@ -313,7 +316,7 @@ end
 -- below the fur tufts and palisade spikes, and Undead's minimap art has the
 -- same stray column as Human's.
 -- Keyed by faction, or by theme where a theme's art has its own ends.
-local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693, forsaken = 0.709, troll = 0.627, tauren = 0.6797 }
+local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693, forsaken = 0.709, troll = 0.627, tauren = 0.6797, gnome = 0.6758 }
 local RIGHT_WALL = {
 	human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128, forsaken = 57 / 128,
 	troll = 96 / 128, tauren = 69 / 128,
@@ -341,6 +344,8 @@ Layout.TARGET_ART = {
 	genFile = "targetplate_gen",
 	themes = {
 		human = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
+			info = { 187, 50, 293, 198 } },
+		gnome = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
 			info = { 187, 50, 293, 198 } },
 		orc = { portrait = { 76, 89, 112, 120 }, health = { 76, 211, 112, 19 }, power = { 76, 233, 112, 17 },
 			info = { 214, 76, 249, 173 } },

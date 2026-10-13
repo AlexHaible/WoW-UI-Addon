@@ -287,7 +287,7 @@ def make(race):
 # Races whose console is hand-built from Warcraft III art instead of
 # recoloured; never overwrite them. Their RACES entries stay as a record of
 # the recolour they replaced.
-HAND_BUILT = {"dwarf", "highorder", "windshapers", "troll", "tauren"}
+HAND_BUILT = {"dwarf", "highorder", "windshapers", "troll", "tauren", "gnome"}
 
 
 def main(args):

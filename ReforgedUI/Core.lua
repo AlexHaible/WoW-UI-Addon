@@ -266,6 +266,29 @@ function ns:Anchor(frame, point, x, y)
 	frame:SetPoint(point, UIParent, "BOTTOMLEFT", x * s, y * s)
 end
 
+-- Sets `text` on a one-line font string and shrinks its font, a point at a
+-- time from the size it was created with, until it fits the string's width.
+local MIN_FIT_SIZE = 7
+function ns:FitText(fs, text)
+	fs:SetWordWrap(false)
+	local path, size, flags = fs:GetFont()
+	fs.fitSize = fs.fitSize or size
+	size = fs.fitSize
+	if path and size then
+		fs:SetFont(path, size, flags or "")
+	end
+	fs:SetText(text)
+	local maxW = fs:GetWidth()
+	if not (path and size and maxW and maxW > 0) then
+		return
+	end
+	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
+	while measure(fs) > maxW and size > MIN_FIT_SIZE do
+		size = size - 1
+		fs:SetFont(path, size, flags or "")
+	end
+end
+
 -- A unit's full name: on Forever a character's surname comes back where
 -- other clients put the realm, and GetUnitName(unit, true) joins the two
 -- ("John Dwarfadin").

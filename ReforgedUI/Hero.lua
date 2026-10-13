@@ -332,12 +332,12 @@ function Hero:UpdateXP()
 	xp.rested:SetVertexColor(c[1] or 0, c[2] or 0, c[3] or 1, c[4] or 0.5)
 	xp.rested:SetShown(not atMax and (c[4] or 0) > 0)
 
-	xp.name:SetText(ns:FullName("player"))
+	ns:FitText(xp.name, ns:FullName("player"))
 	xp.name:SetTextColor(1, 1, 1)
 	if self.hovering and not atMax then
-		xp.level:SetFormattedText("XP %d / %d", cur, max)
+		ns:FitText(xp.level, ("XP %d / %d"):format(cur, max))
 	else
-		xp.level:SetFormattedText("%s %d %s", LEVEL or "Level", UnitLevel("player"), (UnitClass("player")))
+		ns:FitText(xp.level, ("%s %d %s"):format(LEVEL or "Level", UnitLevel("player"), (UnitClass("player"))))
 	end
 end
 

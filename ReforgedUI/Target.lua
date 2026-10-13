@@ -418,9 +418,9 @@ function Target:UpdateName()
 		local xp = ns.modules.hero.xp
 		name, info = xp.name, xp.level
 	end
-	name:SetText(ns:FullName("target"))
+	ns:FitText(name, ns:FullName("target"))
 	name:SetTextColor(nameColor("target"))
-	info:SetText(infoText("target"))
+	ns:FitText(info, infoText("target"))
 end
 
 function Target:UpdateHealth()

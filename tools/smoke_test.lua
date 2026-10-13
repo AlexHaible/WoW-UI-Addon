@@ -41,6 +41,10 @@ Object.__index = function(t, k)
 end
 
 function methods:GetName() return self._name end
+function methods:SetFont(path, size, flags) self._font, self._size, self._flags = path, size, flags; return true end
+function methods:GetFont() return self._font or "Fonts\\FRIZQT__.TTF", self._size or 12, self._flags or "" end
+-- Roughly half an em per character.
+function methods:GetStringWidth() return #(self._text or "") * (self._size or 12) * 0.5 end
 function methods:SetSize(w, h) self._w, self._h = w, h end
 function methods:SetWidth(w) self._w = w end
 function methods:SetHeight(h) self._h = h end
@@ -573,6 +577,16 @@ assert(hero.health.text._text == "300 / 450" and hero.health._value == 300, "hea
 assert(hero.power.text._text == "120 / 200", "power")
 assert(hero.power._color[3] == 1 and hero.power._color[1] == 0, "mana is blue")
 assert(hero.xp.level._text == "Level 12 Shaman" and hero.xp.name._text == "Thrall Son of Durotan", "name and level")
+-- Long names shrink to fit the name plate, and short ones get the full size back.
+do
+	local fs = hero.xp.name
+	local base = fs.fitSize
+	ns:FitText(fs, string.rep("W", 60))
+	assert(fs._size < base and fs:GetStringWidth() <= fs:GetWidth() or fs._size == 7, "a long name shrinks to fit")
+	ns:FitText(fs, "Thrall")
+	assert(fs._size == base, "a short name gets its full size back")
+	ns:FitText(fs, ns:FullName("player"))
+end
 assert(math.abs(hero.xp.bar._w - L.xp.bar.w / 4) < 0.01, "XP bar at 25%")
 assert(math.abs(hero.xp.rested._w - L.xp.bar.w * 1500 / 4000) < 0.01, "rested XP")
 assert(hero.stats[1].value._text == "10 - 16", "main hand damage")

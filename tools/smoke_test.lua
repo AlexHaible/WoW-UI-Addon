@@ -182,7 +182,7 @@ MainActionBar = new("frame", "MainActionBar", UIParent)
 MainActionBar.EndCaps = new("frame", nil, MainActionBar)
 MainActionBar.BorderArt = new("texture", nil, MainActionBar)
 for _, spec in ipairs({ { "ActionButton", MainActionBar }, { "MultiBarBottomLeftButton" },
-	{ "MultiBarBottomRightButton" }, { "MultiBarRightButton" }, { "MultiBarLeftButton" }, { "MultiBar5Button" } }) do
+	{ "MultiBarBottomRightButton" }, { "MultiBarRightButton" }, { "MultiBarLeftButton" }, { "MultiBar7Button" } }) do
 	local bar = spec[2] or new("frame", spec[1]:gsub("Button$", ""), UIParent)
 	for i = 1, 12 do
 		local b = new("secure", spec[1] .. i, bar)
@@ -191,7 +191,14 @@ for _, spec in ipairs({ { "ActionButton", MainActionBar }, { "MultiBarBottomLeft
 		b.IconMask = new("texture", nil, b)
 	end
 end
-MultiBar5Button1.action = 145
+MultiBar7Button1.action = 145
+BuffFrame = new("frame", "BuffFrame", UIParent)
+DebuffFrame = new("frame", "DebuffFrame", UIParent)
+local settingValues = { PROXY_SHOW_ACTIONBAR_2 = false, PROXY_SHOW_ACTIONBAR_3 = true, PROXY_SHOW_ACTIONBAR_8 = false }
+Settings = { GetSetting = function(name)
+	if settingValues[name] == nil then return nil end
+	return { GetValue = function() return settingValues[name] end, SetValue = function(_, v) settingValues[name] = v end }
+end }
 -- Dividers between buttons: per button, and from a pool on the main bar that
 -- Blizzard's UpdateDividers refills.
 ActionButton7.RightDivider = new("texture", nil, ActionButton7)
@@ -439,7 +446,7 @@ assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil a
 assert(Minimap:GetParent() == UIParent, "the minimap keeps its parent")
 assert(#StanceBar._points == 0 and #ObjectiveTrackerFrame._points == 0, "Edit Mode frames must stay put")
 assert(MainActionBar.EndCaps._alpha == 0 and MainActionBar._alpha == nil, "main bar art should hide, not its buttons")
-assert(MainActionBar._mouse == false and MultiBar5._mouse == false, "empty bar frames should be click-through")
+assert(MainActionBar._mouse == false and MultiBar7._mouse == false, "empty bar frames should be click-through")
 
 local L = ns.layout
 local unit = function(f) return f:GetEffectiveScale() / ns.root:GetEffectiveScale() end
@@ -458,7 +465,7 @@ assert(CharacterMicroButton._alpha == 0, "micro buttons are hidden by default")
 assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
 	"quests button should click the quest log micro button")
 
--- Bars 1-3 in the grid, Action Bar 6 beside the minimap.
+-- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
 	local row = L.bars[key]
 	for _, i in ipairs({ 1, 7, 12 }) do
@@ -469,13 +476,13 @@ for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButt
 end
 for i = 1, 3 do
 	local r = L.minimapSlots[i]
-	at(_G["MultiBar5Button" .. i], r.x, r.y, "Action Bar 6 button " .. i)
-	local b = _G["MultiBar5Button" .. i]
-	assert(math.abs(b._w * unit(b) - r.w) < 0.01, "Action Bar 6 button " .. i .. " has the wrong size")
+	at(_G["MultiBar7Button" .. i], r.x, r.y, "Action Bar 8 button " .. i)
+	local b = _G["MultiBar7Button" .. i]
+	assert(math.abs(b._w * unit(b) - r.w) < 0.01, "Action Bar 8 button " .. i .. " has the wrong size")
 end
 for _, i in ipairs({ 4, 9, 12 }) do
-	local _, _, _, _, y = _G["MultiBar5Button" .. i]:GetPoint(1)
-	assert(y < 0, "Action Bar 6 button " .. i .. " should be parked below the screen")
+	local _, _, _, _, y = _G["MultiBar7Button" .. i]:GetPoint(1)
+	assert(y < 0, "Action Bar 8 button " .. i .. " should be parked below the screen")
 end
 -- The gold dividers between buttons stay invisible, even after Blizzard
 -- updates them.
@@ -486,24 +493,24 @@ MainActionBar:UpdateDividers()
 for _, d in ipairs(dividerPool) do
 	assert(d._alpha == 0 and d._shown, "bar dividers hidden by alpha, never Hide()")
 end
--- Empty sockets explain Action Bar 6 while it is off.
+-- Empty sockets explain Action Bar 8 while it is off.
 local bars = ns.modules.actionbars
-assert(not ReforgedUIBar6Socket1:IsShown(), "no socket over a shown Action Bar 6 button")
-MultiBar5:Hide()
-MultiBar5._hooks.OnHide()
-assert(ReforgedUIBar6Socket1:IsShown() and ReforgedUIBar6Socket3:IsShown(), "sockets show while Action Bar 6 is off")
-local p1 = ReforgedUIBar6Socket1._points[1]
+assert(not ReforgedUIBar8Socket1:IsShown(), "no socket over a shown Action Bar 8 button")
+MultiBar7:Hide()
+MultiBar7._hooks.OnHide()
+assert(ReforgedUIBar8Socket1:IsShown() and ReforgedUIBar8Socket3:IsShown(), "sockets show while Action Bar 8 is off")
+local p1 = ReforgedUIBar8Socket1._points[1]
 assert(p1[2] == ns.root and math.abs(p1[4] - L.minimapSlots[1].x) < 0.01, "socket over the first minimap slot")
 local tip
 local oldSetText = methods.SetText
 function GameTooltip:SetText(t) tip = t end
-ReforgedUIBar6Socket1._scripts.OnEnter(ReforgedUIBar6Socket1)
-assert(tip == "Turn on Action Bar 6 in Edit Mode to use these slots", "socket tooltip")
+ReforgedUIBar8Socket1._scripts.OnEnter(ReforgedUIBar8Socket1)
+assert(tip == "Turn on Action Bar 8 in Edit Mode to use these slots", "socket tooltip")
 GameTooltip.SetText = nil
 methods.SetText = oldSetText
-MultiBar5:Show()
+MultiBar7:Show()
 bars:UpdateSockets()
-assert(not ReforgedUIBar6Socket1:IsShown(), "sockets hide again when Action Bar 6 is on")
+assert(not ReforgedUIBar8Socket1:IsShown(), "sockets hide again when Action Bar 8 is on")
 -- Stance (aura) and pet buttons: Blizzard's, on the wall over the grid,
 -- anchored to UIParent; their Edit Mode bars stay put.
 for i = 1, 10 do
@@ -840,6 +847,22 @@ for _, e in ipairs({ "UNIT_HEALTH", "UNIT_POWER_UPDATE", "PLAYER_XP_UPDATE", "BA
 end
 flushTimers()
 slash("feeds")
+-- Buffs hang just below the top bar, debuffs under the buffs; both anchored
+-- to Blizzard frames only.
+do
+	local point, rel, _, x, y = BuffFrame:GetPoint(1)
+	assert(point == "TOPRIGHT" and rel == UIParent and x < 0 and y < 0, "buffs pinned below the top bar")
+	local _, drel = DebuffFrame:GetPoint(1)
+	assert(drel == BuffFrame, "debuffs under the buffs")
+	BuffFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+	assert(select(2, BuffFrame:GetPoint(1)) == UIParent and BuffFrame:GetPoint(1) == "TOPRIGHT", "buffs stay pinned")
+end
+-- Bars 2, 3 and 8 are turned on once per character.
+assert(settingValues.PROXY_SHOW_ACTIONBAR_2 and settingValues.PROXY_SHOW_ACTIONBAR_3
+	and settingValues.PROXY_SHOW_ACTIONBAR_8, "bars 2, 3 and 8 turned on")
+settingValues.PROXY_SHOW_ACTIONBAR_8 = false
+ns.modules.actionbars:EnableBars()
+assert(settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "bars are only turned on once; the player's choice stands")
 -- The top bar's Menu button is Blizzard's game menu button laid over it,
 -- invisible and clickable, so no addon code opens the menu.
 do

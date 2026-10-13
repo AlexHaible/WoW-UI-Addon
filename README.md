@@ -52,11 +52,13 @@ screen stays free on either side).
   (Alt-right-click a filled one) to choose any feed.
 
 The three action slots beside the minimap are the first three buttons of
-Blizzard's **Action Bar 6**, so they bind like any other bar (Key Bindings >
-Action Bars > Action Bar 6). Addons cannot turn that bar on: until you do (see
-Setting up) the slots are empty sockets, and their tooltip says so.
+Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
+Action Bars > Action Bar 8). The addon turns on Action Bars 2, 3 and 8 once per
+character; if you turn bar 8 off later, the slots are empty sockets whose
+tooltip says how to turn it back on.
 
-Frames that Edit Mode manages (cast bar, buffs and debuffs, target and party
+Buffs and debuffs are held in the top-right corner just below the top bar.
+Other frames that Edit Mode manages (cast bar, target and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
 this client. (The stance and pet bars' own frames stay put too, empty and
@@ -126,14 +128,12 @@ of your faction. Saved themes from earlier versions keep working.
 1. Copy the `ReforgedUI` folder into the AddOns folder of your Forever install.
    **Restart the game client completely** (not just `/reload`): the addon has
    new files, which the game only picks up on a full restart.
-2. In Edit Mode (or Options > Gameplay > Action Bars), turn on **Action Bars
-   2, 3 and 6**. Only the first three buttons of bar 6 are used (the slots
-   beside the minimap); the rest are parked off screen, so set it to as few
+2. Action Bars 2, 3 and 8 are turned on for you the first time each character
+   logs in. Only the first three buttons of bar 8 are used (the slots beside
+   the minimap); the rest are parked off screen, so you can set it to as few
    icons as Edit Mode allows.
 3. Move the cast bar, target frame and anything else Edit Mode manages to
-   where you want them around the console. In particular, drag the **buffs
-   and debuffs** down so they sit below the top bar: they draw above it, but
-   by default they hang over its right-hand slots.
+   where you want them around the console.
 
 ## Commands
 
@@ -156,7 +156,8 @@ the client now does itself:
 
 - The **Customize** tab (moving and resizing every piece) and the eight
   custom themes.
-- **Cast bar alignment**, the **buff position** option and moving the **pet
+- **Cast bar alignment**, the **buff position** option (buffs always sit under
+  the top bar) and moving the **pet
   frame**: these are Edit Mode frames; place them in Edit Mode. (The stance
   and pet bar buttons are placed, see above; the position options are not.)
 - Moving Blizzard's **player status icons** (rest, combat, leader, master
@@ -169,7 +170,7 @@ the client now does itself:
   option and the **first-run reload** prompt.
 - Spell and healing power **scanned from tooltips and auras**: the client's
   own spell power API is used instead.
-- the original addon's **Bindings.xml**: the three extra slots use Action Bar 6's bindings.
+- the original addon's **Bindings.xml**: the three extra slots use Action Bar 8's bindings.
 - **Bonus action bar** handling (stances, stealth): the client pages the main
   bar by itself.
 - Moving the **battleground minimap button**: it lines up with the other

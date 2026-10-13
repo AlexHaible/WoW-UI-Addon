@@ -1,7 +1,7 @@
 -- Action bars, placed in the original addon's action slot grid: the main bar on the
 -- bottom row, bars 2 and 3 above it. The original addon's three extra slots beside the
--- minimap are the first three buttons of Blizzard's Action Bar 6
--- (MultiBar5): enable it in Edit Mode, and its key bindings are the original addon's
+-- minimap are the first three buttons of Blizzard's Action Bar 8
+-- (MultiBar7): enable it in Edit Mode, and its key bindings are the original addon's
 -- "custom action button" bindings. While it is off the slots stay empty
 -- sockets whose tooltip says so. (The 2x3 inventory holds the bags, see
 -- Inventory.lua.) The stance (aura, form) buttons and the pet bar stand in
@@ -11,7 +11,7 @@
 -- reskinned): they keep their bindings, paging, cooldowns and spell
 -- overlays, and none of Blizzard's button code ever runs from ours. Their bar
 -- frames are Edit Mode frames and stay where Edit Mode puts them, empty and
--- click-through. Bars 2, 3 and 6 must be turned on in Edit Mode (or Options
+-- click-through. Bars 2, 3 and 8 must be turned on in Edit Mode (or Options
 -- > Gameplay > Action Bars) to show.
 
 local _, ns = ...
@@ -25,11 +25,11 @@ local BARS = {
 	{ key = "bar2", prefix = "MultiBarBottomLeftButton" },
 	{ key = "bar3", prefix = "MultiBarBottomRightButton" },
 }
-local EXTRA_PREFIX = "MultiBar5Button"
+local EXTRA_PREFIX = "MultiBar7Button"
 local EXTRA_SLOTS = 3
-local SOCKET_TOOLTIP = "Turn on Action Bar 6 in Edit Mode to use these slots"
-local SOCKET_EMPTY = "Empty Action Bar 6 slot: drag a spell or item here. Turn on \"Always Show Buttons\""
-	.. " for Action Bar 6 in Edit Mode to see its empty slots."
+local SOCKET_TOOLTIP = "Turn on Action Bar 8 in Edit Mode to use these slots"
+local SOCKET_EMPTY = "Empty Action Bar 8 slot: drag a spell or item here. Turn on \"Always Show Buttons\""
+	.. " for Action Bar 8 in Edit Mode to see its empty slots."
 
 -- Stance and pet buttons: current names first, Classic-era ones after.
 local ROWS = {
@@ -38,7 +38,7 @@ local ROWS = {
 }
 
 local BAR_FRAMES = {
-	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar5",
+	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar7",
 	"StanceBar", "StanceBarFrame", "ShapeshiftBarFrame", "PetActionBar", "PetActionBarFrame",
 }
 
@@ -213,7 +213,7 @@ function ActionBars:OnEnable()
 		end
 	end)
 
-	for _, name in ipairs({ "MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar5" }) do
+	for _, name in ipairs({ "MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar7" }) do
 		hideDividers(_G[name])
 	end
 
@@ -229,8 +229,48 @@ function ActionBars:OnEnable()
 	end
 
 	ns:On("PLAYER_ENTERING_WORLD", function()
-		C_Timer.After(2, function() self:PlaceHearthstone() end)
+		C_Timer.After(2, function()
+			self:EnableBars()
+			self:PlaceHearthstone()
+		end)
 	end)
+end
+
+-- Bars 2, 3 and 8 fill the console, so turn them on once per character
+-- (after that the player's own choice in Options stands).
+local SHOW_SETTINGS = { "PROXY_SHOW_ACTIONBAR_2", "PROXY_SHOW_ACTIONBAR_3", "PROXY_SHOW_ACTIONBAR_8" }
+-- GetActionBarToggles order: bottom left (2), bottom right (3), right (4),
+-- left (5), then bars 6, 7 and 8.
+local TOGGLES = { 1, 2, 7 }
+
+function ActionBars:EnableBars()
+	local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	local done = ns.db.consoleOpts.barsEnabled
+	if done[key] or InCombatLockdown() then
+		return
+	end
+	local ok = pcall(function()
+		local getSetting = Settings and Settings.GetSetting
+		if getSetting and getSetting(SHOW_SETTINGS[1]) then
+			for _, name in ipairs(SHOW_SETTINGS) do
+				local setting = getSetting(name)
+				if setting and not setting:GetValue() then
+					setting:SetValue(true)
+				end
+			end
+		elseif GetActionBarToggles and SetActionBarToggles then
+			local toggles = { GetActionBarToggles() }
+			for _, i in ipairs(TOGGLES) do
+				if i <= #toggles then
+					toggles[i] = true
+				end
+			end
+			SetActionBarToggles(unpack(toggles))
+		end
+	end)
+	if ok then
+		done[key] = true
+	end
 end
 
 -- The original addon puts a hearthstone in the first slot beside the minimap, once per
@@ -259,18 +299,18 @@ function ActionBars:PlaceHearthstone()
 end
 
 -- Our own empty sockets over the slots beside the minimap, shown while
--- Action Bar 6's button is not: they explain how to fill the slot.
+-- Action Bar 8's button is not: they explain how to fill the slot.
 function ActionBars:CreateSockets()
-	local holder = CreateFrame("Frame", "ReforgedUIBar6Sockets", ns.root)
+	local holder = CreateFrame("Frame", "ReforgedUIBar8Sockets", ns.root)
 	holder:SetFrameStrata("LOW")
 	holder:SetFrameLevel(20)
 	holder:SetAllPoints(ns.root)
 	self.sockets = {}
 	for i = 1, EXTRA_SLOTS do
-		local socket = CreateFrame("Button", "ReforgedUIBar6Socket" .. i, holder)
+		local socket = CreateFrame("Button", "ReforgedUIBar8Socket" .. i, holder)
 		socket:SetScript("OnEnter", function(f)
 			GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
-			local bar = _G.MultiBar5
+			local bar = _G.MultiBar7
 			local on = bar and not ns.IsForbidden(bar) and bar:IsShown() and self.extra[i] ~= nil
 			GameTooltip:SetText(on and SOCKET_EMPTY or SOCKET_TOOLTIP, 1, 1, 1, 1, true)
 			GameTooltip:Show()
@@ -279,7 +319,7 @@ function ActionBars:CreateSockets()
 		self.sockets[i] = socket
 	end
 	local update = function() self:UpdateSockets() end
-	for _, f in ipairs({ _G.MultiBar5, self.extra[1], self.extra[2], self.extra[3] }) do
+	for _, f in ipairs({ _G.MultiBar7, self.extra[1], self.extra[2], self.extra[3] }) do
 		if f and not ns.IsForbidden(f) then
 			f:HookScript("OnShow", update)
 			f:HookScript("OnHide", update)
@@ -320,7 +360,7 @@ function ActionBars:OnLayout(L)
 			lockButton(btn, { x = row.xs[i], y = row.y, w = row.size }, L.s)
 		end
 	end
-	-- Action Bar 6: 1-3 beside the minimap; the rest are parked below the
+	-- Action Bar 8: 1-3 beside the minimap; the rest are parked below the
 	-- screen (the original addon has no other place for them).
 	for i, btn in pairs(self.extra) do
 		lockButton(btn, L.minimapSlots[i] or { x = 0, y = -200, w = 30 }, L.s)

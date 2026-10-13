@@ -2,8 +2,9 @@
 -- bar, status bars) are made invisible and click-through; the micro menu
 -- moves on top of the action grid (or is hidden, the original addon's default), bag
 -- windows open above the console and the client's Issue Reporter button is
--- lifted clear of it. Everything else that
--- Edit Mode manages (cast bar, buffs, quest tracker, party frames, and the
+-- lifted clear of it. Buffs and debuffs are held just below the top bar, the
+-- way the chat window is held in the chat area. Everything else that
+-- Edit Mode manages (cast bar, quest tracker, party frames, and the
 -- stance and pet bar frames, whose buttons ActionBars.lua places) stays
 -- wherever Edit Mode puts it: moving those from addon code makes Blizzard's
 -- own code fail on "secret" values.
@@ -112,6 +113,31 @@ function Blizzard:OnLayout(L)
 	end
 
 	self:LiftIssueReporter()
+	self:PlaceBuffs()
+end
+
+-- Buffs and debuffs hang in the top-right corner, just below the top bar,
+-- held there the way the chat window is; debuffs keep their own place under
+-- the buffs.
+local BUFF_GAP, BUFF_RIGHT = 6, 12
+
+function Blizzard:PlaceBuffs()
+	local buffs = _G.BuffFrame
+	if not buffs or ns.IsForbidden(buffs) or not (ns.topRoot and ns.topLayout) then
+		return
+	end
+	ns:Lock(buffs, function(f)
+		local s = ns.topRoot:GetEffectiveScale() / f:GetEffectiveScale()
+		f:ClearAllPoints()
+		f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -BUFF_RIGHT * s, -(ns.topLayout.topBar.h + BUFF_GAP) * s)
+	end)
+	local debuffs = _G.DebuffFrame
+	if debuffs and not ns.IsForbidden(debuffs) then
+		ns:Lock(debuffs, function(f)
+			f:ClearAllPoints()
+			f:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT", 0, -BUFF_GAP)
+		end)
+	end
 end
 
 -- WoW: Forever parks its Issue Reporter button at the bottom of the screen;

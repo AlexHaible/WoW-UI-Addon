@@ -44,6 +44,7 @@ local DEFAULTS = {
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
+		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
 	},
 }
 

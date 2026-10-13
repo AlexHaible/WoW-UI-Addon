@@ -265,6 +265,13 @@ Layout.ENDCAP_ART = {
 	-- Warcraft III's own end pillars (humanuitile05/06), crown on the wall top.
 	human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
+	-- Each faction's own end pieces (tile05's left end, tile06's right end).
+	orc = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.0547, h = 0.75, overlap = 0.002, head = 0.125, rise = 0 },
+	undead = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.0977, h = 0.9375, overlap = 0.002, head = 0.125, rise = 0 },
+	nightelf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.1895, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
 	-- Hand-built "Great Forge" versions of the same pillars.
 	dwarf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
@@ -307,8 +314,11 @@ end
 -- s) and the BottomRight_Top piece's (share of its height from its top).
 -- (Human's minimap art has a faint stray column above its wall; 0.639 is the
 -- wall itself.)
-local LEFT_WALL = { human = 0.639, orc = 0.664, undead = 0.697, nightelf = 0.693 }
-local RIGHT_WALL = { human = 73 / 128, orc = 46 / 128, undead = 50 / 128, nightelf = 54 / 128 }
+-- These are the tops of the end pieces the caps continue: Orc's beam ends
+-- below the fur tufts and palisade spikes, and Undead's minimap art has the
+-- same stray column as Human's.
+local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693 }
+local RIGHT_WALL = { human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128 }
 
 ----------------------------------------------------------------------------
 -- Target display (Target.lua).
@@ -333,6 +343,12 @@ Layout.TARGET_ART = {
 	themes = {
 		human = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
 			info = { 187, 50, 293, 198 } },
+		orc = { portrait = { 76, 89, 112, 120 }, health = { 76, 211, 112, 19 }, power = { 76, 233, 112, 17 },
+			info = { 214, 76, 249, 173 } },
+		undead = { portrait = { 52, 67, 125, 131 }, health = { 57, 204, 116, 20 }, power = { 58, 226, 115, 23 },
+			info = { 195, 56, 284, 193 } },
+		nightelf = { portrait = { 39, 57, 121, 143 }, health = { 40, 205, 121, 20 }, power = { 41, 231, 120, 17 },
+			info = { 187, 54, 281, 194 } },
 		dwarf = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
 			info = { 187, 50, 293, 198 } },
 	},

@@ -748,6 +748,24 @@ assert(hero.stats[3].value._text == "70", "spell power should be the best school
 hero:SetIconChoice(3, "heal")
 assert(hero.stats[3].value._text == "207", "healing")
 assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "heal", "icon choices are kept per class")
+-- A right-click on a weapon icon opens its menu (or steps on without one).
+local menuOpened
+local oldMenu = ns.ShowMenu
+ns.ShowMenu = function(_, owner, title, items)
+	menuOpened = { owner = owner, title = title, items = items }
+	return true
+end
+hero.stats[1]:GetScript("OnMouseUp")(hero.stats[1], "RightButton")
+assert(menuOpened and menuOpened.owner == hero.stats[1] and #menuOpened.items == #hero.ICON_KINDS,
+	"weapon icon right-click menu")
+menuOpened.items[2].func()
+assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[1] == "offhand", "menu choice sets the icon")
+ns.ShowMenu = function() return false end
+hero.stats[1]:GetScript("OnMouseUp")(hero.stats[1], "RightButton")
+assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[1] == "ranged", "without menus a right-click steps on")
+ns.ShowMenu = oldMenu
+hero:SetIconChoice(1, "main")
+assert(not hero.stats[4]:GetScript("OnMouseUp"), "armour has no menu")
 ReforgedUIDB.consoleOpts.healthPercent = true
 hero:UpdateHealth()
 assert(hero.health.text._text == "67%", "health as a percentage")

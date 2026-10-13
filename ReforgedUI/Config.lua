@@ -8,7 +8,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 530
+local W, H = 650, 460
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -23,11 +23,6 @@ local RESTED_COLORS = {
 	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
 	{ "Blue", { 0, 0, 1, 0.5 } },
 	{ "None", { 0, 0, 0, 0 } },
-}
-local ICON_ROWS = { "Top left weapon icon", "Top right weapon icon", "Bottom right weapon icon" }
-local ICON_BUTTONS = {
-	{ "main", "Main" }, { "offhand", "Offhand" }, { "ranged", "Ranged" }, { "ammo", "Ammo" },
-	{ "spell", "Spell" }, { "heal", "Heal" }, { "none", "None" },
 }
 local ZONE_TEXT = { "Zone text: bottom", "Zone text: top", "Zone text: hidden" }
 
@@ -191,24 +186,12 @@ function Config:Build()
 	end
 	button(f, "Custom", 64, x + 3 * 68, y - 232, function() self:PickRestedColor() end)
 
-	-- Stat icons.
-	y = -384
-	self.iconButtons = {}
-	for row, text in ipairs(ICON_ROWS) do
-		label(f, text, 20, y - (row - 1) * 30 - 4, "GameFontNormalSmall")
-		self.iconButtons[row] = {}
-		for i, spec in ipairs(ICON_BUTTONS) do
-			local b = button(f, spec[2], 62, 170 + (i - 1) * 64, y - (row - 1) * 30, function()
-				ns.modules.hero:SetIconChoice(row, spec[1])
-				self:Refresh()
-			end)
-			b.kind = spec[1]
-			self.iconButtons[row][i] = b
-		end
-	end
+	-- Stat icons: chosen from each icon's right-click menu on the console.
+	label(f, "Right-click a weapon icon on the console to choose what it shows.", 20, -388,
+		"GameFontNormalSmall")
 
-	button(f, "Apply", 120, 20, -490, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -490, ReloadUI)
+	button(f, "Apply", 120, 20, -420, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -420, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).
@@ -267,12 +250,6 @@ function Config:Refresh()
 	end
 	for _, b in ipairs(self.themeButtons) do
 		b:SetEnabled(ns.db.theme ~= b.key)
-	end
-	local choices = ns.modules.hero.enabled and ns.modules.hero:IconChoices() or {}
-	for row, list in ipairs(self.iconButtons) do
-		for _, b in ipairs(list) do
-			b:SetEnabled(choices[row] ~= b.kind)
-		end
 	end
 	local target = ns.modules.target
 	for _, b in ipairs(self.targetButtons) do

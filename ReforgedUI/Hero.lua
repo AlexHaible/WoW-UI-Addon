@@ -520,7 +520,42 @@ function Hero:CreateStatIcon(holder, index)
 		end
 	end)
 	f:SetScript("OnLeave", hideInfo)
+	if index <= 3 then
+		f:SetScript("OnMouseUp", function(frame, button)
+			if button == "RightButton" then
+				self:OpenIconMenu(frame.index)
+			end
+		end)
+	end
 	return f
+end
+
+local ICON_NAMES = {
+	main = "Main hand", offhand = "Off hand", ranged = "Ranged", ammo = "Ammo",
+	spell = "Spell power", heal = "Healing", none = "None",
+}
+local ICON_TITLES = { "Top left weapon icon", "Top right weapon icon", "Bottom right weapon icon" }
+
+-- Right-click menu of a weapon icon: what it shows. Without the menu API a
+-- right-click steps to the next choice.
+function Hero:OpenIconMenu(index)
+	local current = self:IconChoices()[index]
+	local items = {}
+	for _, kind in ipairs(Hero.ICON_KINDS) do
+		items[#items + 1] = {
+			text = ICON_NAMES[kind], checked = current == kind,
+			func = function() self:SetIconChoice(index, kind) end,
+		}
+	end
+	if not ns:ShowMenu(self.stats[index], ICON_TITLES[index], items) then
+		local kinds = Hero.ICON_KINDS
+		for i, kind in ipairs(kinds) do
+			if kind == current then
+				self:SetIconChoice(index, kinds[i % #kinds + 1])
+				break
+			end
+		end
+	end
 end
 
 -- The stat icon choices of this character's class.

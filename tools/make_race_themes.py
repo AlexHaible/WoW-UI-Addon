@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Make the race themes' art by recolouring the original addon's faction art.
 
-    python3 tools/make_race_themes.py            # all race themes
+    python3 tools/make_race_themes.py            # all recoloured race themes
     python3 tools/make_race_themes.py dwarf troll
 
 Each race theme starts from the Warcraft III faction set whose shapes suit it
@@ -281,11 +281,19 @@ def make(race):
     print("wrote", race, "from", base, "(art/%s, Media/%s)" % (race, spec["folder"]))
 
 
+# Races whose console is hand-built from Warcraft III art instead of
+# recoloured; never overwrite them. Their RACES entries stay as a record of
+# the recolour they replaced.
+HAND_BUILT = {"dwarf"}
+
+
 def main(args):
-    races = args or list(RACES)
+    races = args or [r for r in RACES if r not in HAND_BUILT]
     for r in races:
         if r not in RACES:
             sys.exit("unknown race theme %s (one of: %s)" % (r, ", ".join(RACES)))
+        if r in HAND_BUILT:
+            sys.exit("%s has hand-built art; refusing to overwrite it with a recolour" % r)
         make(r)
 
 

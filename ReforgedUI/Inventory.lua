@@ -91,6 +91,21 @@ local function makeButton(holder, name)
 	btn.icon:SetAllPoints()
 	btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+	-- The same border as the action buttons' icons.
+	btn.border = btn:CreateTexture(nil, "OVERLAY")
+	local from = _G.ActionButton1 and _G.ActionButton1:GetNormalTexture()
+	local atlas = from and from.GetAtlas and from:GetAtlas()
+	if atlas then
+		btn.border:SetAtlas(atlas)
+		btn.border:SetAllPoints()
+	else
+		-- Classic's square border is drawn at 64/36 of the button's size.
+		btn.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+		btn.border:SetPoint("CENTER")
+		btn:SetScript("OnSizeChanged", function(b, w, h)
+			b.border:SetSize(w * 64 / 36, h * 64 / 36)
+		end)
+	end
 	btn:SetScript("OnLeave", onLeave)
 	return btn
 end

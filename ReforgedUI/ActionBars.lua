@@ -54,8 +54,9 @@ local MAIN_ART_GLOBALS = {
 
 local skinned = setmetatable({}, { __mode = "k" })
 
--- The original addon's look: the grid art is the button frame, so drop Blizzard's own
--- border and slot art and let the icon fill the cell.
+-- The grid art is the button frame: drop Blizzard's slot art, but keep each
+-- icon's own border (and the mask that rounds the icon to fit it), so icons
+-- don't look flat.
 local function SkinButton(btn)
 	if skinned[btn] then
 		return
@@ -63,13 +64,6 @@ local function SkinButton(btn)
 	skinned[btn] = true
 	local name = btn:GetName()
 	local icon = btn.icon or _G[name .. "Icon"]
-	if icon and btn.IconMask and icon.RemoveMaskTexture then
-		icon:RemoveMaskTexture(btn.IconMask)
-	end
-	local normal = btn:GetNormalTexture()
-	if normal then
-		normal:SetAlpha(0)
-	end
 	for _, key in ipairs({ "SlotBackground", "SlotArt" }) do
 		local region = btn[key]
 		if region and region.SetAlpha and region ~= icon then

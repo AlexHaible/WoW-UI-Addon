@@ -252,7 +252,7 @@ Layout.ENDCAP_ART = {
 	orc = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0547, h = 0.75, overlap = 0.002, head = 0.125, rise = 0 },
 	-- Hand-built Troll and Tauren ends on Orc's shapes.
-	tauren = { left = "endcaps\endcap_left", right = "endcaps\endcap_right",
+	tauren = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0547, h = 0.75, overlap = 0.002, head = 0.125, rise = 0 },
 	troll = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.0547, h = 0.75, overlap = 0.002, head = 0.125, rise = 0 },

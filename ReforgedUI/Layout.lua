@@ -648,7 +648,10 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 		end
 		brTop.y = bgT - 0.03846153 * s
 		brBot.x = bgR - 0.725833 * s
-		brMid.x = t == "nightelf" and (bgR - 37) or (bgR - 0.0625 * s)
+		-- Night Elf's middle piece keeps its offset from the edge (it is
+		-- narrowed at lower scales), so it reaches the chat area's edge and
+		-- tucks half a unit under the end cap: no black strip between them.
+		brMid.x = t == "nightelf" and (bgR + brMid.x - W + 0.5) or (bgR - 0.0625 * s)
 	end
 
 	-- The original addon's frame pieces only reach across a 16:9 screen; on wider screens

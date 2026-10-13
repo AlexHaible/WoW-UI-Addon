@@ -1095,6 +1095,8 @@ do
 							and l.x < LL.minimapArt.x, "left cap not at the console's left end: " .. where)
 						assert(r.x < LL.rightPoint and r.x >= LL.rightPoint - E.overlap - 0.01
 							and r.x + r.w > LL.rightPoint, "right cap not at the console's right end: " .. where)
+						local mid = LL.byKey.br_middle.rect
+						assert(mid.x + mid.w >= r.x, "a gap between the right wall and its end cap: " .. where)
 						for _, cap in ipairs({ E.leftShaft, E.rightShaft }) do
 							for _, what in ipairs({ "minimap", "chat", "chatEdit", "cogwheel" }) do
 								assert(not O(cap, LL[what]), "end cap over the " .. what .. ": " .. where)

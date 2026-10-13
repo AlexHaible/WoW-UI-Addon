@@ -90,6 +90,12 @@ function methods:GetRegions()
 	return unpack(out)
 end
 function methods:GetAtlas() return self._atlas end
+function methods:SetAtlas(a) self._atlas = a end
+function methods:GetTexture() return self._tex end
+function methods:GetDrawLayer() return "ARTWORK", 0 end
+function methods:GetTexCoord() return 0, 0, 0, 1, 1, 0, 1, 1 end
+function methods:GetVertexColor() return 1, 1, 1, 1 end
+function methods:GetBlendMode() return "BLEND" end
 function methods:IsVisible()
 	local p = rawget(self, "_parent")
 	return self._shown and (p == nil or p:IsVisible())
@@ -111,7 +117,9 @@ methods.GetHighlightTexture = methods.GetNormalTexture
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function methods:SetText(t) self._text = t end
 function methods:GetNumPoints() return #self._points end
-function methods:GetObjectType() return self._kind == "button" and "Button" or "Frame" end
+function methods:GetObjectType()
+	return self._kind == "button" and "Button" or self._kind == "texture" and "Texture" or "Frame"
+end
 function methods:GetChildren()
 	local out = {}
 	for _, f in ipairs(allFrames) do
@@ -521,7 +529,7 @@ local function microAt(b, r, what)
 	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
 	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
 	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
-	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
+	assert(b:GetParent() == (b == ns.modules.topbar.menuMicro and UIParent or MicroMenu), what .. " keeps its parent")
 	assert(b:GetAlpha() == 1 and b._shown and b._mouse ~= false, what .. " should be visible and clickable")
 end
 local function checkMicro(expected)
@@ -548,10 +556,15 @@ local function checkMicro(expected)
 	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
 		"micro buttons should hug the clock")
 end
-local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, EJMicroButton, unnamedMicro }
+-- The Adventure Guide and shop are left out; Legacy and a game menu button
+-- of our own close the row.
+local menuMicro = ns.modules.topbar.menuMicro
+assert(menuMicro, "a game menu button at the end of the micro row")
+local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, unnamedMicro, LegacyMicroButton, menuMicro }
 checkMicro(MOVED)
-assert(#StoreMicroButton._points == 0, "a hidden micro button stays where it is")
+assert(#StoreMicroButton._points == 0 and StoreMicroButton._alpha == 0, "the shop button is hidden, not placed")
+assert(#EJMicroButton._points == 0 and EJMicroButton._alpha == 0, "the Adventure Guide button is hidden, not placed")
 assert(WorldMapMicroButton._alpha == 0 and #WorldMapMicroButton._points == 0, "the Map plate's micro button stays invisible")
 assert(MicroMenuContainer._alpha == nil and MicroMenu._alpha == nil and #MicroMenuContainer._points == 0,
 	"the micro menu stays where Edit Mode puts it, alpha untouched")
@@ -561,13 +574,38 @@ CharacterMicroButton:ClearAllPoints()
 CharacterMicroButton:SetPoint("TOPLEFT", MicroMenu, "TOPLEFT", 0, 0)
 MicroMenu:SetScale(0.6)
 checkMicro(MOVED)
--- The shop button shown: room is made for it, in its place in the order.
-StoreMicroButton._shown = true
-StoreMicroButton._hooks.OnShow(StoreMicroButton)
+-- A micro button Blizzard hides: its room goes.
+unnamedMicro._shown = false
+unnamedMicro._hooks.OnShow(unnamedMicro)
 flushTimers()
-MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, EJMicroButton, StoreMicroButton, unnamedMicro }
+checkMicro({ CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, LegacyMicroButton, menuMicro })
+unnamedMicro._shown = true
+unnamedMicro._hooks.OnShow(unnamedMicro)
+flushTimers()
 checkMicro(MOVED)
+-- The shop button shown by Blizzard stays out of the bar.
+StoreMicroButton._shown = true
+flushTimers()
+checkMicro(MOVED)
+-- The game menu button covers whichever of its two buttons the mouse enters.
+do
+	local b, plate = MainMenuMicroButton
+	for _, p in ipairs(ns.modules.topbar.buttons) do
+		if p.cover == b then plate = p end
+	end
+	local moves = 0
+	local orig = b.SetPoint
+	b.SetPoint = function(...) moves = moves + 1; return orig(...) end
+	menuMicro._scripts.OnEnter(menuMicro)
+	assert(plate.coverAt == menuMicro and moves > 0, "the game menu button moves over the micro row's menu button")
+	local _, rel = b:GetPoint(1)
+	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, "still invisible, clickable, on UIParent")
+	moves = 0
+	plate._hooks.OnEnter(plate)
+	assert(plate.coverAt == nil and moves > 0, "and back over the Menu plate")
+	b.SetPoint = nil
+end
 -- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
 -- over the top bar's plates and clicked directly.
 for _, b in ipairs({ QuestLogMicroButton, MainMenuMicroButton, SocialsMicroButton }) do

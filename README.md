@@ -58,9 +58,10 @@ screen stays free on either side).
   at the right end of the console, which can be raised.
 - **Top bar** (Reforged UI) with Quests, Menu, Allies and Map buttons, the
   day/night clock in the middle with Blizzard's micro buttons either side of
-  it (character, professions, talents, achievements, group finder,
-  collections, adventure guide, shop, ...: every one the plates don't
-  already stand for, in Blizzard's order), and slots for LibDataBroker feeds:
+  it (character, professions, talents, group finder, collections, ...:
+  every one the plates don't already stand for, in Blizzard's order, then
+  Legacy and a second game menu button to close the row; no adventure
+  guide or shop), and slots for LibDataBroker feeds:
   gold, bag space and durability fill the first three; right-click an empty
   slot (Alt-right-click a filled one) to choose any feed. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts

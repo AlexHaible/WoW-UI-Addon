@@ -443,7 +443,7 @@ end
 -- tooltip, alerts and enabled state; only its position and scale are ours.
 local MICRO_ORDER = {
 	"CharacterMicroButton", "SpellbookMicroButton", "ProfessionMicroButton", "PlayerSpellsMicroButton",
-	"TalentMicroButton", "AchievementMicroButton", "QuestLogMicroButton", "HousingMicroButton",
+	"TalentMicroButton", "LegacyMicroButton", "AchievementMicroButton", "QuestLogMicroButton", "HousingMicroButton",
 	"SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton", "LFGMicroButton", "LFDMicroButton",
 	"WorldMapMicroButton", "CollectionsMicroButton", "EJMicroButton", "StoreMicroButton",
 	"MainMenuMicroButton", "HelpMicroButton",
@@ -494,7 +494,10 @@ function TopBar:TakeMicroButtons(covers)
 		end
 		-- Forever has the classic talent button and the newer spells and
 		-- talents one; with a spellbook button of its own, keep the classic.
-		local duplicate = name == "PlayerSpellsMicroButton" and _G.TalentMicroButton and _G.SpellbookMicroButton
+		local duplicate = (name == "PlayerSpellsMicroButton" and _G.TalentMicroButton and _G.SpellbookMicroButton)
+			-- Forever's Legacy button takes the achievement button's place
+			-- (the old one opens the same panel).
+			or (name == "AchievementMicroButton" and _G.LegacyMicroButton)
 		if SKIP_MICRO[name] or name:find("Housing") or duplicate then
 			seen[b] = true
 			ns:Conceal(b)

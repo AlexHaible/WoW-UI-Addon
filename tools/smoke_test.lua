@@ -253,7 +253,7 @@ end
 -- frame left in the container.
 HousingMicroButton = new("button", "HousingMicroButton", MicroMenu)
 -- Forever's classic talent and spellbook buttons, next to the newer one.
-for _, name in ipairs({ "TalentMicroButton", "SpellbookMicroButton" }) do
+for _, name in ipairs({ "TalentMicroButton", "SpellbookMicroButton", "LegacyMicroButton" }) do
 	local b = new("button", name, MicroMenu)
 	b._w, b._h = 32, 40
 end
@@ -548,7 +548,7 @@ local function checkMicro(expected)
 	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
 		"micro buttons should hug the clock")
 end
-local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, AchievementMicroButton, GuildMicroButton,
+local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
 	LFDMicroButton, CollectionsMicroButton, EJMicroButton, unnamedMicro }
 checkMicro(MOVED)
 assert(#StoreMicroButton._points == 0, "a hidden micro button stays where it is")
@@ -565,7 +565,7 @@ checkMicro(MOVED)
 StoreMicroButton._shown = true
 StoreMicroButton._hooks.OnShow(StoreMicroButton)
 flushTimers()
-MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, AchievementMicroButton, GuildMicroButton,
+MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
 	LFDMicroButton, CollectionsMicroButton, EJMicroButton, StoreMicroButton, unnamedMicro }
 checkMicro(MOVED)
 -- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
@@ -1173,6 +1173,7 @@ assert(microBorder._alpha == 0, "the micro menu's border stays hidden")
 assert(microStray._alpha == 0, "stray frames in the micro menu are hidden")
 assert(HousingMicroButton._alpha == 0 and #HousingMicroButton._points == 0, "Housing is hidden, not placed")
 assert(PlayerSpellsMicroButton._alpha == 0, "only one talent button: the newer one is hidden")
+assert(AchievementMicroButton._alpha == 0, "Legacy replaces the achievement button")
 local hasTalent = false
 for _, b in ipairs(ns.microButtons) do hasTalent = hasTalent or b == TalentMicroButton end
 assert(hasTalent, "the classic talent button is in the bar")

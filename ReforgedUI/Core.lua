@@ -46,6 +46,7 @@ local DEFAULTS = {
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
 		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
+		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
 	},
 }
 
@@ -499,14 +500,81 @@ local function repairEditModeLayouts()
 	end
 end
 
--- Edit Mode's default cast bar sits over the console, and moving it from
--- addon code breaks Blizzard's own (see Blizzard.lua). So each custom layout
--- whose cast bar is still in its default place (and not locked to the
--- player frame) is given a place just above the console instead: saved in
--- the layout, it is Edit Mode that puts it there, and it can still be moved.
--- Preset layouts can't be changed; for those a message says what to do.
+-- Edit Mode layout. Each character is switched once to an account-wide
+-- "Reforged UI" layout, made (once) as a copy of the layout in use, with:
+--  * the cast bar just above the console (its default place is under it, and
+--    moving it from addon code breaks Blizzard's own, see Blizzard.lua);
+--  * raid-style party frames, and the raid frames' options (class colours,
+--    power bars, debuffs) turned on when the layout is made.
+-- It is all saved in the layout, so it is Edit Mode that applies it and
+-- every piece can still be moved and changed there. A cast bar that is still
+-- in its default place in any other layout of the player's own is raised too.
+ns.EDIT_LAYOUT = "Reforged UI"
 local CAST_BAR_GAP = 8
-function ns:RaiseCastBar()
+local RAID_CVARS = {
+	raidFramesDisplayClassColor = "1", raidFramesDisplayPowerBars = "1",
+	raidFramesDisplayOnlyHealerPowerBars = "0", raidFramesDisplayDebuffs = "1",
+	raidFramesDisplayAggroHighlight = "1", raidFramesDisplayIncomingHeals = "1",
+	raidOptionDisplayMainTankAndAssist = "1", raidFramesHealthText = "perc",
+}
+
+local function deepCopy(t)
+	local out = {}
+	for k, v in pairs(t) do
+		out[k] = type(v) == "table" and deepCopy(v) or v
+	end
+	return out
+end
+
+local function setSetting(system, setting, value)
+	if setting == nil then
+		return
+	end
+	system.settings = system.settings or {}
+	for _, entry in ipairs(system.settings) do
+		if entry.setting == setting then
+			entry.value = value
+			return
+		end
+	end
+	system.settings[#system.settings + 1] = { setting = setting, value = value }
+end
+
+local function findSystem(layout, system, index)
+	for _, sys in ipairs(layout.systems or {}) do
+		if sys.system == system and (index == nil or sys.systemIndex == index) then
+			return sys
+		end
+	end
+end
+
+-- Moves a default-placed cast bar (not locked to the player frame) to `y`.
+local function raiseCastBar(layout, y)
+	local sys = findSystem(layout, Enum.EditModeSystem.CastBar)
+	if not (sys and sys.isInDefaultPosition) then
+		return false
+	end
+	local lock = Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame
+	for _, setting in ipairs(sys.settings or {}) do
+		if lock and setting.setting == lock and setting.value == 1 then
+			return false
+		end
+	end
+	sys.anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = y }
+	sys.isInDefaultPosition = false
+	return true
+end
+
+local function setCVar(name, value)
+	local cvars = _G.C_CVar
+	local get = cvars and cvars.GetCVar or _G.GetCVar
+	local set = cvars and cvars.SetCVar or _G.SetCVar
+	if get and set and get(name) ~= nil then
+		pcall(set, name, value)
+	end
+end
+
+function ns:SetupEditMode()
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
 		and self.layout) then
@@ -516,49 +584,76 @@ function ns:RaiseCastBar()
 	if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
 		return
 	end
+	-- The layout list starts with Blizzard's presets, which addons can't change.
+	local presets, presetList = 2, nil
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		if okP and type(list) == "table" then
+			presets, presetList = #list, list
+		end
+	end
+
 	local bar = _G.PlayerCastingBarFrame
 	local scale = bar and bar:GetScale() or 1
 	if not scale or scale <= 0 then
 		scale = 1
 	end
-	local y = math.floor((self.layout.consoleTop * UIParent:GetHeight() / 768 + CAST_BAR_GAP) / scale + 0.5)
-	local lock = Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame
+	local castY = math.floor((self.layout.consoleTop * UIParent:GetHeight() / 768 + CAST_BAR_GAP) / scale + 0.5)
+
+	local index, made
+	for i, layout in ipairs(info.layouts) do
+		if layout.layoutName == ns.EDIT_LAYOUT then
+			index = i
+		end
+	end
+	if not index then
+		local active = type(info.activeLayout) == "number" and info.activeLayout or 1
+		local base = active > presets and info.layouts[active - presets] or (presetList and presetList[active])
+		if type(base) == "table" and type(base.systems) == "table" then
+			local layout = deepCopy(base)
+			layout.layoutName = ns.EDIT_LAYOUT
+			layout.layoutType = Enum.EditModeLayoutType and Enum.EditModeLayoutType.Account or 1
+			local frames = Enum.EditModeUnitFrameSystemIndices
+			local party = systems.UnitFrame and frames and findSystem(layout, systems.UnitFrame, frames.Party)
+			if party and Enum.EditModeUnitFrameSetting then
+				setSetting(party, Enum.EditModeUnitFrameSetting.UseRaidStylePartyFrames, 1)
+			end
+			-- The cast bar always gets its place in our layout.
+			local cast = findSystem(layout, systems.CastBar)
+			if cast then
+				cast.isInDefaultPosition = true
+				setSetting(cast, Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame, 0)
+			end
+			info.layouts[#info.layouts + 1] = layout
+			index, made = #info.layouts, true
+		end
+	end
+
 	local raised = 0
 	for _, layout in ipairs(info.layouts) do
-		for _, system in ipairs(layout.systems or {}) do
-			if system.system == systems.CastBar and system.isInDefaultPosition then
-				local locked = false
-				for _, setting in ipairs(system.settings or {}) do
-					if lock and setting.setting == lock and setting.value == 1 then
-						locked = true
-					end
-				end
-				if not locked then
-					system.anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM",
-						offsetX = 0, offsetY = y }
-					system.isInDefaultPosition = false
-					raised = raised + 1
-				end
-			end
+		if raiseCastBar(layout, castY) then
+			raised = raised + 1
 		end
 	end
-	if raised > 0 and pcall(C_EditMode.SaveLayouts, info) then
-		self:Print(("moved the cast bar above the console in %d Edit Mode layout(s); /reload if it hasn't moved.")
-			:format(raised))
+	if (made or raised > 0) and not pcall(C_EditMode.SaveLayouts, info) then
+		return
 	end
-	-- The first layouts are Blizzard's presets, which addons can't change.
-	local presets = 2
-	local manager = _G.EditModePresetLayoutManager
-	if manager and manager.GetCopyOfPresetLayouts then
-		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
-		if okP and type(list) == "table" then
-			presets = #list
+	if made then
+		for name, value in pairs(RAID_CVARS) do
+			setCVar(name, value)
 		end
 	end
-	if type(info.activeLayout) == "number" and info.activeLayout <= presets and not self.db.castBarHint then
-		self.db.castBarHint = true
-		self:Print("your Edit Mode layout is one of Blizzard's presets, which addons can't change: in Edit Mode,"
-			.. " drag the Cast Bar above the console (or copy the layout, and the next login moves it).")
+
+	local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	local switched = self.db.consoleOpts.editLayout
+	if index and not switched[key] and C_EditMode.SetActiveLayout
+		and pcall(C_EditMode.SetActiveLayout, presets + index) then
+		switched[key] = true
+		self:Print(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party frames);"
+			.. " /reload if it hasn't taken. Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
+	elseif raised > 0 then
+		self:Print(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
 	end
 end
 
@@ -600,7 +695,7 @@ local function init()
 
 	ns:Relayout()
 	ns:ApplyTheme()
-	ns:RaiseCastBar()
+	ns:SetupEditMode()
 
 	ns:On("DISPLAY_SIZE_CHANGED", function() ns:Relayout() end)
 	ns:On("UI_SCALE_CHANGED", function() ns:Relayout() end)

@@ -86,11 +86,18 @@ Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
 this client. (The stance and pet bars' own frames stay put too, empty and
-click-through; only their buttons move into the console.) The one
-exception is the cast bar's default place, which is under the console: in
-each of your own Edit Mode layouts where the cast bar is still there, the
-addon saves a place just above the console instead (Blizzard's preset
-layouts can't be changed by addons; move it in Edit Mode there).
+click-through; only their buttons move into the console.)
+
+**Edit Mode layout.** The first time each character logs in, the addon
+switches it to an account-wide Edit Mode layout called "Reforged UI", made
+once as a copy of the layout you were using, with the cast bar just above the
+console (its default place is under it) and raid-style party frames. When the
+layout is made, the raid frame options are turned on too: class colours,
+power bars for every role, debuffs, aggro highlight, incoming heals, main
+tank and assist, health as a percentage. Everything lives in the layout and
+the game's options, so you can change any of it, or pick another layout, in
+Edit Mode. In your other layouts a cast bar still in its default place is
+moved above the console too.
 
 ## Options
 

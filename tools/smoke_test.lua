@@ -348,8 +348,14 @@ FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local savedLayouts
 Enum = Enum or {}
-Enum.EditModeSystem = { ActionBar = 0, CastBar = 1 }
+Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
+Enum.EditModeUnitFrameSystemIndices = { Party = 2 }
+Enum.EditModeUnitFrameSetting = { UseRaidStylePartyFrames = 4 }
+Enum.EditModeLayoutType = { Account = 1 }
+local cvars = { raidFramesDisplayClassColor = "0", raidFramesDisplayPowerBars = "0" }
+C_CVar = { GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end }
+local activeLayout
 C_EditMode = {
 	GetLayouts = function()
 		if savedLayouts then
@@ -361,11 +367,13 @@ C_EditMode = {
 			{ system = 0, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM" } },
 			{ system = 1, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetY = 120 },
 				isInDefaultPosition = true },
+			{ system = 3, systemIndex = 2, settings = { { setting = 4, value = 0 } } },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
+	SetActiveLayout = function(i) activeLayout = i end,
 }
 
 local inCombat = false
@@ -484,16 +492,31 @@ local repaired = savedLayouts and savedLayouts.layouts[1].systems[1]
 assert(repaired and repaired.anchorInfo.relativeTo == "UIParent" and repaired.isInDefaultPosition,
 	"Edit Mode anchors to our frames should be repaired")
 do
-	-- The default cast bar is given a place above the console (not one locked
-	-- to the player frame), once.
-	local cast = savedLayouts.layouts[1].systems[3]
+	-- A "Reforged UI" layout is made from the active one (and switched to
+	-- once): cast bar above the console, raid-style party frames, raid frame
+	-- options on. Other layouts' default cast bars are raised too, not one
+	-- locked to the player frame.
+	local L = savedLayouts.layouts
+	local ours = L[3]
+	assert(#L == 3 and ours.layoutName == ns.EDIT_LAYOUT and ours.layoutType == 1, "Edit Mode layout made")
+	assert(activeLayout == 2 + 3, "switched to the Reforged UI layout")
 	local top = ns.layout.consoleTop * UIParent:GetHeight() / 768
-	assert(not cast.isInDefaultPosition and cast.anchorInfo.relativeTo == "UIParent"
-		and cast.anchorInfo.offsetY > top, "cast bar raised above the console")
-	assert(savedLayouts.layouts[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
-	local y = cast.anchorInfo.offsetY
-	ns:RaiseCastBar()
-	assert(savedLayouts.layouts[1].systems[3].anchorInfo.offsetY == y, "a moved cast bar is left alone")
+	for _, layout in ipairs({ L[1], ours }) do
+		local cast = layout.systems[3]
+		assert(not cast.isInDefaultPosition and cast.anchorInfo.relativeTo == "UIParent"
+			and cast.anchorInfo.offsetY > top, "cast bar raised above the console")
+	end
+	assert(ours.systems[4].settings[1].value == 1 and L[1].systems[4].settings[1].value == 0,
+		"raid-style party frames in our layout only")
+	assert(ours.systems[1].anchorInfo.relativeTo == "UIParent", "the copy is of the repaired layout")
+	assert(L[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
+	assert(cvars.raidFramesDisplayClassColor == "1" and cvars.raidFramesDisplayPowerBars == "1"
+		and cvars.raidFramesHealthText == nil, "raid frame options on (only those the client has)")
+	-- Once: a second login neither copies again nor switches back.
+	activeLayout, cvars.raidFramesDisplayClassColor = nil, "0"
+	ns:SetupEditMode()
+	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
+		"the layout is set up once")
 end
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 for key, mod in pairs(ns.modules) do

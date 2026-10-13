@@ -243,6 +243,8 @@ TargetFrameToT = new("secure", "TargetFrameToT", TargetFrame)
 TargetFrame.TargetFrameContainer = new("frame", nil, TargetFrame)
 TargetFrame.TargetFrameContent = new("frame", nil, TargetFrame)
 TargetFrameSpellBar = new("frame", "TargetFrameSpellBar", TargetFrame)
+TargetFrameBuff1 = new("button", "TargetFrameBuff1", TargetFrame)
+local targetFrameArt = new("texture", nil, TargetFrame)
 StanceBar = new("secure", "StanceBar", UIParent)
 PetActionBar = new("secure", "PetActionBar", UIParent)
 for i = 1, 10 do
@@ -574,6 +576,12 @@ for _, f in ipairs({ TargetFrameToT, TargetFrame.TargetFrameContainer, TargetFra
 end
 assert(TargetFrame._alpha ~= 0 and TargetFrame._mouse == false and #TargetFrame._points == 0,
 	"the target frame stays visible for its auras, click-through and not moved")
+assert(targetFrameArt._alpha == 0 and TargetFrameBuff1._alpha ~= 0, "only the target frame's aura icons show")
+do
+	local lines = ns.modules.target:DescribeAuras()
+	assert(lines[#lines - 2]:find("^TargetFrame") and lines[#lines - 1]:find("aura icons shown: 1"), "/rui auras")
+	SlashCmdList.REFORGEDUI("auras")
+end
 assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")
 assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil and #MinimapCluster._points == 0,
 	"the minimap cluster must be left alone")

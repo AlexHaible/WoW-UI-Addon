@@ -393,18 +393,76 @@ function Target:AuraSpot()
 	return (self:Mode() == "swap" and ns.modules.hero.enabled) and T.swap or T.plate
 end
 
+-- Everything of Blizzard's target frame that exists at login is made
+-- invisible, its own regions and child frames alike (modern clients group
+-- them in a container and a content frame, older ones don't), except aura
+-- buttons. Aura buttons made later, as auras appear, stay visible.
+local function isAuraButton(f)
+	local name = f.GetName and f:GetName()
+	return type(name) == "string" and (name:find("Buff%d") or name:find("Debuff%d")) and true or false
+end
+
 function Target:KeepBlizzardAuras()
 	local tf = TargetFrame
-	if not (tf and tf.TargetFrameContainer and tf.TargetFrameContent) then
-		ns:Conceal(tf)
+	if not tf then
 		return
 	end
-	for _, f in ipairs({ tf.TargetFrameContainer, tf.TargetFrameContent, tf.spellbar or _G.TargetFrameSpellBar,
-		tf.totFrame or TargetFrameToT, _G.TargetFrameNumericalThreat }) do
+	for _, region in ipairs({ tf:GetRegions() }) do
+		ns:ConcealRegion(region)
+	end
+	for _, child in ipairs({ tf:GetChildren() }) do
+		if not isAuraButton(child) then
+			ns:Conceal(child)
+		end
+	end
+	for _, f in ipairs({ tf.spellbar or _G.TargetFrameSpellBar, tf.totFrame or TargetFrameToT,
+		_G.TargetFrameNumericalThreat }) do
 		ns:Conceal(f)
 	end
 	-- Clicks go to our own target button; the aura icons keep theirs.
 	ns:RunOutOfCombat("target-frame-mouse", function() tf:EnableMouse(false) end)
+end
+
+-- For /rui auras: where Blizzard's target frame and its aura icons are.
+function Target:DescribeAuras()
+	local function n(v)
+		local ok, text = pcall(function() return ("%.0f"):format(v) end)
+		return ok and text or "?"
+	end
+	local lines = {}
+	local api = C_EditMode
+	if api and api.GetLayouts then
+		local ok, info = pcall(api.GetLayouts)
+		if ok and type(info) == "table" then
+			local presets = 2
+			local layout = (info.layouts or {})[(info.activeLayout or 0) - presets]
+			lines[#lines + 1] = ("Edit Mode layout: %s (%s)"):format(tostring(info.activeLayout),
+				layout and tostring(layout.layoutName) or "a preset")
+		end
+	end
+	local tf = TargetFrame
+	if not tf then
+		lines[#lines + 1] = "no TargetFrame"
+		return lines
+	end
+	lines[#lines + 1] = ("TargetFrame: shown %s, alpha %s, left %s, top %s, scale %s, buffs on top %s"):format(
+		tostring(tf:IsShown()), n(tf:GetAlpha() * 100), n(tf:GetLeft()), n(tf:GetTop()), n(tf:GetScale() * 100),
+		tostring(tf.buffsOnTop))
+	local auras = {}
+	for _, child in ipairs({ tf:GetChildren() }) do
+		if child:IsShown() and (isAuraButton(child) or child.Icon or child.icon) then
+			auras[#auras + 1] = ("%s at %s,%s alpha %s"):format(tostring(child:GetName() or child:GetObjectType()),
+				n(child:GetLeft()), n(child:GetBottom()), n(child:GetAlpha() * 100))
+		end
+	end
+	lines[#lines + 1] = ("aura icons shown: %d%s"):format(#auras, #auras > 0 and (": " .. table.concat(auras, "; ", 1,
+		math.min(#auras, 4))) or "")
+	local spot, L = self:AuraSpot(), self.layout
+	if spot and L then
+		local k = UIParent:GetHeight() / 768
+		lines[#lines + 1] = ("wanted: first icon at %s,%s"):format(n(spot.x0 * k), n(spot.y * k))
+	end
+	return lines
 end
 
 function Target:OnEnable()

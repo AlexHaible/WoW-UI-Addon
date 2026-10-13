@@ -434,12 +434,34 @@ local function keepAuras(frame, depth)
 	end
 end
 
+-- The strip behind the target's name, tinted by reaction (yellow when
+-- neutral). Blizzard shows and recolours it on every target change, so it
+-- is hidden outright, not only made clear.
+local stripsHidden = {}
+local function hideNameStrips(tf)
+	local content = tf.TargetFrameContent
+	local main = content and content.TargetFrameContentMain
+	for _, region in ipairs({ main and main.ReputationColor or false, tf.nameBackground or false,
+		_G.TargetFrameNameBackground or false }) do
+		if region and region.Hide then
+			ns:ConcealRegion(region)
+			region:Hide()
+			if not stripsHidden[region] then
+				stripsHidden[region] = true
+				hooksecurefunc(region, "Show", region.Hide)
+			end
+		end
+	end
+end
+
 function Target:KeepBlizzardAuras()
 	local tf = TargetFrame
 	if not tf then
 		return
 	end
+	-- Again on each target change: parts Blizzard makes later get hidden too.
 	keepAuras(tf, 1)
+	hideNameStrips(tf)
 	for _, f in ipairs({ tf.spellbar or _G.TargetFrameSpellBar, tf.totFrame or TargetFrameToT,
 		_G.TargetFrameNumericalThreat }) do
 		ns:Conceal(f)
@@ -500,6 +522,23 @@ function Target:DescribeAuras()
 	end
 	scan(tf, "TargetFrame", 1)
 	lines[#lines + 1] = ("children (%d): %s"):format(#kids, table.concat(kids, ", "))
+	-- Anything of the frame still drawn, besides the aura icons.
+	local drawn = {}
+	local function regions(frame, path, depth)
+		for i, region in ipairs({ frame:GetRegions() }) do
+			if region:IsVisible() and region:GetAlpha() > 0 then
+				drawn[#drawn + 1] = ("%s at %s,%s"):format(region:GetName() or (region.GetParentKey and region:GetParentKey()) or (path .. ":" .. i),
+					n(region:GetLeft()), n(region:GetBottom()))
+			end
+		end
+		for i, child in ipairs({ frame:GetChildren() }) do
+			if depth < 5 and not isAuraButton(child) and child:IsVisible() and child:GetAlpha() > 0 then
+				regions(child, child:GetName() or (path .. "." .. i), depth + 1)
+			end
+		end
+	end
+	regions(tf, "TargetFrame", 1)
+	lines[#lines + 1] = ("still drawn (%d): %s"):format(#drawn, table.concat(drawn, ", ", 1, math.min(#drawn, 6)))
 	lines[#lines + 1] = ("aura icons shown: %d%s"):format(#auras, #auras > 0 and (": " .. table.concat(auras, "; ", 1,
 		math.min(#auras, 4))) or "")
 	-- Out of combat the auras can be read, to tell "none" from "not drawn".
@@ -564,7 +603,10 @@ function Target:OnEnable()
 	unitEvent({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }, self.UpdateCast)
-	ns:On("PLAYER_TARGET_CHANGED", function() self:Refresh() end)
+	ns:On("PLAYER_TARGET_CHANGED", function()
+		self:KeepBlizzardAuras()
+		self:Refresh()
+	end)
 	ns:On("PLAYER_COMBO_POINTS", function() self:UpdateCombo() end)
 	ns:On("UNIT_POWER_UPDATE", function(_, unit)
 		if unit == "player" then self:UpdateCombo() end

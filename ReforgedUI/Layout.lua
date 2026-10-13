@@ -314,7 +314,10 @@ end
 -- same stray column as Human's.
 -- Keyed by faction, or by theme where a theme's art has its own ends.
 local LEFT_WALL = { human = 0.639, orc = 0.6113, undead = 0.6816, nightelf = 0.693, forsaken = 0.709, troll = 0.627, tauren = 0.6797 }
-local RIGHT_WALL = { human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128, forsaken = 57 / 128, troll = 96 / 128, tauren = 69 / 128 }
+local RIGHT_WALL = {
+	human = 73 / 128, orc = 81 / 128, undead = 52 / 128, nightelf = 48 / 128, forsaken = 57 / 128,
+	troll = 96 / 128, tauren = 69 / 128,
+}
 
 ----------------------------------------------------------------------------
 -- Target display (Target.lua).

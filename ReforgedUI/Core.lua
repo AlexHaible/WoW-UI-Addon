@@ -13,7 +13,7 @@ local DEFAULTS = {
 	theme = "auto", -- auto (race default) | skyborne (by faction) | a key of ns.Themes
 	layout = "auto", -- top bar: auto | standard | wide | superwide
 	scale = 0.75, -- top bar
-	version = 3,
+	version = 4,
 	modules = {
 		console = true,
 		hero = true,
@@ -31,8 +31,6 @@ local DEFAULTS = {
 	consoleOpts = {
 		uiScale = 240, -- 240-270
 		chatUp = 10, -- "extend bottom right upwards", 0-150
-		chatWidth = false, -- false: to the screen edge
-		center = "off", -- off | center | slim | noinv
 		portraitX = 100, portraitY = 100, portraitScale = 0,
 		hpWarning = 25,
 		restedColor = { 0, 0, 1, 0.5 },
@@ -41,10 +39,8 @@ local DEFAULTS = {
 		powerPercent = false,
 		hideGrid = false,
 		hideMicro = true,
-		hideBags = true,
 		hideChatIcons = false,
 		chatInputAbove = false,
-		placeChat = true,
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
@@ -63,6 +59,13 @@ local function migrate(db)
 		-- Version 3 replaced the console with the original addon's; drop the old modules'
 		-- switches and settings.
 		db.modules, db.stats = nil, nil
+	end
+	if (db.version or 1) < 4 and type(db.consoleOpts) == "table" then
+		-- Version 4 always centres the console with its chat area and
+		-- inventory (the original addon's "Center UI"), the chat window placed in it and
+		-- the bags shown: those options are gone.
+		local o = db.consoleOpts
+		o.center, o.chatWidth, o.hideBags, o.placeChat = nil, nil, nil, nil
 	end
 	db.version = DEFAULTS.version
 end
@@ -335,8 +338,6 @@ function ns:LayoutOptions()
 		s = math.max(Layout.SCALE_MIN, math.min(Layout.SCALE_MAX, s)),
 		m = math.max(0, math.min(150, tonumber(o.chatUp) or 10)),
 		theme = self.themeKey,
-		center = tContains(Layout.CENTER_MODES, o.center) and o.center or "off",
-		chatWidth = tonumber(o.chatWidth) or nil,
 		zoneTextPos = o.zoneText,
 		portraitX = tonumber(o.portraitX) or 100,
 		portraitY = tonumber(o.portraitY) or 100,
@@ -527,8 +528,8 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print(arg, arg2, "- type /reload to apply.")
 	elseif cmd == "status" then
 		local L, T = ns.layout, ns.topLayout
-		ns:Print(("theme %s, UI scale %d, centre %s, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(
-			ns.theme.name, L.s, L.center, L.W, L.H, T.profile, ns.Layout.PROFILES[T.profile].label, ns.db.scale))
+		ns:Print(("theme %s, UI scale %d, console shifted %d, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(
+			ns.theme.name, L.s, L.shift, L.W, L.H, T.profile, ns.Layout.PROFILES[T.profile].label, ns.db.scale))
 	elseif cmd == "reset" then
 		ReforgedUIDB = nil
 		ns:Print("settings reset - type /reload to apply.")

@@ -299,14 +299,18 @@ function TopBar:OnEnable()
 	local root = ns.topRoot
 	self.panel = ns.Art.CreatePanel(root, 40, true)
 	self.holder = CreateFrame("Frame", "ReforgedUITopBar", root)
-	self.holder:SetFrameStrata("LOW")
+	-- All of the top bar stays in the BACKGROUND strata (its root's), below
+	-- every Blizzard frame: buffs and debuffs that Edit Mode leaves under it
+	-- draw on top of the bar instead of behind it.
+	self.holder:SetFrameStrata("BACKGROUND")
 	self.holder:SetAllPoints(root)
 	self.slots = {}
 
-	-- Day/night clock: the dial turns underneath its frame; the top bar panel
-	-- covers the upper half, so only the lower half shows through the window.
+	-- Day/night clock: the frame hangs from the top of the screen over the
+	-- bar, and the dial turns between the two (above the bar, below the
+	-- frame), showing only through the frame's window.
 	self.dialFrame = CreateFrame("Frame", nil, root)
-	self.dialFrame:SetFrameLevel(39)
+	self.dialFrame:SetFrameLevel(41)
 	self.dial = self.dialFrame:CreateTexture(nil, "ARTWORK")
 	self.dial:SetTexture(ns.MEDIA .. "Common\\dial")
 	self.clockFrame = CreateFrame("Frame", "ReforgedUIClock", root)

@@ -7,7 +7,7 @@ portrait, minimap terrain and chat lines are placeholders, so this shows
 placement and art, not the game.
 
     python3 tools/render_preview.py            # writes docs/previews/*.png
-    python3 tools/render_preview.py out.png 1365.33 orc 240 10 off
+    python3 tools/render_preview.py out.png 1365.33 orc 240 10
 """
 import json
 import math
@@ -126,8 +126,8 @@ def icon(seed):
     return img
 
 
-def dump(w, theme, s, m, center):
-    out = subprocess.check_output(["lua5.1", os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m), center])
+def dump(w, theme, s, m):
+    out = subprocess.check_output(["lua5.1", os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m)])
     return json.loads(out)
 
 
@@ -150,8 +150,8 @@ def top_bar(c, theme_key, T, hour=15):
     cl = T["clock"]
     dial = tex(os.path.join(ADDON, "Media", "Common", "dial.tga")).rotate(
         math.degrees((hour - 12) / 24 * 2 * math.pi), resample=Image.BICUBIC)
-    c.paste(dial, cl["cx"] - cl["radius"], cl["cy"] - cl["radius"], 2 * cl["radius"], 2 * cl["radius"])
     panel(c, folder, T["topBar"])
+    c.paste(dial, cl["cx"] - cl["radius"], cl["cy"] - cl["radius"], 2 * cl["radius"], 2 * cl["radius"])
     cf = T["clockFrame"]
     c.paste(tex(os.path.join(ADDON, "Media", folder, "clockframe.tga")), cf["x"], cf["y"], cf["w"], cf["h"])
     for b, label in zip(T["topButtons"], ["Quests", "Menu", "Allies", "Map"]):
@@ -164,8 +164,8 @@ def top_bar(c, theme_key, T, hour=15):
             c.text(b["x"], b["y"], b["w"], b["h"], ["87%", "34 / 80", "123"][i], 12, (255, 255, 255))
 
 
-def render(path, w, theme, s=240, m=10, center="off"):
-    L = dump(w, theme, s, m, center)
+def render(path, w, theme, s=240, m=10):
+    L = dump(w, theme, s, m)
     c = Canvas(L["W"], L["H"])
     # Black backgrounds (backgroundMain) and the portrait.
     eb = L["extBg"]
@@ -230,13 +230,18 @@ def render(path, w, theme, s=240, m=10, center="off"):
             seed += 1
             if random.Random(seed).random() < 0.8:
                 c.paste(icon(seed), x, row["y"], row["size"], row["size"])
-    for i, r in enumerate(L.get("inventory") or []):
-        c.paste(icon(200 + i), r["x"], r["y"], r["w"], r["h"])
-    if L.get("bags"):
-        b = L["bags"]
-        for i in range(6):
-            x = b["right"] - b["size"] - i * b["step"]
-            c.paste(icon(300 + i), x, b["top"] - b["size"], b["size"], b["size"])
+    # Bags in the inventory (no reagent bag slot here), the key ring beside it.
+    for i, r in enumerate((L.get("bagSlots") or [])[:5]):
+        c.paste(icon(300 + i), r["x"], r["y"], r["w"], r["h"])
+    if L.get("keyRing"):
+        k = L["keyRing"]
+        c.rect(k["x"], k["y"], k["w"], k["h"], fill=(150, 120, 60, 255), outline=(60, 40, 20, 255))
+    # Three stance (aura) buttons on the wall.
+    st = L["stance"]
+    for i in range(3):
+        x = st["x"] + i * st["step"]
+        c.paste(icon(400 + i), x, st["y"], st["size"], st["size"])
+        c.rect(x, st["y"], st["size"], st["size"], outline=(200, 170, 90, 255))
     if L.get("chat"):
         ch = L["chat"]
         lines = ["[General] Grunt: Zug zug.", "[Guild] Rexxar: Anyone for Ragefire?",
@@ -247,12 +252,14 @@ def render(path, w, theme, s=240, m=10, center="off"):
                 break
             c.text(ch["x"], y, ch["w"], 14, line, 12, (255, 255, 255), "left")
         c.rect(ch["x"], ch["y"], ch["w"], ch["h"], outline=(255, 255, 0, 90))
+        e = L["chatEdit"]
+        c.rect(e["x"], e["y"] + 2, e["w"], e["h"] - 4, fill=(20, 20, 20, 255), outline=(110, 110, 110, 255))
     # Top bar, rendered at its own scale and laid over the console.
     T = L["topBar"]
     tc = Canvas(T["W"], T["H"], world=False)
     top_bar(tc, theme, T)
     c.img.alpha_composite(tc.img.resize((c.W, c.H), Image.LANCZOS))
-    c.text(8, L["H"] - 70, 700, 20, "Reforged UI preview - %s, scale %s, %s (placeholders)" % (theme, s, center),
+    c.text(8, L["H"] - 70, 700, 20, "Reforged UI preview - %s, scale %s (placeholders)" % (theme, s),
            14, (255, 255, 255), "left")
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     c.img.convert("RGB").save(path, optimize=True)
@@ -262,13 +269,13 @@ def render(path, w, theme, s=240, m=10, center="off"):
 def main():
     if len(sys.argv) > 2:
         a = sys.argv[1:]
-        render(a[0], float(a[1]), a[2], int(a[3]) if len(a) > 3 else 240, int(a[4]) if len(a) > 4 else 10,
-               a[5] if len(a) > 5 else "off")
+        render(a[0], float(a[1]), a[2], int(a[3]) if len(a) > 3 else 240, int(a[4]) if len(a) > 4 else 10)
         return
     for theme in ("human", "orc", "undead", "nightelf") + RACE_THEMES:
         render(os.path.join(OUT, "16x9-%s.png" % theme), 1365.33, theme)
-    render(os.path.join(OUT, "21x9-nightelf-center.png"), 1792, "nightelf", 250, 40, "center")
-    render(os.path.join(OUT, "32x9-orc.png"), 2730.67, "orc", 260, 30, "off")
+    render(os.path.join(OUT, "21x9-nightelf.png"), 1792, "nightelf", 250, 40)
+    render(os.path.join(OUT, "32x9-orc.png"), 2730.67, "orc", 260, 30)
+    render(os.path.join(OUT, "32x9-dwarf.png"), 2730.67, "dwarf", 240, 10)
 
 
 if __name__ == "__main__":

@@ -3,9 +3,10 @@
 -- moves on top of the action grid (or is hidden, the original addon's default), bag
 -- windows open above the console and the client's Issue Reporter button is
 -- lifted clear of it. Everything else that
--- Edit Mode manages (cast bar, stance and pet bars, buffs, quest tracker,
--- party frames) stays wherever Edit Mode puts it: moving those from addon
--- code makes Blizzard's own code fail on "secret" values.
+-- Edit Mode manages (cast bar, buffs, quest tracker, party frames, and the
+-- stance and pet bar frames, whose buttons ActionBars.lua places) stays
+-- wherever Edit Mode puts it: moving those from addon code makes Blizzard's
+-- own code fail on "secret" values.
 
 local _, ns = ...
 local Blizzard = ns:RegisterModule("blizzard", {})

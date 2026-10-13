@@ -78,6 +78,18 @@ function methods:SetShown(v) self._shown = not not v end
 function methods:Show() self._shown = true end
 function methods:Hide() self._shown = false end
 function methods:IsShown() return self._shown end
+function methods:GetRegions()
+	local out = {}
+	for _, f in ipairs(allFrames) do
+		if rawget(f, "_parent") == self and f._kind == "texture" then out[#out + 1] = f end
+	end
+	return unpack(out)
+end
+function methods:GetAtlas() return self._atlas end
+function methods:IsVisible()
+	local p = rawget(self, "_parent")
+	return self._shown and (p == nil or p:IsVisible())
+end
 function methods:IsProtected() return self._kind == "secure" end
 function methods:SetAttribute(k, v) self._attrs[k] = v end
 function methods:GetAttribute(k) return self._attrs[k] end
@@ -180,11 +192,34 @@ for _, spec in ipairs({ { "ActionButton", MainActionBar }, { "MultiBarBottomLeft
 	end
 end
 MultiBar5Button1.action = 145
+-- Dividers between buttons: per button, and from a pool on the main bar that
+-- Blizzard's UpdateDividers refills.
+ActionButton7.RightDivider = new("texture", nil, ActionButton7)
+local dividerPool = {}
+local function newDivider()
+	local d = new("texture", nil, MainActionBar)
+	d._atlas = "UI-HUD-ActionBar-Divider-Vertical"
+	dividerPool[#dividerPool + 1] = d
+	return d
+end
+newDivider()
+MainActionBar.HorizontalDividersPool = { EnumerateActive = function()
+	local i = 0
+	return function() i = i + 1; return dividerPool[i] end
+end }
+function MainActionBar:UpdateDividers()
+	for _, d in ipairs(dividerPool) do d:SetAlpha(1) end
+	newDivider():SetAlpha(1)
+end
 MainMenuBarBackpackButton = new("button", "MainMenuBarBackpackButton", UIParent)
 for i = 0, 3 do new("button", "CharacterBag" .. i .. "Slot", UIParent) end
 TargetFrame = new("secure", "TargetFrame", UIParent)
 StanceBar = new("secure", "StanceBar", UIParent)
 PetActionBar = new("secure", "PetActionBar", UIParent)
+for i = 1, 10 do
+	new("secure", "StanceButton" .. i, StanceBar)._w = 30
+	new("secure", "PetActionButton" .. i, PetActionBar)._w = 30
+end
 PlayerCastingBarFrame = new("frame", "PlayerCastingBarFrame", UIParent)
 ObjectiveTrackerFrame = new("frame", "ObjectiveTrackerFrame", UIParent)
 ObjectiveTrackerFrame._h = 400
@@ -351,12 +386,20 @@ local function fire(event, ...)
 	end
 end
 
--- Settings from version 1 had a scale of 1, now far too big.
-ReforgedUIDB = { scale = 1, theme = "auto" }
+-- Settings from version 1 had a scale of 1, now far too big; versions before
+-- 4 had options for the centre modes, chat width and placement and hiding
+-- the bags, all gone now.
+ReforgedUIDB = { scale = 1, theme = "auto",
+	consoleOpts = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240 } }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
-assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 3, "old default scale not migrated")
-assert(ReforgedUIDB.consoleOpts.uiScale == 240 and ReforgedUIDB.consoleOpts.center == "off", "console option defaults")
+assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 4, "old default scale not migrated")
+assert(ReforgedUIDB.consoleOpts.uiScale == 240 and ReforgedUIDB.consoleOpts.zoneText == 1, "console option defaults")
+do
+	local o = ReforgedUIDB.consoleOpts
+	assert(o.center == nil and o.hideBags == nil and o.chatWidth == nil and o.placeChat == nil,
+		"removed options should be dropped from saved settings")
+end
 fire("PLAYER_ENTERING_WORLD")
 flushTimers()
 local repaired = savedLayouts and savedLayouts.layouts[1].systems[1]
@@ -415,7 +458,7 @@ assert(CharacterMicroButton._alpha == 0, "micro buttons are hidden by default")
 assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
 	"quests button should click the quest log micro button")
 
--- Bars 1-3 in the grid, Action Bar 6 beside the minimap and in the inventory.
+-- Bars 1-3 in the grid, Action Bar 6 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
 	local row = L.bars[key]
 	for _, i in ipairs({ 1, 7, 12 }) do
@@ -424,9 +467,60 @@ for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButt
 		assert(math.abs(btn._w * unit(btn) - row.size) < 0.01, prefix .. i .. " has the wrong size")
 	end
 end
-at(MultiBar5Button1, L.minimapSlots[1].x, L.minimapSlots[1].y, "Action Bar 6 button 1")
-at(MultiBar5Button4, L.inventory[1].x, L.inventory[1].y, "Action Bar 6 button 4")
-assert(MultiBar5Button10._points[1] == nil, "Action Bar 6 has nine slots")
+for i = 1, 3 do
+	local r = L.minimapSlots[i]
+	at(_G["MultiBar5Button" .. i], r.x, r.y, "Action Bar 6 button " .. i)
+	local b = _G["MultiBar5Button" .. i]
+	assert(math.abs(b._w * unit(b) - r.w) < 0.01, "Action Bar 6 button " .. i .. " has the wrong size")
+end
+for _, i in ipairs({ 4, 9, 12 }) do
+	local _, _, _, _, y = _G["MultiBar5Button" .. i]:GetPoint(1)
+	assert(y < 0, "Action Bar 6 button " .. i .. " should be parked below the screen")
+end
+-- The gold dividers between buttons stay invisible, even after Blizzard
+-- updates them.
+assert(ActionButton7.RightDivider._alpha == 0, "button dividers hidden")
+ActionButton7.RightDivider:SetAlpha(1)
+assert(ActionButton7.RightDivider._alpha == 0, "button dividers stay hidden")
+MainActionBar:UpdateDividers()
+for _, d in ipairs(dividerPool) do
+	assert(d._alpha == 0 and d._shown, "bar dividers hidden by alpha, never Hide()")
+end
+-- Empty sockets explain Action Bar 6 while it is off.
+local bars = ns.modules.actionbars
+assert(not ReforgedUIBar6Socket1:IsShown(), "no socket over a shown Action Bar 6 button")
+MultiBar5:Hide()
+MultiBar5._hooks.OnHide()
+assert(ReforgedUIBar6Socket1:IsShown() and ReforgedUIBar6Socket3:IsShown(), "sockets show while Action Bar 6 is off")
+local p1 = ReforgedUIBar6Socket1._points[1]
+assert(p1[2] == ns.root and math.abs(p1[4] - L.minimapSlots[1].x) < 0.01, "socket over the first minimap slot")
+local tip
+local oldSetText = methods.SetText
+function GameTooltip:SetText(t) tip = t end
+ReforgedUIBar6Socket1._scripts.OnEnter(ReforgedUIBar6Socket1)
+assert(tip == "Turn on Action Bar 6 in Edit Mode to use these slots", "socket tooltip")
+GameTooltip.SetText = nil
+methods.SetText = oldSetText
+MultiBar5:Show()
+bars:UpdateSockets()
+assert(not ReforgedUIBar6Socket1:IsShown(), "sockets hide again when Action Bar 6 is on")
+-- Stance (aura) and pet buttons: Blizzard's, on the wall over the grid,
+-- anchored to UIParent; their Edit Mode bars stay put.
+for i = 1, 10 do
+	at(_G["StanceButton" .. i], L.stance.x + (i - 1) * L.stance.step, L.stance.y, "stance button " .. i)
+	at(_G["PetActionButton" .. i], L.pet.x + (i - 1) * L.pet.step, L.pet.y, "pet button " .. i)
+	assert(_G["StanceButton" .. i]:GetParent() == StanceBar, "stance buttons keep their parent")
+end
+assert(math.abs(StanceButton1._w * unit(StanceButton1) - L.stance.size) < 0.01, "stance button size")
+assert(L.stance.y >= 0.55 * L.s and L.stance.x > L.portraitArt.x + L.portraitArt.w - 0.2 * L.s,
+	"stance row sits on the wall over the grid")
+assert(StanceBar._mouse == false and PetActionBar._mouse == false and StanceBar._alpha == nil,
+	"stance and pet bar frames are click-through, not hidden")
+-- The day/night indicator is hidden, not moved.
+assert(GameTimeFrame._alpha == 0 and #GameTimeFrame._points == 0, "GameTimeFrame should be concealed, not moved")
+for _, b in ipairs(ns.modules.minimap.buttons) do
+	assert(b ~= GameTimeFrame, "GameTimeFrame must not join the minimap button row")
+end
 assert(placed == 145, "the hearthstone should go into the first slot beside the minimap")
 assert(ReforgedUIDB.consoleOpts.hearthstone["Thrall-Forever"], "the hearthstone is placed once per character")
 
@@ -480,17 +574,23 @@ ReforgedUIDB.consoleOpts.healthPercent = false
 hero:UpdateHealth()
 assert(hero.icons.rest:IsShown() and hero.icons.pvp._tex:find("Horde"), "status icons")
 
--- Bags: our own buttons that click Blizzard's.
+-- Bags: our own buttons that click Blizzard's, in the 2x3 inventory
+-- (backpack top-left), the key ring beside it.
 local inv = ns.modules.inventory
+for i = 1, 5 do
+	local p = inv.buttons[i]._points[1]
+	local r = L.bagSlots[i]
+	assert(p and p[2] == ns.root and math.abs(p[4] - r.x) < 0.01 and math.abs(p[5] - r.y) < 0.01,
+		"bag " .. (i - 1) .. " should sit in the inventory")
+	assert(inv.buttons[i]:IsShown(), "bag " .. (i - 1) .. " shown")
+end
+assert(L.bagSlots[1] == L.inventory[6] and L.bagSlots[6] == L.inventory[2], "backpack top-left, reagent bag bottom-right")
+assert(not inv.buttons[6]:IsShown(), "no reagent bag slot on this client")
+assert(inv.holder:IsShown() and inv.holder._alpha == nil, "bags always show")
+assert(L.keyRing.x + L.keyRing.w <= L.inventory[1].x, "the key ring stands left of the inventory")
 inv.buttons[1]._scripts.OnClick(inv.buttons[1])
 inv.buttons[3]._scripts.OnClick(inv.buttons[3])
 assert(MainMenuBarBackpackButton._clicks == 1 and CharacterBag1Slot._clicks == 1, "bag clicks go to Blizzard's buttons")
-ContainerFrame1:Hide()
-inv:UpdateVisibility()
-assert(inv.holder._alpha == 0, "bags are hidden until the backpack opens")
-ContainerFrame1:Show()
-inv:UpdateVisibility()
-assert(inv.holder._alpha == 1, "bags show while the backpack is open")
 
 -- Top bar: clock, and our own data feeds in the first slots.
 local tb = ns.modules.topbar
@@ -512,6 +612,17 @@ assert(tb.slots[4].text._text == "updated", "feed changes should reach the slot"
 SlashCmdList.REFORGEDUI("slot 5 test feed")
 assert(tb.slots[4].text._text == "" and tb.slots[5].text._text == "updated", "a feed should move, not duplicate")
 assert(tb.panel and ns.topRoot and tb.holder:GetParent() == ns.topRoot, "top bar lives on its own root")
+do
+	-- The clock hangs from the screen's top edge over the bar; the dial turns
+	-- between the bar and the clock frame. The whole top bar stays in the
+	-- BACKGROUND strata, below Blizzard's buffs.
+	local T = ns.topLayout
+	assert(math.abs(T.clockFrame.y + T.clockFrame.h - T.H) < 0.01, "clock frame flush with the top of the screen")
+	assert(T.clockFrame.y >= T.topBar.y - 50, "clock frame should hang less far below the bar")
+	assert(tb.dialFrame:GetFrameLevel() > tb.panel:GetFrameLevel()
+		and tb.clockFrame:GetFrameLevel() > tb.dialFrame:GetFrameLevel(), "bar < dial < clock frame")
+	assert(tb.holder._strata == "BACKGROUND", "top bar below Blizzard's buff frames")
+end
 
 -- Something else moving a locked frame snaps it back.
 ChatFrame1:ClearAllPoints()
@@ -533,16 +644,22 @@ SlashCmdList.REFORGEDUI("config")
 assert(ReforgedUIConfig:IsShown(), "/rui config opens the menu")
 for _, eb in ipairs(config.edits) do
 	if eb.key == "uiScale" then eb._text = "999" end
-	if eb.key == "chatWidth" then eb._text = "" end
 end
 function methods:GetText() return self._text end
 config:Apply()
 assert(ReforgedUIDB.consoleOpts.uiScale == 270 and ns.layout.s == 270, "UI scale is clamped to 240-270")
-assert(ReforgedUIDB.consoleOpts.chatWidth == false, "an empty chat width means to the screen edge")
+for _, eb in ipairs(config.edits) do
+	assert(not tContains({ "chatWidth" }, eb.key), "no chat width option")
+end
+for _, cb in ipairs(config.checks) do
+	assert(not tContains({ "hideBags", "placeChat" }, cb.key), "no " .. tostring(cb.key) .. " option")
+	assert(cb.key, "every checkbox is a plain option (no centre mode boxes)")
+end
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
 
--- Every theme, centre mode, UI scale and screen shape lays out.
+-- Every theme, UI scale and screen shape lays out, centred with the chat
+-- area and inventory.
 local slash = SlashCmdList.REFORGEDUI
 for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2730.67, 768, "superwide" },
 	{ 1024, 768, "standard" }, { 1920, 1080, "standard" }, { 4266.67, 1200, "superwide" } }) do
@@ -555,14 +672,15 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
 		"highorder", "windshapers", "skyborne", "auto" }) do
 		slash("theme " .. theme)
-		for _, center in ipairs({ "off", "center", "slim", "noinv" }) do
-			ReforgedUIDB.consoleOpts.center = center
-			for _, s in ipairs({ 240, 245, 250, 255, 260, 266, 270 }) do
-				ReforgedUIDB.consoleOpts.uiScale = s
-				ns:Relayout()
-				assert(ns.layout.s == s and ns.layout.center == center, "options reach the layout")
-				assert((ns.layout.chat ~= nil) == (center == "off" or center == "center"), "chat area per mode")
-			end
+		for _, s in ipairs({ 240, 245, 250, 255, 260, 266, 270 }) do
+			ReforgedUIDB.consoleOpts.uiScale = s
+			ns:Relayout()
+			local LL = ns.layout
+			assert(LL.s == s, "options reach the layout")
+			assert(LL.chat and LL.inventory and LL.bagSlots, "chat area and inventory always there")
+			local bg = LL.byKey.chat_bg.rect
+			assert(LL.W < 1365 or bg.x + bg.w <= LL.W + 0.01, "the chat area stays on screen")
+			assert(LL.shift == 0 or math.abs((LL.W - LL.rightPoint) - LL.shift) <= 2, ("the console is centred: W %s s %s shift %s right %s"):format(LL.W, s, LL.shift, LL.rightPoint))
 		end
 	end
 	for _, p in ipairs({ "16:9", "21:9", "32:9" }) do
@@ -570,6 +688,32 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 		slash("scale 1")
 		slash("scale 0.75")
 	end
+end
+checkAnchors()
+
+-- 32:9 (5120x1440) and 21:9: centred with the original addon's chat width; 16:9: the
+-- chat area reaches the screen edge.
+UIParent._w, UIParent._h = 5120 * 768 / 1440, 768
+ReforgedUIDB.consoleOpts.uiScale = 240
+ns:Relayout()
+do
+	local LL = ns.layout
+	local bg = LL.byKey.chat_bg.rect
+	assert(LL.shift > 400, "32:9 should centre the console")
+	assert(math.abs(bg.w - 2.2 * LL.s) < 0.01, "32:9 chat area should take the original addon's default width")
+	assert(LL.rightPoint < LL.W - 400, "the console should leave screen free on the right")
+	at(ChatFrame1, LL.chat.x, LL.chat.y, "centred chat window")
+	at(StanceButton1, LL.stance.x, LL.stance.y, "centred stance button")
+	-- The chat window and its input box fill the area down to the floor trim.
+	assert(LL.chatEdit.y <= 0.03 * LL.s + 2 and LL.chat.y == LL.chatEdit.y + 26,
+		"no empty band under the chat input box")
+	UIParent._w = 3440 * 768 / 1440
+	ns:Relayout()
+	assert(ns.layout.shift > 0 and math.abs(ns.layout.byKey.chat_bg.rect.w - 2.2 * 240) < 0.01, "21:9 is centred")
+	UIParent._w = screenW
+	ns:Relayout()
+	bg = ns.layout.byKey.chat_bg.rect
+	assert(ns.layout.shift == 0 and math.abs(bg.x + bg.w - screenW) < 0.01, "16:9: the chat area reaches the edge")
 end
 checkAnchors()
 
@@ -634,12 +778,10 @@ for _, key in ipairs(ns.THEME_ORDER) do
 		assert(exists(path), "missing " .. path)
 	end
 	local files = {}
-	for _, center in ipairs(Layout.CENTER_MODES) do
-		for _, s in ipairs({ 240, 250, 270 }) do
-			local LL = Layout.Compute(1792, 768, { s = s, m = 10, theme = key, center = center, zoneTextPos = 1 })
-			for _, piece in ipairs(LL.pieces) do
-				files[piece.file] = true
-			end
+	for _, s in ipairs({ 240, 250, 270 }) do
+		local LL = Layout.Compute(1792, 768, { s = s, m = 10, theme = key, zoneTextPos = 1 })
+		for _, piece in ipairs(LL.pieces) do
+			files[piece.file] = true
 		end
 	end
 	for file in pairs(files) do
@@ -651,6 +793,40 @@ for _, key in ipairs(ns.THEME_ORDER) do
 end
 for key in pairs(ns.Themes) do
 	assert(seen[key], key .. " missing from THEME_ORDER")
+end
+
+-- The chat area's wall (filler pieces up to the corner piece) has no notch:
+-- the art of the shown pieces covers every unit in between.
+local function covered(L, prefix, corner, vis, cornerStart)
+	local spans = {}
+	for _, p in ipairs(L.pieces) do
+		if p.shown and p.key:find("^" .. prefix) then
+			local r = p.rect
+			local mirrored = p.tc and p.tc[1] > p.tc[2]
+			spans[#spans + 1] = { r.x, mirrored and (r.x + r.w) or (r.x + r.w * vis) }
+		end
+	end
+	table.sort(spans, function(a, b) return a[1] < b[1] end)
+	local c = L.byKey[corner].rect
+	local goal = c.x + c.w * cornerStart
+	if #spans == 0 then return true end
+	local reach = spans[1][2]
+	for i = 2, #spans do
+		if spans[i][1] > reach + 0.01 then return false end
+		reach = math.max(reach, spans[i][2])
+	end
+	return reach >= goal
+end
+for _, key in ipairs(ns.THEME_ORDER) do
+	local fill = Layout.FILLER_ART[Layout.BASE[key] or key]
+	for _, W in ipairs({ 1365.33, 1792, 2730.67 }) do
+		for s = 240, 270 do
+			local LL = Layout.Compute(W, 768, { s = s, m = 10, theme = key, zoneTextPos = 1 })
+			local where = ("%s %s %d"):format(key, W, s)
+			assert(covered(LL, "filler_top", "br_top", fill.top, fill.cornerTop), "notch in the chat wall: " .. where)
+			assert(covered(LL, "filler_bottom", "br_bottom", fill.bottom, 0), "notch in the chat floor: " .. where)
+		end
+	end
 end
 updateContainerFrameAnchors()
 slash("status")

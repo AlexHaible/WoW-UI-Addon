@@ -1,6 +1,6 @@
--- The original addon's bag row above the chat area: backpack on the right, the bags and
--- the key ring to its left. With "Hide bags" on (the original addon's default) the row
--- only shows while the backpack is open or the mouse is over it.
+-- The bags in the original addon's 2x3 inventory: backpack top-left, bags 1-4, then the
+-- reagent bag (where the client has one) bottom-right, with the key ring
+-- standing to the left of the grid.
 --
 -- These are our own buttons: clicks go through Blizzard's own (hidden) bag
 -- buttons, which bag addons such as BetterBags hook, and drag and drop
@@ -62,7 +62,6 @@ local function onDragStart(btn)
 end
 
 local function onEnter(btn)
-	Inventory:SetHover(true)
 	GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
 	if btn.bag == 0 then
 		GameTooltip:SetText(BACKPACK_TOOLTIP or "Backpack", 1, 1, 1)
@@ -73,7 +72,6 @@ local function onEnter(btn)
 end
 
 local function onLeave()
-	Inventory:SetHover(false)
 	GameTooltip:Hide()
 end
 
@@ -108,7 +106,6 @@ function Inventory:CreateKeyRing(holder)
 		end
 	end)
 	btn:SetScript("OnEnter", function(b)
-		self:SetHover(true)
 		GameTooltip:SetOwner(b, "ANCHOR_LEFT")
 		GameTooltip:SetText(KEYRING or "Key Ring", 1, 1, 1)
 		GameTooltip:Show()
@@ -146,26 +143,6 @@ function Inventory:OnEnable()
 		ns:On(e, function() self:Update() end)
 	end
 
-	-- "Hide bags": show the row while the backpack is open.
-	for _, name in ipairs({ "ContainerFrame1", "ContainerFrameCombinedBags" }) do
-		local f = _G[name]
-		if f then
-			f:HookScript("OnShow", function() self:UpdateVisibility() end)
-			f:HookScript("OnHide", function() self:UpdateVisibility() end)
-		end
-	end
-end
-
-function Inventory:SetHover(on)
-	self.hover = on
-	self:UpdateVisibility()
-end
-
-function Inventory:UpdateVisibility()
-	local open = (ContainerFrame1 and ContainerFrame1:IsShown())
-		or (ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown())
-	local visible = not ns.db.consoleOpts.hideBags or open or self.hover
-	self.holder:SetAlpha(visible and 1 or 0)
 end
 
 function Inventory:Update()
@@ -185,27 +162,17 @@ function Inventory:Update()
 end
 
 function Inventory:OnLayout(L)
-	local b = L.bags
-	self.holder:SetShown(b ~= nil)
-	if not b then
-		return
-	end
-	local x = b.right - b.size
-	local y = b.top - b.size
-	local lastX = x
-	for _, btn in ipairs(self.buttons) do
+	local slots = L.bagSlots
+	for i, btn in ipairs(self.buttons) do
 		-- Bag 5 only exists where the client has a reagent bag slot.
 		local shown = btn.bag == 0 or btn.invID ~= nil
 		btn:SetShown(shown)
 		if shown then
-			ns.modules.console.Place(btn, { x = x, y = y, w = b.size, h = b.size })
-			lastX = x
-			x = x - b.step
+			ns.modules.console.Place(btn, slots[i])
 		end
 	end
 	local key = self.keyring
 	key:SetShown(key.available)
-	ns.modules.console.Place(key, { x = lastX - 20, y = y - 1, w = 18, h = 39 })
+	ns.modules.console.Place(key, L.keyRing)
 	self:Update()
-	self:UpdateVisibility()
 end

@@ -9,8 +9,9 @@
 -- odd pixel corrections per theme and per scale are the original addon's own.
 --
 -- The original addon anchors most pieces to each other; here every piece gets absolute
--- coordinates instead, so the whole console can be shifted for the "Center
--- UI" modes by building it twice.
+-- coordinates instead. The console is always laid out like the original addon's "Center
+-- UI" option: the chat area takes the original addon's default width (or what is left of
+-- a narrow screen) and the whole console is centred by building it twice.
 
 local _, ns = ...
 ns = ns or {}
@@ -67,10 +68,11 @@ function Layout.ComputeTopBar(W, H, profile)
 	T.coreX, T.coreW = coreX, coreW
 	T.topBar = rect(0, H - TOP.topH, W, TOP.topH)
 	local cx = floor(W / 2)
-	-- The dial's centre sits on the bar's trim; the bar hides its upper half.
-	local cy = H - TOP.topH + 8
+	-- The clock frame hangs from the top edge of the screen over the bar;
+	-- the dial turns behind its window, centred just under the screen edge.
+	local cy = H - 4
 	T.clock = { cx = cx, cy = cy, radius = TOP.dialR }
-	T.clockFrame = rect(cx - TOP.clockW / 2, cy + 4 - TOP.clockH, TOP.clockW, TOP.clockH)
+	T.clockFrame = rect(cx - TOP.clockW / 2, H - TOP.clockH, TOP.clockW, TOP.clockH)
 	-- Plates sit on the bar above its trim (the bottom 16 units).
 	local plateY, plateH = H - TOP.topH + 18, TOP.topH - 22
 	local clockL, clockR = T.clockFrame.x - 6, T.clockFrame.x + T.clockFrame.w + 6
@@ -125,8 +127,6 @@ Layout.BASE = {
 	dwarf = "human", gnome = "human", tauren = "orc", troll = "orc", highorder = "nightelf", windshapers = "nightelf",
 }
 Layout.SCALE_MIN, Layout.SCALE_MAX = 240, 270
-Layout.CENTER_MODES = { "off", "center", "slim", "noinv" }
-
 -- Draw layers that the original addon's ChangeTheme gives the overlapping pieces.
 local LAYERS = {
 	human = {
@@ -150,11 +150,20 @@ local LAYERS = {
 -- Columns and rows of the original addon's 2x3 inventory, in its slot order (slot 1 is
 -- the bottom-left one).
 local INVENTORY_CELLS = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 }, { 1, 2 }, { 0, 2 } }
+-- Inventory slot for each bag, reading like a page: backpack top-left, then
+-- bags 1-4, the reagent bag bottom-right.
+local BAG_CELLS = { 6, 5, 4, 3, 1, 2 }
 
--- Width (in 512ths) cut off the inventory texture for "Center UI, no chat area".
-local SLIM_CUT = { human = 512 - 209, orc = 512 - 210, undead = 512 - 221, nightelf = 512 - 254 }
+-- How far across each filler texture its art reaches (the rest is
+-- transparent), and where the art of the BottomRight_Top corner starts.
+local FILLER_ART = {
+	human = { top = 162 / 256, bottom = 157 / 256, cornerTop = 0 },
+	orc = { top = 162 / 256, bottom = 157 / 256, cornerTop = 0 },
+	undead = { top = 160 / 256, bottom = 141 / 256, cornerTop = 0 },
+	nightelf = { top = 214 / 256, bottom = 144 / 256, cornerTop = 76 / 512 },
+}
+Layout.FILLER_ART = FILLER_ART
 
--- Ext pieces, the grid, the inventory and the frame of the chat area.
 local function buildRight(L, o, W, g, add, themed, themedLayer)
 	local s, m, t = o.s, o.m, Layout.BASE[o.theme] or o.theme
 	local d1 = ({ human = 2, orc = 1, undead = 1 })[t] or 0
@@ -164,7 +173,7 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	L.inventoryArt, L.noInventoryArt = RM, RL
 	local rlLayer, rlSub = themedLayer("right_left")
 	add("right_left", "left", themed("inventory\\no_inventory"), rlLayer, rlSub, RL)
-	local rm = add("right_middle", "right", themed("inventory\\inventory"), "OVERLAY", 0, RM)
+	add("right_middle", "right", themed("inventory\\inventory"), "OVERLAY", 0, RM)
 
 	local brTop = rect(W - 0.7259 * s, 0.5208 * s + m, s, s / 4)
 	local extraHeight = (t == "human" or t == "undead") and 0.022222 * s or 0
@@ -176,13 +185,8 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	local lid = rect(RM.x + 0.2833333333 * s - shiftWidth, -0.3166 * s + m, s, s)
 	local lidTc
 	local bg = rect(right(RL) + 3, 0, 0, 0.5578 * s + m)
-	if o.chatWidth then
-		bg.w = o.chatWidth
-	elseif o.center == "center" then
-		bg.w = 2.2 * s -- The original addon's default width
-	else
-		bg.w = max(0, W - bg.x) -- reach the screen edge
-	end
+	-- The original addon's default width, or up to the screen edge where that is less.
+	bg.w = max(0, min(2.2 * s, W - bg.x))
 
 	local aeh = 0
 	if s >= 250 and s <= 259 then aeh = -3 elseif s > 259 then aeh = -6 end
@@ -312,8 +316,7 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 
 	-- "Center UI": the bottom-right pieces follow the chat area instead of
 	-- the screen edge.
-	local mode = o.center
-	if mode == "center" then
+	do
 		local bgR, bgT = right(bg), top(bg)
 		if t == "nightelf" then
 			brTop.x = bgR - 0.9 * s
@@ -330,28 +333,49 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 	-- The original addon's frame pieces only reach across a 16:9 screen; on wider screens
 	-- (or a wider chat area) repeat the filler pieces until they meet the
 	-- bottom-right corner.
-	if mode == "off" or mode == "center" then
+	-- Coverage is measured to where each texture's art ends (the filler
+	-- textures are partly transparent on the right), and each new piece
+	-- overlaps the last, so the wall has no notch where the pieces meet.
+	do
+		local fill = FILLER_ART[t]
+		local function artEnd(r, vis, tc)
+			if tc and tc[1] > tc[2] then
+				return right(r) -- mirrored: the art reaches the right edge
+			end
+			return r.x + r.w * vis
+		end
+		-- The original addon's own pieces can fall a unit short of each other (Undead's
+		-- floor): close those joints too.
+		for i = 2, 3 do
+			if showT[i] and showT[i - 1] and not tcT[i] and not tcT[i - 1] then
+				fT[i].x = min(fT[i].x, artEnd(fT[i - 1], fill.top) - 1)
+			end
+			if showB[i] and showB[i - 1] then
+				fB[i].x = min(fB[i].x, artEnd(fB[i - 1], fill.bottom) - 1)
+			end
+		end
 		local topCover = right(lid) - 0.6 * s
 		for i = 1, 3 do
-			if showT[i] then topCover = max(topCover, right(fT[i])) end
+			if showT[i] then topCover = max(topCover, artEnd(fT[i], fill.top, tcT[i])) end
 		end
+		local topStart = brTop.x + brTop.w * fill.cornerTop
 		local n = 3
-		while topCover < brTop.x + 0.1 * s do
+		while topCover < topStart + 2 do
 			n = n + 1
-			fT[n] = rect(topCover - 0.2709 * s, 0.5206 * s + m, s / 2, s / 4)
+			fT[n] = rect(topCover - 0.085 * s, 0.5206 * s + m, s / 2, s / 4)
 			showT[n] = true
-			topCover = right(fT[n])
+			topCover = artEnd(fT[n], fill.top)
 		end
 		local botCover = RMr
 		for i = 1, 3 do
-			if showB[i] then botCover = max(botCover, right(fB[i])) end
+			if showB[i] then botCover = max(botCover, artEnd(fB[i], fill.bottom)) end
 		end
 		n = 3
-		while botCover < brBot.x + 0.1 * s do
+		while botCover < brBot.x + 2 do
 			n = n + 1
-			fB[n] = rect(botCover - 0.2232 * s, 0, s / 2, s / 16)
+			fB[n] = rect(botCover - 0.03 * s, 0, s / 2, s / 16)
 			showB[n] = true
-			botCover = right(fB[n])
+			botCover = artEnd(fB[n], fill.bottom)
 		end
 	end
 
@@ -387,77 +411,14 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 		L.inventory[n] = rect(slotX + col * 0.156 * s - (1 - col), slotY + rowN * 0.148 * s, sz, sz)
 	end
 
-	-- Bags above the chat area, backpack on the right; the key ring to their left.
-	L.bags = {
-		right = right(brTop) - (t == "nightelf" and 0.192592 * s or 0.2769 * s),
-		top = brTop.y + 63, size = 37, step = 39,
-	}
-
-	-- Centre modes that drop parts of the right side.
 	L.rightPoint = right(bg)
-	if mode == "slim" then
-		for _, p in ipairs(L.pieces) do
-			if p.frame == "right" and p ~= rm then
-				p.shown = false
-			end
-		end
-		local cut = SLIM_CUT[t]
-		rm.tc = { 0, 1 - cut / 512, 0, 1 }
-		RM.w = (512 - cut) / 2
-		if t == "nightelf" or t == "undead" then
-			rm.file = themed("inventory\\slim")
-		end
-		local invW = RM.w
-		local offsetSlot = invW * 0.3714285714
-		local slotSize = invW * 0.28571428
-		if t == "undead" and s >= 245 and s <= 250 then
-			slotSize = slotSize - s * (0.3 / 110)
-		elseif t == "undead" and s < 245 then
-			slotSize = slotSize - s * (0.5 / 110)
-		elseif t == "nightelf" and s < 243 then
-			slotSize = slotSize - s * (4 / 127)
-		elseif t == "nightelf" and s < 250 then
-			slotSize = slotSize - s * (3.5 / 127)
-		elseif t == "nightelf" then
-			slotSize = slotSize - s * (3 / 127)
-		end
-		local offY = (t == "human" and s / 260) or (t == "undead" and s / 250) or 0
-		local offX = (t == "undead" and -3 * s / 260) or (t == "nightelf" and -8 * s / 260) or 0
-		local neX = (t == "nightelf" and s < 250 and 2 * s / 260) or (t == "nightelf" and s / 260) or 0
-		for n, cell in ipairs(INVENTORY_CELLS) do
-			local col, rowN = cell[1], cell[2]
-			local x = slotX + col * offsetSlot - (1 - col) + offX * col + neX
-				- ((col == 1 and t == "nightelf" and s < 250) and s / 260 or 0)
-			local y = slotY + rowN * 0.148076 * s - offY - ((rowN == 2 and t == "undead") and -s / 250 or 0)
-			L.inventory[n] = rect(x, y, slotSize, slotSize)
-		end
-		local EB = L.extBg
-		EB.w = max(0, EB.w - (right(EB) - RM.x))
-		L.rightPoint = right(RM)
-		L.bags = nil
-	elseif mode == "noinv" then
-		for _, p in ipairs(L.pieces) do
-			if p.frame == "right" then
-				p.shown = false
-			end
-		end
-		L.inventory, L.bags = nil, nil
-		if t == "nightelf" then
-			add("tree", "left", themed("inventory\\inventory"), "BACKGROUND", 0,
-				rect(RL.x + 0.1615384 * s, -0.02692307 * s, 0.9846153 * s, 1.03461538 * s))
-		end
-		local EB = L.extBg
-		if right(EB) > right(RL) then
-			EB.w = EB.w - (right(EB) - right(RL))
-		end
-		L.rightPoint = right(RL) + (t == "nightelf" and 18 or 0)
-	end
 
-	-- Chat window: inside the black area, clear of the frame pieces.
-	if mode == "off" or mode == "center" then
+	-- Chat window: inside the black area, clear of the frame pieces, down to
+	-- the floor trim (the bottom pieces' art is about 0.03s tall).
+	do
 		local x0 = right(RL) + 0.08 * s
 		local x1 = min(right(bg), brMid.x) - 6
-		local y0 = brBot.y + s / 16 + 4
+		local y0 = brBot.y + 0.03 * s + 1
 		local y1 = brTop.y + 0.03 * s
 		local edit = 26
 		if o.chatInputAbove then
@@ -468,7 +429,20 @@ local function buildRight(L, o, W, g, add, themed, themedLayer)
 			L.chatEdit = rect(x0 - 4, y0, x1 - x0 + 8, edit - 2)
 		end
 	end
-	L.consoleTop = L.bags and (L.bags.top + 4) or (0.6 * s + m)
+	-- Bags in the 2x3 inventory, the key ring standing to its left.
+	do
+		L.bagSlots = {}
+		for bag, cell in ipairs(BAG_CELLS) do
+			L.bagSlots[bag] = L.inventory[cell]
+		end
+		local first, mid = L.inventory[1], L.inventory[4]
+		local kw, kh = 0.07 * s, 0.16 * s
+		L.keyRing = rect(first.x - kw - 0.012 * s, mid.y + mid.h / 2 - kh / 2, kw, kh)
+	end
+
+	-- Everything we put on the screen stays below this height (bag windows
+	-- and the issue reporter are lifted above it).
+	L.consoleTop = max(top(brTop), L.stanceTop) + 4
 end
 
 local function build(W, H, o, X0)
@@ -476,7 +450,7 @@ local function build(W, H, o, X0)
 	local s, m, art = o.s, o.m, o.theme
 	local t = Layout.BASE[art] or art
 	local layers = LAYERS[t]
-	local L = { W = W, H = H, s = s, m = m, theme = art, base = t, center = o.center, pieces = {}, byKey = {} }
+	local L = { W = W, H = H, s = s, m = m, theme = art, base = t, pieces = {}, byKey = {} }
 
 	-- Art pieces. `frame` says which of the original addon's frames the piece belongs to,
 	-- which decides the stacking: bg < left < grid < right.
@@ -614,6 +588,16 @@ local function build(W, H, o, X0)
 	local row2 = barY + size + 0.0667 * s
 	L.bars = { main = row(barY + 5), bar2 = row(row2), bar3 = row(row2 + size + 0.04444 * s) }
 
+	-- Stance (aura, form) buttons on top of the wall over the action grid,
+	-- from its left end, as Warcraft III and WoW 1.12 put them; the pet bar
+	-- follows on the same row.
+	local barSize = 0.1 * s
+	local barStep = barSize + 3
+	local wallTop = (t == "nightelf" and 0.6 or 0.55) * s
+	L.stance = { x = g[1].x + 0.04 * s, y = wallTop, size = barSize, step = barStep }
+	L.pet = { x = L.stance.x + 10 * barStep + 0.1 * s, y = wallTop, size = barSize, step = barStep }
+	L.stanceTop = wallTop + barSize
+
 	-- Micro buttons on top of the grid's right end.
 	local moveX, moveY = -8, 0
 	if s < 245 then moveX = -3 elseif s < 253 then moveX = -4 elseif s < 260 then moveX = -6 end
@@ -672,18 +656,15 @@ local function build(W, H, o, X0)
 	return L
 end
 
--- o: s (240-270), m (raise the chat area, 0-150), theme, center ("off",
--- "center", "slim", "noinv"), chatWidth (nil = to the screen edge),
--- zoneTextPos (1-3), portraitX/Y (100 = default), portraitScale (0-35),
+-- o: s (240-270), m (raise the chat area, 0-150), theme, zoneTextPos (1-3), portraitX/Y (100 = default), portraitScale (0-35),
 -- chatInputAbove.
 function Layout.Compute(W, H, o)
 	local L = build(W, H, o, 0)
-	L.shift = 0
-	if o.center and o.center ~= "off" then
-		local dx = math.max(0, floor((W - L.rightPoint) / 2))
+	local dx = max(0, floor((W - L.rightPoint) / 2))
+	if dx > 0 then
 		L = build(W, H, o, dx)
-		L.shift = dx
 	end
+	L.shift = dx
 	return L
 end
 

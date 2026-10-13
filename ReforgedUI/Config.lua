@@ -1,12 +1,14 @@
 -- The original addon's options menu, opened with the cogwheel that appears when the mouse
--- is over the bottom-right corner of the screen (or /rui config). Same
--- options and wording as the original addon's "General" tab, on a plain frame of our
--- own; the original addon's "Customize" tab is not ported (see README.md).
+-- is over the bottom-right corner of the screen (or /rui config). The original addon's
+-- "General" tab in its wording, kept minimal: the console is always laid out
+-- like the original addon's "Center UI" with its chat area and inventory, so the centre
+-- modes, chat width, chat placement and "Hide bags" options are gone.
+-- The original addon's "Customize" tab is not ported (see README.md).
 
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 626
+local W, H = 650, 530
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -17,11 +19,6 @@ local THEME_BUTTONS = {
 	{ "windshapers", "Windshapers" }, { "auto", "Auto" },
 }
 local THEME_COLUMNS = 6
-local CENTER_BOXES = {
-	{ "center", "Center UI" },
-	{ "slim", "Center UI, no chat area" },
-	{ "noinv", "Center UI, no chat area, no inventory" },
-}
 local RESTED_COLORS = {
 	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
 	{ "Blue", { 0, 0, 1, 0.5 } },
@@ -130,7 +127,7 @@ function Config:Build()
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
-	label(f, "Reforged UI  |cffffffff- Warcraft III console|r", 20, -18, "GameFontNormalLarge")
+	label(f, "Reforged UI", 20, -18, "GameFontNormalLarge")
 
 	-- Themes.
 	self.themeButtons = {}
@@ -156,18 +153,7 @@ function Config:Build()
 	self:Check("Show power as %", "powerPercent", x, nextY(), function() ns.modules.hero:Update() end)
 	self:Check("Hide chat icons (reload)", "hideChatIcons", x, nextY())
 	self:Check("Stop portrait animation (reload)", "stopAnimation", x, nextY())
-	self:Check("Hide bags", "hideBags", x, nextY(), function() ns.modules.inventory:UpdateVisibility() end)
 	self:Check("Chat input above chat", "chatInputAbove", x, nextY(), relayout)
-	self:Check("Place the chat window in the chat area", "placeChat", x, nextY(), relayout)
-	self.centerChecks = {}
-	for _, spec in ipairs(CENTER_BOXES) do
-		local cb = self:Check(spec[2], nil, x, nextY(), function(on)
-			ns.db.consoleOpts.center = on and spec[1] or "off"
-			relayout()
-		end)
-		cb.center = spec[1]
-		self.centerChecks[#self.centerChecks + 1] = cb
-	end
 	self.zoneButton = button(f, ZONE_TEXT[1], 180, x, y - 6, function()
 		ns.db.consoleOpts.zoneText = (ns.db.consoleOpts.zoneText or 1) % 3 + 1
 		relayout()
@@ -178,25 +164,24 @@ function Config:Build()
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
 	self:Edit("Extend bottom right upwards (0-150)", "chatUp", x, y - 42)
-	self:Edit("Black bg chat width (empty: to the screen edge)", "chatWidth", x, y - 84)
-	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 126)
-	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 168)
-	self:Edit("", "portraitX", x, y - 168)
-	self:Edit("", "portraitY", x + 70, y - 168)
-	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 210)
+	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 84)
+	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 126)
+	self:Edit("", "portraitX", x, y - 126)
+	self:Edit("", "portraitY", x + 70, y - 126)
+	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 168)
 
 	-- Rested experience colour.
-	label(f, "Rested XP colors", x, y - 256)
+	label(f, "Rested XP colors", x, y - 214)
 	for i, spec in ipairs(RESTED_COLORS) do
-		button(f, spec[1], 64, x + (i - 1) * 68, y - 274, function()
+		button(f, spec[1], 64, x + (i - 1) * 68, y - 232, function()
 			ns.db.consoleOpts.restedColor = { unpack(spec[2]) }
 			ns.modules.hero:UpdateXP()
 		end)
 	end
-	button(f, "Custom", 64, x + 3 * 68, y - 274, function() self:PickRestedColor() end)
+	button(f, "Custom", 64, x + 3 * 68, y - 232, function() self:PickRestedColor() end)
 
 	-- Stat icons.
-	y = -472
+	y = -384
 	self.iconButtons = {}
 	for row, text in ipairs(ICON_ROWS) do
 		label(f, text, 20, y - (row - 1) * 30 - 4, "GameFontNormalSmall")
@@ -211,8 +196,8 @@ function Config:Build()
 		end
 	end
 
-	button(f, "Apply", 120, 20, -586, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -586, ReloadUI)
+	button(f, "Apply", 120, 20, -490, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -490, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).
@@ -224,15 +209,12 @@ function Config:Apply()
 				local v = tonumber(eb:GetText())
 				if v then
 					o[key] = math.max(lo, math.min(hi, math.floor(v)))
-				elseif key == "chatWidth" then
-					o[key] = false
 				end
 			end
 		end
 	end
 	num("uiScale", ns.Layout.SCALE_MIN, ns.Layout.SCALE_MAX)
 	num("chatUp", 0, 150)
-	num("chatWidth", 100, 4000)
 	num("hpWarning", 0, 100)
 	num("portraitX", 0, 300)
 	num("portraitY", 0, 300)
@@ -266,9 +248,6 @@ function Config:Refresh()
 		if cb.key then
 			cb:SetChecked(o[cb.key] and true or false)
 		end
-	end
-	for _, cb in ipairs(self.centerChecks) do
-		cb:SetChecked(o.center == cb.center)
 	end
 	for _, eb in ipairs(self.edits) do
 		local v = o[eb.key]

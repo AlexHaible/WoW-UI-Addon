@@ -1,8 +1,9 @@
 -- The original addon's minimap: a square map in the bottom-left block, the tracking
 -- button in the round slot under it, the mail slot beside it (a grey letter
 -- when there is no mail), the zone name on the bottom (or top) edge of the
--- map and zooming with the mouse wheel. The other minimap buttons (calendar,
--- addon buttons, ...) line up along the top edge of the map.
+-- map and zooming with the mouse wheel. The other minimap buttons (addon
+-- buttons, ...) line up along the top edge of the map. The day/night (or
+-- calendar) indicator is made invisible: the top bar has its own clock.
 --
 -- The map stays a child of its cluster (an Edit Mode frame we never move or
 -- hide); only the map itself and the buttons are placed, anchored to
@@ -51,7 +52,6 @@ local function collectButtons(skip)
 			list[#list + 1] = f
 		end
 	end
-	add(GameTimeFrame)
 	add(AddonCompartmentFrame)
 	add(find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton))
 	local function sweep(parent, depth)
@@ -96,6 +96,10 @@ function MinimapModule:OnEnable()
 		map.ZoomIn, map.ZoomOut, map.ZoomHitArea, MinimapZoomIn, MinimapZoomOut,
 		cluster.BorderTop, cluster.ZoneTextButton, MinimapZoneTextButton, MiniMapWorldMapButton,
 		TimeManagerClockButton, MiniMapMailBorder)
+	self.timeFrames = self:FindTimeFrames()
+	for _, f in ipairs(self.timeFrames) do
+		ns:Conceal(f)
+	end
 
 	-- Mouse wheel zoom (newer clients zoom by themselves).
 	map:EnableMouseWheel(true)
@@ -137,7 +141,46 @@ function MinimapModule:OnEnable()
 	local skip = {}
 	each(function(f) skip[f] = true end, self.tracking, self.mail, self.difficulty, cluster.ZoneTextButton,
 		cluster.BorderTop, MinimapZoneTextButton, MiniMapWorldMapButton, TimeManagerClockButton)
+	for _, f in ipairs(self.timeFrames) do
+		skip[f] = true
+	end
 	self.buttons = collectButtons(skip)
+end
+
+-- The minimap cluster's day/night indicator (GameTimeFrame, a moon or sun
+-- in the screen's top-right corner), by name or by one careful look through
+-- the cluster's and UIParent's children.
+local TIME_NAMES = { "GameTime", "DayNight", "TimeOfDay" }
+
+function MinimapModule:FindTimeFrames()
+	local list, seen = {}, {}
+	local function add(f)
+		if f and not seen[f] and not ns.IsForbidden(f) then
+			seen[f] = true
+			list[#list + 1] = f
+		end
+	end
+	add(_G.GameTimeFrame)
+	local cluster = MinimapCluster
+	if cluster then
+		add(cluster.GameTimeFrame)
+		add(cluster.GameTime)
+	end
+	for _, parent in ipairs({ cluster, UIParent }) do
+		for _, f in ipairs({ parent and parent:GetChildren() }) do
+			if not ns.IsForbidden(f) then
+				local ok, name = pcall(f.GetName, f)
+				if ok and type(name) == "string" then
+					for _, pattern in ipairs(TIME_NAMES) do
+						if name:find(pattern) then
+							add(f)
+						end
+					end
+				end
+			end
+		end
+	end
+	return list
 end
 
 function MinimapModule:UpdateMail()

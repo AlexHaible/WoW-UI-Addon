@@ -1,5 +1,5 @@
--- The original addon's chat area: the main chat window fills the black area in the
--- bottom-right corner, with its input box under (or above) it. The chat
+-- The original addon's chat area: the main chat window fills the black area at the
+-- right end of the console, with its input box under (or above) it. The chat
 -- buttons beside the window can be hidden ("Hide chat icons").
 
 local _, ns = ...
@@ -39,21 +39,12 @@ function Chat:OnLayout(L)
 	if not cf then
 		return
 	end
-	if ns.db.consoleOpts.placeChat and L.chat then
-		ns:Lock(cf, function(f)
-			ns:PlaceRect(f, L.chat)
+	ns:Lock(cf, function(f)
+		ns:PlaceRect(f, L.chat)
+	end)
+	for _, eb in ipairs(self.editBoxes) do
+		ns:Lock(eb, function(f)
+			ns:PlaceRect(f, L.chatEdit)
 		end)
-		for _, eb in ipairs(self.editBoxes) do
-			ns:Lock(eb, function(f)
-				ns:PlaceRect(f, L.chatEdit)
-			end)
-		end
-	else
-		-- The slim centre modes have no chat area: the chat stays wherever
-		-- Edit Mode puts it.
-		ns:Unlock(cf)
-		for _, eb in ipairs(self.editBoxes) do
-			ns:Unlock(eb)
-		end
 	end
 end

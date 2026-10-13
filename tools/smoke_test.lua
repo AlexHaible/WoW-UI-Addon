@@ -282,8 +282,8 @@ local overrides = 0
 function SetOverrideBindingClick(_, _, key, name) assert(_G[name], "binding target missing"); overrides = overrides + 1 end
 function ClearOverrideBindings() overrides = 0 end
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-playerRace, playerRaceFile, playerFaction = "Orc", "Orc", "Horde"
-function UnitRace() return playerRace, playerRaceFile end
+playerRace, playerRaceFile, playerFaction, playerRaceID = "Orc", "Orc", "Horde", nil
+function UnitRace() return playerRace, playerRaceFile, playerRaceID end
 function UnitFactionGroup() return playerFaction end
 function UnitName() return "Thrall" end
 function UnitLevel() return 12 end
@@ -572,8 +572,8 @@ checkAnchors()
 -- Race themes: the default ("auto") follows the race, Skyborne by its token or
 -- its name, with the faction picking the variant; other races fall back by
 -- faction; a chosen theme overrides the race.
-local function themeFor(race, raceFile, faction, saved)
-	playerRace, playerRaceFile, playerFaction = race, raceFile, faction
+local function themeFor(race, raceFile, faction, saved, raceID)
+	playerRace, playerRaceFile, playerFaction, playerRaceID = race, raceFile, faction, raceID
 	return ns:ResolveThemeKey(saved or "auto")
 end
 for _, c in ipairs({
@@ -585,10 +585,15 @@ for _, c in ipairs({
 	-- Skyborne by name only (the token is undocumented), in either faction.
 	{ "Skyborne", "SkyElf", "Alliance", "highorder" }, { "Shen'dorei", "Shendorei", "Horde", "windshapers" },
 	{ "SKYBORNE (Windshapers)", "Unknown", "Horde", "windshapers" },
+	-- What the client really returns: the race id decides, then the name.
+	{ "High Order Skyborne", "Skyborne", "Alliance", "highorder", 95 },
+	{ "Windshaper Skyborne", "Skyborne", "Horde", "windshapers", 96 },
+	{ "Windshaper Skyborne", "Skyborne", nil, "windshapers", 96 },
+	{ "High Order Skyborne", "Skyborne", "Horde", "highorder" },
 	{ "Pandaren", "Pandaren", "Alliance", "human" }, { "Pandaren", "Pandaren", "Horde", "orc" },
 	{ nil, nil, nil, "human" },
 }) do
-	local got = themeFor(c[1], c[2], c[3])
+	local got = themeFor(c[1], c[2], c[3], nil, c[5])
 	assert(got == c[4], ("%s/%s/%s should pick %s, got %s"):format(tostring(c[1]), tostring(c[2]),
 		tostring(c[3]), c[4], got))
 end
@@ -602,7 +607,7 @@ slash("theme auto")
 assert(ns.themeKey == "windshapers" and ns.layout.theme == "windshapers" and ns.layout.base == "nightelf",
 	"Skyborne Horde: windshapers art with night elf shapes")
 assert(console.textures.minimap._tex:find("art\\windshapers\\", 1, true), "windshapers art is drawn")
-playerRace, playerRaceFile, playerFaction = "Orc", "Orc", "Horde"
+playerRace, playerRaceFile, playerFaction, playerRaceID = "Orc", "Orc", "Horde", nil
 slash("theme auto")
 
 -- Every theme is complete: listed in order and in the layout, and every

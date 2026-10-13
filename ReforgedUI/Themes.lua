@@ -153,10 +153,23 @@ local function isSkyborne(name, raceFile)
 	return false
 end
 
--- The theme for "auto": from the race (Skyborne by its race token or its
--- name, since Forever's token is not documented), else from the faction.
-function ns:RaceThemeKey(name, raceFile, faction)
+-- Skyborne's two race ids on Forever (UnitRace's third return): the faction
+-- comes with the race, and so does the theme.
+local SKYBORNE_IDS = { [95] = "highorder", [96] = "windshapers" }
+
+-- The theme for "auto": from the race (Skyborne by its race id, else by its
+-- token or name, else by the faction), otherwise from the faction.
+function ns:RaceThemeKey(name, raceFile, faction, raceID)
+	if SKYBORNE_IDS[raceID] then
+		return SKYBORNE_IDS[raceID]
+	end
 	if isSkyborne(name, raceFile) then
+		local l = type(name) == "string" and name:lower() or ""
+		if l:find("windshaper", 1, true) then
+			return "windshapers"
+		elseif l:find("high order", 1, true) then
+			return "highorder"
+		end
 		return "skyborne"
 	end
 	return RACE_THEME[raceFile] or (faction == "Horde" and "orc" or "human")
@@ -171,8 +184,8 @@ function ns:ResolveThemeKey(key)
 	end
 	local faction = UnitFactionGroup("player")
 	if key ~= "skyborne" then
-		local name, raceFile = UnitRace("player")
-		key = self:RaceThemeKey(name, raceFile, faction)
+		local name, raceFile, raceID = UnitRace("player")
+		key = self:RaceThemeKey(name, raceFile, faction, raceID)
 	end
 	if key == "skyborne" then
 		return faction == "Horde" and "windshapers" or "highorder"

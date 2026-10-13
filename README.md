@@ -98,10 +98,10 @@ change. `tools/make_race_themes.py` makes them (see Development).
 
 **Default theme.** `auto` (the default) picks the theme of your character's
 race (`UnitRace("player")`): Human, Dwarf, Gnome, Night Elf, Orc, Tauren,
-Troll and Undead (`Scourge`) each get their own. Skyborne's race token is not
-documented yet, so a race token of `Skyborne`, or a race name containing
-"Skyborne" or "Shen'dorei" (any case), counts as Skyborne; the faction then
-picks the variant: High Order for the Alliance, Windshapers for the Horde.
+Troll and Undead (`Scourge`) each get their own. Skyborne is token `Skyborne`
+with race id 95 ("High Order Skyborne") or 96 ("Windshaper Skyborne"); the id
+picks the High Order or Windshapers theme. Without an id, the race name
+("High Order", "Windshaper") or else the faction picks the variant.
 Any other race gets its faction's default (Alliance: Human, Horde: Orc), and
 later-expansion races take the closest theme (e.g. Dark Iron Dwarf: Dwarf).
 Choosing a theme in the menu or with `/rui theme` saves it and overrides the

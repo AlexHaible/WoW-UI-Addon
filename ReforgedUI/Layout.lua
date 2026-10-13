@@ -262,8 +262,9 @@ Layout.FILLER_ART = FILLER_ART
 -- (ENDCAP_GEN), and a theme without those (Dwarf, whose hand-built art does
 -- not go through that tool) borrows its base faction's.
 Layout.ENDCAP_ART = {
-	-- human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
-	--	w = 0.25, h = 0.8, overlap = 0.02, head = 0.3 },
+	-- Warcraft III's own end pillars (humanuitile05/06), crown on the wall top.
+	human = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.0742, h = 0.6406, overlap = 0.002, head = 0.125, rise = 0 },
 }
 Layout.ENDCAP_GEN = {
 	left = "endcaps\\endcap_left_gen", right = "endcaps\\endcap_right_gen",
@@ -326,7 +327,10 @@ Layout.TARGET_ART = {
 	width = 0.85, -- in console scale units (s): ~204 units at s = 240
 	file = "targetplate",
 	genFile = "targetplate_gen",
-	themes = {},
+	themes = {
+		human = { portrait = { 46, 66, 123, 133 }, health = { 46, 203, 123, 20 }, power = { 46, 227, 123, 21 },
+			info = { 187, 50, 293, 198 } },
+	},
 	gen = {
 		human = { portrait = { 44, 50, 120, 138 }, health = { 44, 193, 120, 22 }, power = { 44, 217, 120, 23 },
 			info = { 186, 35, 311, 209 } },

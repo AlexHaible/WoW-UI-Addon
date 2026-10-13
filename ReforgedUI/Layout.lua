@@ -255,6 +255,11 @@ Layout.ENDCAP_ART = {
 		w = 0.0977, h = 0.9375, overlap = 0.002, head = 0.125, rise = 0 },
 	nightelf = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.1895, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
+	-- Skyborne: Night Elf's pieces re-graded, so Night Elf's cap spec.
+	highorder = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.1895, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
+	windshapers = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
+		w = 0.1895, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
 	forsaken = { left = "endcaps\\endcap_left", right = "endcaps\\endcap_right",
 		w = 0.168, h = 0.8594, overlap = 0.002, head = 0.125, rise = 0 },
 	-- Hand-built "Great Forge" versions of the same pillars.
@@ -334,6 +339,10 @@ Layout.TARGET_ART = {
 		undead = { portrait = { 52, 67, 125, 131 }, health = { 57, 204, 116, 20 }, power = { 58, 226, 115, 23 },
 			info = { 195, 56, 284, 193 } },
 		nightelf = { portrait = { 39, 57, 121, 143 }, health = { 40, 205, 121, 20 }, power = { 41, 231, 120, 17 },
+			info = { 187, 54, 281, 194 } },
+		highorder = { portrait = { 39, 57, 121, 143 }, health = { 40, 205, 121, 20 }, power = { 41, 231, 120, 17 },
+			info = { 187, 54, 281, 194 } },
+		windshapers = { portrait = { 39, 57, 121, 143 }, health = { 40, 205, 121, 20 }, power = { 41, 231, 120, 17 },
 			info = { 187, 54, 281, 194 } },
 		forsaken = { portrait = { 87, 85, 104, 121 }, health = { 87, 207, 101, 21 }, power = { 87, 234, 104, 14 },
 			info = { 218, 75, 212, 173 } },

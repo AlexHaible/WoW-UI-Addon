@@ -188,6 +188,8 @@ local function makeBar(parent, level, size)
 	bar.text:SetTextColor(1, 1, 1)
 	return bar
 end
+-- Shared with Target.lua's wall plate, a miniature hero screen.
+Hero.MakeBar = makeBar
 
 -- `percentFn` is the client's own percentage function (UnitHealthPercent,
 -- UnitPowerPercent), which works on secret values; plain division otherwise.
@@ -256,7 +258,9 @@ end
 ----------------------------------------------------------------------------
 -- Experience bar
 
-function Hero:CreateXP(holder)
+-- The original addon's experience bar art: three caps, the fill, the name over it and
+-- the level line on it. Also the target plate's (Target.lua), smaller.
+function Hero.CreateLevelPlate(holder, nameSize, levelSize)
 	local xp = {}
 	for i, key in ipairs({ "left", "middle", "right" }) do
 		local t = holder:CreateTexture(nil, "OVERLAY")
@@ -266,14 +270,33 @@ function Hero:CreateXP(holder)
 	xp.bar = holder:CreateTexture(nil, "ARTWORK")
 	xp.bar:SetTexture(ns:ArtPath("other\\xpProgressBar"))
 	xp.bar:SetVertexColor(0.5, 0, 0.5, 1)
-	xp.rested = holder:CreateTexture(nil, "BORDER")
-	xp.rested:SetTexture(ns:ArtPath("other\\xpProgressBar"))
 	xp.name = holder:CreateFontString(nil, "OVERLAY")
-	font(xp.name, 16)
+	font(xp.name, nameSize)
 	xp.name:SetTextColor(1, 1, 1)
 	xp.level = holder:CreateFontString(nil, "OVERLAY")
-	font(xp.level, 12)
+	font(xp.level, levelSize)
 	xp.level:SetTextColor(1, 1, 1)
+	return xp
+end
+
+-- Place a level plate made by CreateLevelPlate at X (Layout.LevelPlate).
+function Hero.PlaceLevelPlate(xp, X)
+	place(xp.left, X.left)
+	place(xp.middle, X.middle)
+	place(xp.right, X.right)
+	place(xp.bar, X.bar)
+	for _, fs in ipairs({ xp.name, xp.level }) do
+		fs:ClearAllPoints()
+		fs:SetWidth(X.width)
+	end
+	xp.name:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.nameY)
+	xp.level:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.levelY)
+end
+
+function Hero:CreateXP(holder)
+	local xp = Hero.CreateLevelPlate(holder, 16, 12)
+	xp.rested = holder:CreateTexture(nil, "BORDER")
+	xp.rested:SetTexture(ns:ArtPath("other\\xpProgressBar"))
 
 	local hover = CreateFrame("Frame", nil, holder)
 	hover:EnableMouse(true)
@@ -682,18 +705,9 @@ function Hero:OnLayout(L)
 	place(self.power, L.power)
 
 	local xp, X = self.xp, L.xp
-	place(xp.left, X.left)
-	place(xp.middle, X.middle)
-	place(xp.right, X.right)
-	place(xp.bar, X.bar)
+	Hero.PlaceLevelPlate(xp, X)
 	place(xp.rested, X.bar)
 	place(xp.hover, X.hover)
-	for _, fs in ipairs({ xp.name, xp.level }) do
-		fs:ClearAllPoints()
-		fs:SetWidth(X.width)
-	end
-	xp.name:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.nameY)
-	xp.level:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.levelY)
 
 	for i, f in ipairs(self.stats) do
 		local r = L.statIcons[i]

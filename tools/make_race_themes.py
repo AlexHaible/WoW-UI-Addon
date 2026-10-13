@@ -279,6 +279,9 @@ def make(race):
     for f in MEDIA_FILES:
         recolour(base, spec, pct, os.path.join(MEDIA, MEDIA_FOLDER[base], f), os.path.join(out_media, f))
     print("wrote", race, "from", base, "(art/%s, Media/%s)" % (race, spec["folder"]))
+    # The target plate placeholder is composed from the theme's own art.
+    import make_target_plate
+    make_target_plate.make(race)
 
 
 # Races whose console is hand-built from Warcraft III art instead of

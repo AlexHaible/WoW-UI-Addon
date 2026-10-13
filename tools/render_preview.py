@@ -215,6 +215,47 @@ def target_bits(c, v, T, pair_text=True):
     bar(c, v["power"], pw / pm, T["powerColour"], "%d / %d" % (pw, pm) if pair_text else None, 10)
 
 
+def level_plate(c, X, name, colour, info, name_size, info_size, fill=None):
+    """The original addon's experience bar (Hero.CreateLevelPlate) with its two lines."""
+    xbar = X["bar"]
+    if fill:
+        c.paste(art("other\\xpProgressBar"), xbar["x"], xbar["y"], xbar["w"] * fill, xbar["h"])
+    for key, f in (("left", "xp1"), ("middle", "xp2"), ("right", "xp3")):
+        r = X[key]
+        c.paste(art("other\\" + f), r["x"], r["y"], r["w"], r["h"])
+    w = X["width"]
+    name_size, info_size = fit_size(name, w, name_size), fit_size(info, w - 4, info_size)
+    c.text(X["cx"] - w / 2, X["nameY"] - name_size * 0.6, w, name_size * 1.2, name, name_size, colour)
+    c.text(X["cx"] - w / 2, X["levelY"] - info_size * 0.6, w, info_size * 1.2, info, info_size, (255, 255, 255))
+
+
+def fit_size(text, width, size, smallest=6):
+    d = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    while size > smallest and d.textlength(text, font=font(size)) > width:
+        size -= 1
+    return size
+
+
+def plate(c, P, T):
+    """Plate mode: the miniature hero screen (Target.lua)."""
+    r = P["portraitBg"]
+    c.rect(r["x"], r["y"], r["w"], r["h"], fill=(0, 0, 0, 255))
+    r = P["portrait"]
+    c.paste(face((150, 110, 70), (110, 40, 30)), r["x"], r["y"], r["w"], r["h"])
+    f = P["frame"]
+    c.paste(art(P["file"]), f["x"], f["y"], f["w"], f["h"])
+    h, hm = T["health"]
+    pw, pm = T["power"]
+    for key, (cur, mx), colour in (("health", T["health"], (0, 255, 0)), ("power", T["power"], T["powerColour"])):
+        b = P[key]
+        label = "%s / %s" % (cur, mx)
+        bar(c, b, cur / mx, colour, label, fit_size(label, b["w"] - 2, 9))
+    level_plate(c, P["level"], T["name"], T["colour"], T["info"], 13, 10)
+    pips(c, P["combo"], T["combo"])
+    name, frac = T["cast"]
+    bar(c, P["cast"], frac, (255, 179, 0), name, 8)
+
+
 def tot(c, L):
     t = L["tot"]
     i = t["icon"]
@@ -294,29 +335,7 @@ def render(path, w, theme, s=240, m=10, target=None):
         c.text(lr["x"], lr["y"], lr["w"], lr["h"], lab, 10, (255, 209, 0), "left")
         c.text(vr["x"], vr["y"] + vr["h"] - 15, vr["w"], 15, val, 10, (255, 255, 255), "left")
     if target == "plate":
-        P = L["targetPlate"]
-        r = P["portraitBg"]
-        c.rect(r["x"], r["y"], r["w"], r["h"], fill=(0, 0, 0, 255))
-        r = P["portrait"]
-        c.paste(face((150, 110, 70), (110, 40, 30)), r["x"], r["y"], r["w"], r["h"])
-        for pc in P["pieces"]:
-            r = pc["rect"]
-            c.paste(art(pc["file"]), r["x"], r["y"], r["w"], r["h"], pc["tc"])
-        target_bits(c, P, T, pair_text=False)
-        b = P["box"]
-        folder, title, inset, line = TOPBAR[theme]
-        c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
-        c.text(P["name"]["x"], P["name"]["y"], P["name"]["w"], P["name"]["h"], T["name"], 13, T["colour"], "left")
-        c.text(P["info"]["x"], P["info"]["y"], P["info"]["w"], P["info"]["h"], T["info"], 10, (255, 255, 255), "left")
-        h, hm = T["health"]
-        pw, pm = T["power"]
-        r = P["healthText"]
-        c.text(r["x"], r["y"], r["w"], r["h"], "%d / %d" % (h, hm), 10, (64, 255, 64), "left")
-        r = P["powerText"]
-        c.text(r["x"], r["y"], r["w"], r["h"], "%d / %d" % (pw, pm), 10, (255, 128, 128), "right")
-        pips(c, P["combo"], T["combo"])
-        name, frac = T["cast"]
-        bar(c, P["cast"], frac, (255, 179, 0), name, 8)
+        plate(c, L["targetPlate"], T)
     if target:
         tot(c, L)
     # Action bars 1-3.
@@ -364,9 +383,41 @@ def render(path, w, theme, s=240, m=10, target=None):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     c.img.convert("RGB").save(path, optimize=True)
     print("wrote", path)
+    return c, L
+
+
+def plate_sheet(path, w=1365.33, s=240, zoom=2):
+    """Every theme's target plate (plate mode) on one sheet, cropped from
+    each theme's render with the hero screen under it for scale."""
+    import tempfile
+    tiles = []
+    for theme in ("human", "orc", "undead", "nightelf") + RACE_THEMES:
+        with tempfile.TemporaryDirectory() as tmp:
+            c, L = render(os.path.join(tmp, "p.png"), w, theme, s, 10, target="plate")
+        f = L["targetPlate"]["frame"]
+        x0, y0, x1, y1 = c.box(L["tot"]["frame"]["x"] - 8, 0.3 * s, 0, 0)
+        _, top, x1, _ = c.box(f["x"], f["y"], f["w"] + 30, f["h"] + 8)
+        tile = c.img.crop((x0, top, x1, y0)).convert("RGB")
+        tile = tile.resize((tile.width * zoom, tile.height * zoom), Image.LANCZOS)
+        d = ImageDraw.Draw(tile)
+        d.text((7, 7), theme, font=font(22), fill=(0, 0, 0))
+        d.text((6, 6), theme, font=font(22), fill=(255, 255, 255))
+        tiles.append(tile)
+    tw, th = max(t.width for t in tiles), max(t.height for t in tiles)
+    cols = 2
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * tw + (cols + 1) * 6, rows * th + (rows + 1) * 6), (20, 20, 20))
+    for i, t in enumerate(tiles):
+        sheet.paste(t, (6 + (i % cols) * (tw + 6), 6 + (i // cols) * (th + 6)))
+    sheet.save(path, optimize=True)
+    print("wrote", path)
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--plate-sheet":
+        # python3 tools/render_preview.py --plate-sheet out.png
+        plate_sheet(sys.argv[2])
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--target":
         # python3 tools/render_preview.py --target swap|plate out.png [width theme scale chatUp]
         a = sys.argv[2:]

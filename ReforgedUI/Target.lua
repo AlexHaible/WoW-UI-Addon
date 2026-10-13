@@ -5,8 +5,12 @@
 --    name and level line over the experience bar, and its health and power
 --    bars, your combo points and its cast bar in place of the stat icons.
 --    The small bars under the portrait stay yours.
---  * "plate": a small copy of the portrait arch stands on the wall above the
---    stats panel with the target in it, a name plate beside it.
+--  * "plate": a miniature hero screen stands on the wall above the stats
+--    panel: the target's portrait in an arch with its health and power bars
+--    in the arch's foot, and an info window with its name over a small level
+--    plate, combo points and cast bar. One texture per theme
+--    (Layout.TARGET_ART); the level plate and bars are the hero screen's own
+--    (Hero.CreateLevelPlate, Hero.MakeBar).
 --
 -- In both, the target's target is a small unit icon on the wall above the
 -- portrait. Clicks go to our own secure unit buttons: left-click targets the
@@ -35,6 +39,8 @@ local TAPPED = { 0.6, 0.6, 0.6 }
 local CLASSIFICATION = {
 	elite = ELITE or "Elite", rareelite = "Rare Elite", rare = "Rare", worldboss = BOSS or "Boss",
 }
+
+local isSecret = issecretvalue or function() return false end
 
 local function font(fs, size)
 	if not fs:SetFont(ns.FONT, size, "") then
@@ -106,19 +112,71 @@ local function infoText(unit)
 	return ok and text or ""
 end
 
+-- 950, 12.3k, 123k, 1.2m: plain numbers only (secret ones are left to the
+-- client's AbbreviateLargeNumbers).
+local function short(n)
+	if n >= 1e8 then
+		return ("%dm"):format(n / 1e6)
+	elseif n >= 1e6 then
+		return ("%.1fm"):format(n / 1e6)
+	elseif n >= 1e5 then
+		return ("%dk"):format(n / 1e3)
+	elseif n >= 1e4 then
+		return ("%.1fk"):format(n / 1e3)
+	end
+	return tostring(n)
+end
+
+local function abbreviate(v)
+	if type(v) == "number" and not isSecret(v) then
+		return short(v)
+	end
+	return AbbreviateLargeNumbers and AbbreviateLargeNumbers(v) or v
+end
+
 -- "cur / max" for health and power; empty when the client will not say.
 local function setPair(fs, cur, max)
 	local ok = pcall(function()
-		local abbr = AbbreviateLargeNumbers
-		if abbr then
-			fs:SetFormattedText("%s / %s", abbr(cur), abbr(max))
-		else
-			fs:SetFormattedText("%s / %s", cur, max)
-		end
+		fs:SetFormattedText("%s / %s", abbreviate(cur), abbreviate(max))
 	end)
 	if not ok then
 		fs:SetText("")
 	end
+end
+
+local MIN_PAIR_SIZE = 6
+
+-- setPair, then shrink the font until the text fits its width: never "...".
+-- When the width cannot be measured (secret text), the smallest size.
+local function fitPair(fs, cur, max)
+	local path, size, flags = fs:GetFont()
+	fs.fitSize = fs.fitSize or size
+	if path then
+		fs:SetFont(path, fs.fitSize, flags or "")
+	end
+	setPair(fs, cur, max)
+	local ok = pcall(function()
+		local maxW = fs:GetWidth()
+		local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
+		size = fs.fitSize
+		while measure(fs) > maxW and size > MIN_PAIR_SIZE do
+			size = size - 1
+			fs:SetFont(path, size, flags or "")
+		end
+	end)
+	if not ok and path then
+		fs:SetFont(path, MIN_PAIR_SIZE, flags or "")
+	end
+end
+
+-- Whether the unit has no power bar (a maximum of 0). Unknown, as when the
+-- value is secret, counts as having one.
+local function noPower(max)
+	if isSecret(max) then
+		return false
+	end
+	local ok, none = pcall(function() return max == 0 end)
+	return ok and none or false
 end
 
 local function comboPoints()
@@ -149,15 +207,6 @@ local function makeBar(parent, level, textSize)
 		bar.text:SetWordWrap(false)
 	end
 	return bar
-end
-
-local function makeText(parent, size, justify)
-	local fs = parent:CreateFontString(nil, "OVERLAY")
-	font(fs, size)
-	fs:SetJustifyH(justify or "LEFT")
-	fs:SetWordWrap(false)
-	fs:SetTextColor(1, 1, 1)
-	return fs
 end
 
 -- Five gold diamonds on dark sockets.
@@ -253,13 +302,15 @@ function Target:CreateSwap()
 end
 
 function Target:CreatePlate()
+	local hero = ns.modules.hero
 	local f = CreateFrame("Frame", "ReforgedUITargetPlate", ns.root)
 	f:SetFrameStrata("LOW")
 	f:SetFrameLevel(10)
 	f:SetAllPoints(ns.root)
 	f:Hide()
 	local v = { frame = f }
-	-- Black behind the model, the model, then the arch over both.
+	-- Black behind the model, the model, then the plate over both: the arch
+	-- window shapes the portrait, as on the hero screen.
 	v.portraitBg = f:CreateTexture(nil, "BACKGROUND")
 	v.portraitBg:SetTexture(ns:ArtPath("other\\black_background"))
 	local model = CreateFrame("PlayerModel", nil, f)
@@ -274,21 +325,24 @@ function Target:CreatePlate()
 	local art = CreateFrame("Frame", nil, f)
 	art:SetFrameLevel(12)
 	art:SetAllPoints(f)
-	v.art = {}
-	for i = 1, 2 do
-		v.art[i] = art:CreateTexture(nil, "ARTWORK")
+	v.art = art:CreateTexture(nil, "ARTWORK")
+	-- Over the plate: the hero screen's bars in the arch's foot, its level
+	-- plate in the info window, combo points and cast bar under it.
+	local top = CreateFrame("Frame", nil, f)
+	top:SetFrameLevel(13)
+	top:SetAllPoints(f)
+	v.health = hero.MakeBar(top, 14, 9)
+	v.power = hero.MakeBar(top, 14, 9)
+	v.healthText, v.powerText = v.health.text, v.power.text
+	for _, fs in ipairs({ v.healthText, v.powerText }) do
+		fs:SetJustifyH("CENTER")
+		fs:SetWordWrap(false)
 	end
-	v.health = makeBar(f, 13)
-	v.power = makeBar(f, 13)
-	-- Name plate.
-	local box = ns.Art.CreateInset(f, 12)
-	v.box = box
-	v.name = makeText(box, 13)
-	v.info = makeText(box, 10)
-	v.healthText = makeText(box, 10)
-	v.powerText = makeText(box, 10, "RIGHT")
-	v.combo = makeCombo(box)
-	v.cast = makeCast(box, 14, 8)
+	v.plate = hero.CreateLevelPlate(top, 13, 10)
+	v.plate.bar:Hide() -- no experience fill for a target
+	v.name, v.info = v.plate.name, v.plate.level
+	v.combo = makeCombo(top)
+	v.cast = makeCast(top, 15, 8)
 	self.plate = v
 end
 
@@ -434,12 +488,15 @@ function Target:UpdateHealth()
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
 	if tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
+	elseif v == self.plate then
+		v.health:SetStatusBarColor(0, 1, 0) -- the hero's green
 	else
 		v.health:SetStatusBarColor(0.1, 0.85, 0.1)
 	end
-	setPair(v.healthText, cur, max)
 	if v == self.plate then
-		v.healthText:SetTextColor(0.25, 1, 0.25)
+		fitPair(v.healthText, cur, max)
+	else
+		setPair(v.healthText, cur, max)
 	end
 end
 
@@ -458,10 +515,12 @@ function Target:UpdatePower()
 		r, g, b = c.r, c.g, c.b
 	end
 	v.power:SetStatusBarColor(r, g, b)
-	setPair(v.powerText, cur, max)
 	if v == self.plate then
-		-- Blue text is hard to read on the dark plate: lighten it.
-		v.powerText:SetTextColor(0.5 + r / 2, 0.5 + g / 2, 0.5 + b / 2)
+		-- The arch's second slot stays empty for units without power.
+		v.power:SetShown(not noPower(max))
+		fitPair(v.powerText, cur, max)
+	else
+		setPair(v.powerText, cur, max)
 	end
 end
 
@@ -550,16 +609,9 @@ function Target:PlaceButtons()
 	if self:Mode() == "swap" and ns.modules.hero.enabled then
 		place(b, L.portrait)
 	else
-		local P = L.targetPlate
-		place(b, { x = P.arch.x, y = P.arch.y, w = P.box.x + P.box.w - P.arch.x, h = P.top - P.arch.y })
+		place(b, L.targetPlate.frame)
 	end
 	place(self.tot, L.tot.frame)
-end
-
-function Target:OnTheme()
-	if self.plate then
-		ns.Art.PaintInset(self.plate.box, ns.theme)
-	end
 end
 
 function Target:OnLayout(L)
@@ -572,22 +624,20 @@ function Target:OnLayout(L)
 	place(sw.cast, S.cast)
 
 	local P, pl = L.targetPlate, self.plate
-	for i, piece in ipairs(P.pieces) do
-		local t = pl.art[i]
-		t:SetTexture(ns:ArtPath(piece.file))
-		t:SetTexCoord(piece.tc[1], piece.tc[2], piece.tc[3], piece.tc[4])
-		place(t, piece.rect)
-	end
+	pl.art:SetTexture(ns:ArtPath(P.file))
+	place(pl.art, P.frame)
 	place(pl.portraitBg, P.portraitBg)
 	place(pl.model, P.portrait)
 	place(pl.health, P.health)
 	place(pl.power, P.power)
-	place(pl.box, P.box)
-	ns.Art.PaintInset(pl.box, ns.theme)
-	place(pl.name, P.name)
-	place(pl.info, P.info)
-	place(pl.healthText, P.healthText)
-	place(pl.powerText, P.powerText)
+	-- The numbers fit their bar (fitPair measures against this width).
+	for _, bar in ipairs({ pl.health, pl.power }) do
+		local w = bar:GetWidth()
+		if w then
+			bar.text:SetWidth(math.max(1, w - 2))
+		end
+	end
+	ns.modules.hero.PlaceLevelPlate(pl.plate, P.level)
 	placeCombo(pl.combo, P.combo)
 	place(pl.cast, P.cast)
 

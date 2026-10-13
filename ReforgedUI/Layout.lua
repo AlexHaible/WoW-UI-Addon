@@ -306,21 +306,76 @@ local RIGHT_WALL = { human = 73 / 128, orc = 46 / 128, undead = 50 / 128, nighte
 ----------------------------------------------------------------------------
 -- Target display (Target.lua).
 
--- The art of the target's wall plate, all in one place so better art can
--- replace it: for now a smaller copy of the hero's portrait arch, cut from
--- the right end of the minimap block (u0 to 1) and the left end of the
--- portrait block (0 to u1), from v0 down to the floor. `scale` is its size
--- against the hero's arch.
+-- The target's wall plate: a miniature hero screen in one texture per theme,
+-- a portrait arch with two bar slots on the left and an info window on the
+-- right. Windows are pixel rects { x, y, w, h } of the texture, from its
+-- top-left corner, so new art only needs its file and its rects here.
+--
+--  * themes: plates from the art pipeline, art/<theme>/targetplate.tga, with
+--    their windows (portrait, health, power, info; optionally cast and combo
+--    inside the info window, else they are laid out in it).
+--  * Every other theme uses targetplate_gen.tga, composed from its own hero
+--    screen art by tools/make_target_plate.py; the windows are those of its
+--    faction's shapes (`gen`, printed by make_target_plate.py --windows).
+--  * fallback: hand-built themes without a plate yet use another theme's.
 Layout.TARGET_ART = {
-	left = "minimap_portrait\\minimap",
-	right = "minimap_portrait\\portrait",
-	u0 = 0.80, u1 = 0.205, v0 = 0.40,
-	scale = 0.6,
+	size = { 512, 256 },
+	width = 0.85, -- in console scale units (s): ~204 units at s = 240
+	file = "targetplate",
+	genFile = "targetplate_gen",
+	themes = {},
+	gen = {
+		human = { portrait = { 44, 50, 120, 138 }, health = { 44, 193, 120, 22 }, power = { 44, 217, 120, 23 },
+			info = { 186, 35, 311, 209 } },
+		orc = { portrait = { 53, 55, 121, 134 }, health = { 53, 193, 121, 20 }, power = { 53, 217, 121, 18 },
+			info = { 204, 33, 286, 212 } },
+		undead = { portrait = { 53, 68, 108, 122 }, health = { 53, 196, 108, 20 }, power = { 53, 218, 108, 21 },
+			info = { 189, 51, 302, 196 } },
+		nightelf = { portrait = { 54, 64, 115, 126 }, health = { 54, 195, 115, 20 }, power = { 54, 220, 115, 18 },
+			info = { 197, 52, 291, 191 } },
+	},
+	fallback = { dwarf = "human" },
 }
+
+-- Theme folder, file and windows of `art`'s plate.
+function Layout.TargetPlateArt(art)
+	local A = Layout.TARGET_ART
+	local real = A.themes[art]
+	if real then
+		return art .. "\\" .. A.file, real
+	end
+	local from = A.fallback[art] or art
+	return from .. "\\" .. A.genFile, A.gen[Layout.BASE[from] or from]
+end
+
+-- The original addon's experience bar: three caps around a bar, the name over it and the
+-- level line on it. `s` sets its size (the hero's uses the console's scale;
+-- the target plate's a smaller one).
+local function levelPlate(x, y, s)
+	local xs = 0.375
+	local capW, capH = 0.05924 * s * xs, 0.2370 * s * xs
+	local midW = 1.70 * s * xs
+	local total = 2 * capW + midW
+	return {
+		left = rect(x, y, capW, capH),
+		middle = rect(x + capW, y, midW, capH),
+		right = rect(x + capW + midW, y, capW, capH),
+		bar = rect(x, y, 0.6814 * s, 0.083 * s), -- at 100%
+		hover = rect(x + capW, y, total, 0.08 * s),
+		nameY = y + capH / 2 + 0.080 * s,
+		levelY = y + capH / 2,
+		cx = x + capW + midW / 2,
+		width = total,
+	}
+end
+Layout.LevelPlate = levelPlate
+-- Width of a level plate per unit of its `s`.
+local LEVEL_PLATE_W = 2 * 0.05924 * 0.375 + 1.70 * 0.375
+
 -- Top of the portrait block's wall above the stats panel, per faction art.
 local HERO_WALL = { human = 0.543, orc = 0.53, undead = 0.578, nightelf = 0.56 }
 
-local function buildTarget(L, s, t, MT, PT, xp, themed)
+local function buildTarget(L, s, t, MT, xp)
 	-- Swap mode (Warcraft III): the hero screen shows the target. Its name and
 	-- level take the experience bar's place; its health and power bars,
 	-- combo points and cast bar take the stat icons'.
@@ -339,49 +394,8 @@ local function buildTarget(L, s, t, MT, PT, xp, themed)
 		}
 	end
 
-	-- Wall plate: a small portrait arch standing on the wall above the stats
-	-- panel, with a name plate beside it.
 	local wall = (HERO_WALL[t] or 0.54) * s
 	L.heroWallTop = wall
-	do
-		local A = Layout.TARGET_ART
-		local k = A.scale
-		local ox = MT.x + A.u0 * s -- where the cut starts in the hero's arch
-		local leftW, rightW, h = (1 - A.u0) * s, A.u1 * s, (1 - A.v0) * s
-		local px, py = PT.x + 0.2 * s, wall - 3
-		local function scaled(r)
-			return rect(px + (r.x - ox) * k, py + r.y * k, r.w * k, r.h * k)
-		end
-		local arch = rect(px, py, (leftW + rightW) * k, h * k)
-		local P = {
-			pieces = {
-				{ file = themed(A.left), rect = rect(px, py, leftW * k, h * k), tc = { A.u0, 1, A.v0, 1 } },
-				{ file = themed(A.right), rect = rect(px + leftW * k, py, rightW * k, h * k), tc = { 0, A.u1, A.v0, 1 } },
-			},
-			arch = arch,
-			-- The hero's portrait, background and bars at their default places.
-			portraitBg = scaled(L.portraitBg),
-			portrait = scaled(rect(MT.x + 0.86 * s, 0.10 * s, 0.27 * s, 0.27 * s)),
-			health = scaled(rect(right(MT) - 0.147 * s, 0.07 * s, 0.27 * s, 0.03 * s)),
-			power = scaled(rect(right(MT) - 0.147 * s, 0.02 * s, 0.27 * s, 0.03 * s)),
-		}
-		-- Name plate: name, level line, health and power, combo points, cast.
-		local bx, bh = right(arch) + 2, arch.h - 0.04 * s
-		local box = rect(bx, py + 2, 0.46 * s, bh)
-		local ix, iw, by = bx + 7, box.w - 14, top(box) - 5
-		P.box = box
-		P.name = rect(ix, by - 15, iw, 15)
-		P.info = rect(ix, by - 28, iw, 12)
-		-- Health and power numbers side by side, as under a Warcraft III
-		-- portrait.
-		P.healthText = rect(ix, by - 42, iw / 2, 12)
-		P.powerText = rect(ix + iw / 2, by - 42, iw / 2, 12)
-		P.cast = rect(ix, box.y + 5, iw, 9)
-		local pip = 7
-		P.combo = { x = ix + 1, y = P.cast.y + 9 + 5, size = pip, step = pip + 6 }
-		P.top = max(top(arch), top(box))
-		L.targetPlate = P
-	end
 
 	-- Target of target: a small unit icon standing on the wall above the
 	-- hero's portrait, its health bar underneath.
@@ -394,6 +408,54 @@ local function buildTarget(L, s, t, MT, PT, xp, themed)
 			icon = rect(x, wall + 6, size, size),
 			health = rect(x, wall - 1, size, 5),
 		}
+	end
+
+	-- Wall plate: a miniature hero screen standing on the wall above the stats
+	-- panel, between the target of target and the stance row.
+	do
+		local A = Layout.TARGET_ART
+		local file, win = Layout.TargetPlateArt(L.theme)
+		local w = A.width * s
+		local k = w / A.size[1]
+		local h = A.size[2] * k
+		local left, stop = right(L.tot.frame), L.stance.x
+		local x0, y0 = left + max(2, (stop - left - w) / 2), wall - 3
+		local function px(r)
+			return rect(x0 + r[1] * k, y0 + (A.size[2] - r[2] - r[4]) * k, r[3] * k, r[4] * k)
+		end
+		local P = {
+			file = file,
+			frame = rect(x0, y0, w, h),
+			portrait = px(win.portrait),
+			health = px(win.health),
+			power = px(win.power),
+			info = px(win.info),
+			top = y0 + h,
+		}
+		P.portraitBg = P.portrait
+		-- Inside the info window: name and level line on a small level
+		-- plate, then the combo points and the cast bar where the hero's stat
+		-- icons are.
+		local I, pad = P.info, 0.025 * s
+		local ls = (I.w - 2 * pad) / LEVEL_PLATE_W
+		local nameH = 0.065 * s
+		local nameC = top(I) - pad - nameH / 2
+		-- The level line a little lower than the hero's, for the name's
+		-- larger share of the small plate.
+		local capH = levelPlate(0, 0, ls).left.h
+		local lv = levelPlate(I.x + pad, nameC - 0.075 * s - capH / 2, ls)
+		lv.nameY = nameC
+		P.level = lv
+		P.name = rect(I.x + pad, nameC - nameH / 2, I.w - 2 * pad, nameH)
+		local castH = 0.045 * s
+		P.cast = win.cast and px(win.cast) or rect(I.x + pad, I.y + 0.035 * s, I.w - 2 * pad, castH)
+		local pip = 0.03 * s
+		local step = pip + 0.03 * s
+		local rowW = 4 * step + pip
+		local comboY = (lv.left.y + P.cast.y + P.cast.h) / 2 - pip / 2
+		P.combo = win.combo and { x = px(win.combo).x, y = px(win.combo).y, size = pip, step = step }
+			or { x = I.x + (I.w - rowW) / 2, y = comboY, size = pip, step = step }
+		L.targetPlate = P
 	end
 end
 
@@ -793,22 +855,9 @@ local function build(W, H, o, X0, chatW)
 	L.restIcon = rect(PT.x - 0.188235 * s, 0.32941 * s, 31, 31)
 
 	-- Hero screen: experience bar and the four stat icons.
-	local xs = 0.375
 	local xpX, xpY = PT.x + 0.23 * s, 0.3 * s
-	local capW, capH = 0.05924 * s * xs, 0.2370 * s * xs
-	local midW = 1.70 * s * xs
-	local total = 2 * capW + midW
-	L.xp = {
-		left = rect(xpX, xpY, capW, capH),
-		middle = rect(xpX + capW, xpY, midW, capH),
-		right = rect(xpX + capW + midW, xpY, capW, capH),
-		bar = rect(xpX, xpY, 0.6814 * s, 0.083 * s), -- at 100%
-		hover = rect(xpX + capW, xpY, total, 0.08 * s),
-		nameY = xpY + capH / 2 + 0.080 * s,
-		levelY = xpY + capH / 2,
-		cx = xpX + capW + midW / 2,
-		width = total,
-	}
+	L.xp = levelPlate(xpX, xpY, s)
+	local total = L.xp.width
 	local iconSize = total * 0.17
 	local extraSpace = s <= 250 and 1 or 0
 	local function statIcon(dx, dy, labelX, valueY, valueH)
@@ -825,7 +874,6 @@ local function build(W, H, o, X0, chatW)
 		statIcon(0.3607 * s, -0.1412 * s, 0.1294 * s, valueY, 30),
 		statIcon(0, -0.14 * s, 0.14 * s, -0.1111111111111 * s, 15), -- armour
 	}
-	buildTarget(L, s, t, MT, PT, L.xp, themed)
 
 	-- Black background behind the action grid.
 	L.extBg = rect(right(PT) - 0.18 * s, 0, 2.1 * s, 0.5 * s)
@@ -876,6 +924,7 @@ local function build(W, H, o, X0, chatW)
 	L.stance = { x = g[1].x + 0.04 * s, y = wallTop, size = barSize, step = barStep }
 	L.pet = { x = L.stance.x + 10 * barStep + 0.1 * s, y = wallTop, size = barSize, step = barStep }
 	L.stanceTop = wallTop + barSize
+	buildTarget(L, s, t, MT, L.xp)
 
 	-- Extensions: the wall above the action grid.
 	local ext1 = rect(right(PT) - 0.15 * s, 0.45 * s, s, 0.12592 * s)

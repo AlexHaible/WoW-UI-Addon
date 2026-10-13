@@ -90,6 +90,12 @@ function methods:GetRegions()
 	return unpack(out)
 end
 function methods:GetAtlas() return self._atlas end
+function methods:SetAtlas(a) self._atlas = a end
+function methods:GetTexture() return self._tex end
+function methods:GetDrawLayer() return "ARTWORK", 0 end
+function methods:GetTexCoord() return 0, 0, 0, 1, 1, 0, 1, 1 end
+function methods:GetVertexColor() return 1, 1, 1, 1 end
+function methods:GetBlendMode() return "BLEND" end
 function methods:IsVisible()
 	local p = rawget(self, "_parent")
 	return self._shown and (p == nil or p:IsVisible())
@@ -111,7 +117,9 @@ methods.GetHighlightTexture = methods.GetNormalTexture
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function methods:SetText(t) self._text = t end
 function methods:GetNumPoints() return #self._points end
-function methods:GetObjectType() return self._kind == "button" and "Button" or "Frame" end
+function methods:GetObjectType()
+	return self._kind == "button" and "Button" or self._kind == "texture" and "Texture" or "Frame"
+end
 function methods:GetChildren()
 	local out = {}
 	for _, f in ipairs(allFrames) do
@@ -521,7 +529,7 @@ local function microAt(b, r, what)
 	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
 	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
 	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
-	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
+	assert(b:GetParent() == (b == ns.modules.topbar.menuMicro and UIParent or MicroMenu), what .. " keeps its parent")
 	assert(b:GetAlpha() == 1 and b._shown and b._mouse ~= false, what .. " should be visible and clickable")
 end
 local function checkMicro(expected)
@@ -548,10 +556,15 @@ local function checkMicro(expected)
 	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
 		"micro buttons should hug the clock")
 end
-local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, EJMicroButton, unnamedMicro }
+-- The Adventure Guide and shop are left out; Legacy and a game menu button
+-- of our own close the row.
+local menuMicro = ns.modules.topbar.menuMicro
+assert(menuMicro, "a game menu button at the end of the micro row")
+local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, unnamedMicro, LegacyMicroButton, menuMicro }
 checkMicro(MOVED)
-assert(#StoreMicroButton._points == 0, "a hidden micro button stays where it is")
+assert(#StoreMicroButton._points == 0 and StoreMicroButton._alpha == 0, "the shop button is hidden, not placed")
+assert(#EJMicroButton._points == 0 and EJMicroButton._alpha == 0, "the Adventure Guide button is hidden, not placed")
 assert(WorldMapMicroButton._alpha == 0 and #WorldMapMicroButton._points == 0, "the Map plate's micro button stays invisible")
 assert(MicroMenuContainer._alpha == nil and MicroMenu._alpha == nil and #MicroMenuContainer._points == 0,
 	"the micro menu stays where Edit Mode puts it, alpha untouched")
@@ -561,13 +574,38 @@ CharacterMicroButton:ClearAllPoints()
 CharacterMicroButton:SetPoint("TOPLEFT", MicroMenu, "TOPLEFT", 0, 0)
 MicroMenu:SetScale(0.6)
 checkMicro(MOVED)
--- The shop button shown: room is made for it, in its place in the order.
-StoreMicroButton._shown = true
-StoreMicroButton._hooks.OnShow(StoreMicroButton)
+-- A micro button Blizzard hides: its room goes.
+unnamedMicro._shown = false
+unnamedMicro._hooks.OnShow(unnamedMicro)
 flushTimers()
-MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, LegacyMicroButton, GuildMicroButton,
-	LFDMicroButton, CollectionsMicroButton, EJMicroButton, StoreMicroButton, unnamedMicro }
+checkMicro({ CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, LegacyMicroButton, menuMicro })
+unnamedMicro._shown = true
+unnamedMicro._hooks.OnShow(unnamedMicro)
+flushTimers()
 checkMicro(MOVED)
+-- The shop button shown by Blizzard stays out of the bar.
+StoreMicroButton._shown = true
+flushTimers()
+checkMicro(MOVED)
+-- The game menu button covers whichever of its two buttons the mouse enters.
+do
+	local b, plate = MainMenuMicroButton
+	for _, p in ipairs(ns.modules.topbar.buttons) do
+		if p.cover == b then plate = p end
+	end
+	local moves = 0
+	local orig = b.SetPoint
+	b.SetPoint = function(...) moves = moves + 1; return orig(...) end
+	menuMicro._scripts.OnEnter(menuMicro)
+	assert(plate.coverAt == menuMicro and moves > 0, "the game menu button moves over the micro row's menu button")
+	local _, rel = b:GetPoint(1)
+	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, "still invisible, clickable, on UIParent")
+	moves = 0
+	plate._hooks.OnEnter(plate)
+	assert(plate.coverAt == nil and moves > 0, "and back over the Menu plate")
+	b.SetPoint = nil
+end
 -- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
 -- over the top bar's plates and clicked directly.
 for _, b in ipairs({ QuestLogMicroButton, MainMenuMicroButton, SocialsMicroButton }) do
@@ -1208,18 +1246,63 @@ do
 	fire("PLAYER_TARGET_CHANGED")
 	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall Son of Durotan", "plate mode: the hero screen stays the player's")
 	assert(target.plate.frame:IsShown() and not target.swap.frame:IsShown(), "plate mode shows the plate")
-	assert(target.plate.name._text == "Hogger" and target.plate.healthText._text == "412 / 666", "plate: name and health")
+	local pl = target.plate
+	assert(pl.name._text == "Hogger" and pl.info._text == "Level 11 Elite Beast", "plate: name and level line")
+	assert(pl.name == pl.plate.name and pl.info == pl.plate.level and not pl.plate.bar:IsShown(),
+		"plate: the hero's level plate, without an experience fill")
+	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
+		"plate: health and power numbers")
+	-- Long numbers are abbreviated and shrink to fit: never cut off.
+	local oldH, oldHM = UnitHealth, UnitHealthMax
+	UnitHealth = function(u) return u == "target" and 123456 or 300 end
+	UnitHealthMax = function(u) return u == "target" and 123456 or 450 end
+	fire("UNIT_HEALTH", "target")
+	local ht = pl.healthText
+	assert(ht._text == "123k / 123k" and ht:GetStringWidth() <= ht:GetWidth() and not ht._text:find("%.%.%."),
+		"plate: a long health value fits its bar")
+	UnitHealth = function(u) return u == "target" and 1234567 or 300 end
+	UnitHealthMax = function(u) return u == "target" and 12345678 or 450 end
+	fire("UNIT_HEALTH", "target")
+	assert(ht._text == "1.2m / 12.3m" and ht:GetStringWidth() <= ht:GetWidth(), "plate: millions fit too")
+	UnitHealth, UnitHealthMax = oldH, oldHM
+	fire("UNIT_HEALTH", "target")
+	-- No power: its slot stays empty; secret power counts as some.
+	local oldPM = UnitPowerMax
+	UnitPowerMax = function(u) return u == "target" and 0 or 200 end
+	fire("UNIT_MAXPOWER", "target")
+	assert(not pl.power:IsShown(), "plate: no power bar for a unit without power")
+	secret = true
+	fire("UNIT_MAXPOWER", "target")
+	assert(pl.power:IsShown(), "plate: secret power keeps the bar")
+	secret = false
+	UnitPowerMax = oldPM
+	fire("UNIT_MAXPOWER", "target")
+	assert(pl.power:IsShown(), "plate: the power bar comes back")
 	methods.SetTextColor = oldColor
 	inCombat = false
 	for m, fn in pairs(guarded) do methods[m] = fn end
 	fire("PLAYER_REGEN_ENABLED")
 	-- The plate stands on the wall above the stats panel, left of the stance row.
 	local LL, P = ns.layout, ns.layout.targetPlate
-	assert(math.abs(P.arch.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
-	assert(P.arch.x >= LL.xp.left.x - 0.05 * LL.s and P.box.x + P.box.w <= LL.stance.x, "the plate sits above the stats panel")
-	assert(P.pieces[1].file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.left, "the plate uses the theme's arch art")
+	local function R(r) return r.x + r.w end
+	local function T(r) return r.y + r.h end
+	local function inside(a, b)
+		return a.x >= b.x - 0.01 and a.y >= b.y - 0.01 and R(a) <= R(b) + 0.01 and T(a) <= T(b) + 0.01
+	end
+	assert(math.abs(P.frame.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
+	assert(P.frame.x >= R(LL.tot.frame) and R(P.frame) <= LL.stance.x, "the plate sits between the ToT icon and the stance row")
+	assert(P.file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.genFile, "the plate uses the theme's own plate art")
+	-- A miniature hero screen: bars under the portrait, info window beside it.
+	assert(inside(P.portrait, P.frame) and inside(P.info, P.frame), "plate windows inside the plate")
+	assert(T(P.health) <= P.portrait.y + 0.01 and T(P.power) <= P.health.y + 0.01, "health and power under the portrait")
+	assert(P.health.x < R(P.portrait) and R(P.health) > P.portrait.x, "the bars stand in the arch's foot")
+	assert(P.info.x >= R(P.portrait), "the info window is right of the portrait")
+	assert(inside(P.name, P.info) and inside(P.level.left, P.info) and inside(P.level.right, P.info)
+		and inside(P.cast, P.info), "name, level plate and cast bar inside the info window")
+	assert(P.combo.y > T(P.cast) and P.combo.y + P.combo.size < P.level.left.y, "combo points between level plate and cast bar")
+	assert(P.level.width < LL.xp.width * 0.8, "the level plate is a smaller copy of the hero's")
 	local p = ReforgedUITargetButton._points[1]
-	assert(p and p[2] == ns.root and math.abs(p[4] - P.arch.x) < 0.01, "the target button moved onto the plate after combat")
+	assert(p and p[2] == ns.root and math.abs(p[4] - P.frame.x) < 0.01, "the target button moved onto the plate after combat")
 	-- Swap mode puts the target button over the hero's portrait.
 	SlashCmdList.REFORGEDUI("target swap")
 	p = ReforgedUITargetButton._points[1]
@@ -1234,11 +1317,15 @@ do
 	config.targetButtons[2]._scripts.OnClick()
 	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "the options button switches to the plate")
 	config.targetButtons[1]._scripts.OnClick()
-	-- Every theme's plate art exists.
+	-- Every theme's plate art exists, with its windows, beside the stance row.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		local PL = Layout.Compute(1792, 768, { s = 250, m = 10, theme = key, zoneTextPos = 1 }).targetPlate
-		for _, piece in ipairs(PL.pieces) do
-			assert(exists(ADDON .. "art/" .. piece.file:gsub("\\", "/") .. ".tga"), "missing plate art " .. piece.file)
+		for _, sc in ipairs({ 240, 270 }) do
+			local LT = Layout.Compute(1365.33, 768, { s = sc, m = 10, theme = key, zoneTextPos = 1 })
+			local PL = LT.targetPlate
+			assert(exists(ADDON .. "art/" .. PL.file:gsub("\\", "/") .. ".tga"), "missing plate art " .. PL.file)
+			assert(PL.portrait and PL.health and PL.power and PL.info, "plate windows for " .. key)
+			assert(PL.frame.x >= LT.tot.frame.x + LT.tot.frame.w and PL.frame.x + PL.frame.w <= LT.stance.x,
+				"plate fits beside the stance row for " .. key)
 		end
 	end
 	hasTarget = false

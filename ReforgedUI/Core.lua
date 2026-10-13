@@ -728,6 +728,7 @@ local function usage()
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
 		.. " topbar, config; needs /reload)")
 	print("  /rui status")
+	print("  /rui auras  (what the game reports on your target's buffs and debuffs)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui reset")
 end
@@ -772,6 +773,10 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "auras" and ns.modules.target.enabled then
+		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
+			ns:Print(line)
+		end
 	elseif cmd == "status" then
 		local L, T = ns.layout, ns.topLayout
 		ns:Print(("theme %s, UI scale %d, console shifted %d, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(

@@ -1305,6 +1305,9 @@ do
 		assert(perRow >= 8, "room for a row of target auras beside the target of target")
 		assert(A.HARMFUL[1].border._vertex[3] == 1 and A.HARMFUL[3].border._vertex[1] == 0.8,
 			"debuffs framed in their dispel colour")
+		local lines = target:DescribeAuras()
+		assert(#lines == 3 and lines[2]:find("^HARMFUL: 3"), "/rui auras lists the target's auras")
+		SlashCmdList.REFORGEDUI("auras")
 		A.HARMFUL[2]:GetScript("OnEnter")(A.HARMFUL[2])
 		A.HARMFUL[2]:GetScript("OnLeave")(A.HARMFUL[2])
 	end

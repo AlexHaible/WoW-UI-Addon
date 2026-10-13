@@ -469,6 +469,33 @@ local function setAura(b, data, index)
 	end
 end
 
+-- For /rui auras: what the client reports on the target, to tell an empty
+-- list from an API that fails.
+function Target:DescribeAuras()
+	local api = _G.C_UnitAuras
+	local lines = { ("aura API: %s; target: %s; shown: %s"):format(
+		api and api.GetAuraDataByIndex and "C_UnitAuras" or (_G.UnitAura and "UnitAura" or "none"),
+		tostring(UnitExists("target")), tostring(self.auras and self.auras.frame:IsShown())) }
+	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
+		local names = {}
+		for i = 1, 40 do
+			local data = getAura(i, filter)
+			if not data then
+				break
+			end
+			local ok, name = pcall(tostring, data.name)
+			names[#names + 1] = ok and name or "?"
+		end
+		local raw = ""
+		if api and api.GetAuraDataByIndex then
+			local ok, res = pcall(api.GetAuraDataByIndex, "target", 1, filter)
+			raw = ok and (" (first: " .. type(res) .. ")") or (" (error: " .. tostring(res) .. ")")
+		end
+		lines[#lines + 1] = ("%s: %d%s %s"):format(filter, #names, raw, table.concat(names, ", "))
+	end
+	return lines
+end
+
 function Target:CreateAuras()
 	local f = CreateFrame("Frame", nil, ns.root)
 	f:SetFrameStrata("LOW")

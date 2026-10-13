@@ -41,7 +41,7 @@ from make_race_themes import RACES  # noqa: E402
 ART = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI", "art"))
 OUT_W, OUT_H = 512, 256
 OUT_NAME = "targetplate_gen.tga"
-THEMES = ("human", "orc", "undead", "nightelf") + tuple(RACES)
+THEMES = ("human", "orc", "undead", "nightelf", "forsaken") + tuple(RACES)
 
 # Per faction shape, in "sheet" pixels: minimap.tga is x 0-511, portrait.tga
 # x 512-1023, y from the top. c: the arch's centre line; a1: where the info
@@ -78,7 +78,7 @@ def join(parts):
 
 
 def compose(theme):
-    base = RACES.get(theme, {}).get("base", theme)
+    base = RACES.get(theme, {}).get("base", {"forsaken": "undead"}.get(theme, theme))
     sh = SHAPES[base]
     S = sheet(theme)
     top = sh["top"]

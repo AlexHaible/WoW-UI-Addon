@@ -883,7 +883,7 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 		("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.topLayout.profile))
 	assert(ns.layout.H == 768, "the console is 768 units tall")
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
-		"highorder", "windshapers", "skyborne", "auto" }) do
+		"highorder", "windshapers", "forsaken", "skyborne", "auto" }) do
 		slash("theme " .. theme)
 		for _, s in ipairs({ 240, 245, 250, 255, 260, 266, 270 }) do
 			ReforgedUIDB.consoleOpts.uiScale = s
@@ -944,7 +944,7 @@ for _, c in ipairs({
 	{ "Human", "Human", "Alliance", "human" }, { "Dwarf", "Dwarf", "Alliance", "dwarf" },
 	{ "Gnome", "Gnome", "Alliance", "gnome" }, { "Night Elf", "NightElf", "Alliance", "nightelf" },
 	{ "Orc", "Orc", "Horde", "orc" }, { "Tauren", "Tauren", "Horde", "tauren" },
-	{ "Troll", "Troll", "Horde", "troll" }, { "Undead", "Scourge", "Horde", "undead" },
+	{ "Troll", "Troll", "Horde", "troll" }, { "Undead", "Scourge", "Horde", "forsaken" },
 	{ "Skyborne", "Skyborne", "Alliance", "highorder" }, { "Skyborne", "Skyborne", "Horde", "windshapers" },
 	-- Skyborne by name only (the token is undocumented), in either faction.
 	{ "Skyborne", "SkyElf", "Alliance", "highorder" }, { "Shen'dorei", "Shendorei", "Horde", "windshapers" },

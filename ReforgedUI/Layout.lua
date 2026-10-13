@@ -199,11 +199,12 @@ end
 ----------------------------------------------------------------------------
 -- Console
 
-Layout.THEMES = { "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers" }
+Layout.THEMES = { "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers", "forsaken" }
 -- The race themes are the original faction art recoloured (tools/make_race_themes.py),
 -- so their pieces have that faction's shapes and take its layout corrections.
 Layout.BASE = {
 	dwarf = "human", gnome = "human", tauren = "orc", troll = "orc", highorder = "nightelf", windshapers = "nightelf",
+	forsaken = "undead",
 }
 Layout.SCALE_MIN, Layout.SCALE_MAX = 240, 270
 -- Draw layers that the original addon's ChangeTheme gives the overlapping pieces.
@@ -283,7 +284,7 @@ Layout.ENDCAP_GEN = {
 -- Themes tools/make_endcaps.py builds stand-in caps for.
 Layout.ENDCAP_GEN_THEMES = {
 	human = true, orc = true, undead = true, nightelf = true, dwarf = true, gnome = true, tauren = true, troll = true,
-	highorder = true, windshapers = true,
+	highorder = true, windshapers = true, forsaken = true,
 }
 -- The chat area gives up width so the caps fit beside it, down to this
 -- (times s); below that the caps go past the screen edges instead.

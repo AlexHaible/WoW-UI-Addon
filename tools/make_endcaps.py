@@ -34,7 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 ART = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI", "art"))
-THEMES = ("human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers")
+THEMES = ("human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers", "forsaken")
 
 OUT_W, OUT_H = 128, 512
 # The cap's shape on screen (width / height); Layout.ENDCAP_ART's w and h

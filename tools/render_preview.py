@@ -36,8 +36,9 @@ TOPBAR = {  # mirrors Themes.lua
     "troll": ("Troll", (230, 219, 184), (13, 15, 13, 224), (217, 204, 176)),
     "highorder": ("HighOrder", (230, 237, 247), (15, 23, 41, 224), (204, 217, 230)),
     "windshapers": ("Windshapers", (224, 204, 138), (15, 23, 41, 224), (217, 199, 138)),
+    "forsaken": ("Forsaken", (209, 235, 179), (13, 8, 18, 230), (140, 115, 173)),
 }
-RACE_THEMES = ("dwarf", "gnome", "tauren", "troll", "highorder", "windshapers")
+RACE_THEMES = ("dwarf", "gnome", "tauren", "troll", "highorder", "windshapers", "forsaken")
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 _cache = {}
 

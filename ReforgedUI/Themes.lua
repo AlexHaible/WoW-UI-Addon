@@ -6,7 +6,8 @@
 -- Human, Orc, Undead and Night Elf are the original addon's Warcraft III art. The race
 -- themes (Dwarf, Gnome, Tauren, Troll and the two Skyborne factions) are that
 -- art recoloured by tools/make_race_themes.py: see Layout.BASE for which
--- faction each one is built from.
+-- faction each one is built from. Forsaken is Warcraft III's Forsaken console
+-- cut like the original addon's Undead set (Undead keeps the Scourge console).
 
 local _, ns = ...
 
@@ -43,6 +44,16 @@ ns.Themes = {
 		insetLine = { 0.80, 0.77, 0.70, 0.9 },
 		xp = { 0.30, 0.85, 0.55 },
 		health = { 0.40, 1.0, 0.45 },
+	},
+	forsaken = {
+		name = "Forsaken",
+		folder = "Forsaken",
+		title = { 0.82, 0.92, 0.70 },
+		accent = { 0.62, 0.40, 0.85 },
+		inset = { 0.05, 0.03, 0.07, 0.90 },
+		insetLine = { 0.55, 0.45, 0.68, 0.9 },
+		xp = { 0.55, 0.35, 0.80 },
+		health = { 0.45, 1.0, 0.40 },
 	},
 	nightelf = {
 		name = "Night Elf",
@@ -123,7 +134,7 @@ ns.Themes = {
 		health = { 0.40, 1.0, 0.55 },
 	},
 }
-ns.THEME_ORDER = { "human", "dwarf", "gnome", "nightelf", "highorder", "orc", "tauren", "troll", "undead", "windshapers" }
+ns.THEME_ORDER = { "human", "dwarf", "gnome", "nightelf", "highorder", "orc", "tauren", "troll", "forsaken", "undead", "windshapers" }
 
 -- Theme choices that are not a theme of their own: "auto" follows the
 -- character's race, "skyborne" the character's faction.
@@ -133,7 +144,7 @@ ns.THEME_ALIASES = { auto = true, skyborne = true }
 -- Races from later expansions take the theme closest to their looks.
 local RACE_THEME = {
 	Human = "human", Dwarf = "dwarf", Gnome = "gnome", NightElf = "nightelf",
-	Orc = "orc", Tauren = "tauren", Troll = "troll", Scourge = "undead",
+	Orc = "orc", Tauren = "tauren", Troll = "troll", Scourge = "forsaken",
 	Skyborne = "skyborne",
 	KulTiran = "human", LightforgedDraenei = "human", Draenei = "nightelf", Worgen = "nightelf",
 	VoidElf = "nightelf", DarkIronDwarf = "dwarf", Mechagnome = "gnome", EarthenDwarf = "dwarf",

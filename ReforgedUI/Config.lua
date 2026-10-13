@@ -14,11 +14,11 @@ local W, H = 650, 530
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
 local THEME_BUTTONS = {
 	{ "human", "Human" }, { "dwarf", "Dwarf" }, { "gnome", "Gnome" }, { "nightelf", "Night Elf" },
-	{ "highorder", "High Order" }, { "skyborne", "Skyborne" },
-	{ "orc", "Orc" }, { "tauren", "Tauren" }, { "troll", "Troll" }, { "undead", "Undead" },
-	{ "windshapers", "Windshapers" }, { "auto", "Auto" },
+	{ "highorder", "High Order" }, { "skyborne", "Skyborne" }, { "auto", "Auto" },
+	{ "orc", "Orc" }, { "tauren", "Tauren" }, { "troll", "Troll" }, { "forsaken", "Forsaken" },
+	{ "undead", "Scourge" }, { "windshapers", "Windshapers" },
 }
-local THEME_COLUMNS = 6
+local THEME_COLUMNS = 7
 local RESTED_COLORS = {
 	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
 	{ "Blue", { 0, 0, 1, 0.5 } },
@@ -133,7 +133,7 @@ function Config:Build()
 	self.themeButtons = {}
 	for i, spec in ipairs(THEME_BUTTONS) do
 		local col, row = (i - 1) % THEME_COLUMNS, math.floor((i - 1) / THEME_COLUMNS)
-		self.themeButtons[i] = button(f, spec[2], 100, 20 + col * 102, -44 - row * 26, function()
+		self.themeButtons[i] = button(f, spec[2], 86, 20 + col * 88, -44 - row * 26, function()
 			ns.db.theme = spec[1]
 			ns:ApplyTheme()
 			self:Refresh()

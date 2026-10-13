@@ -2,8 +2,8 @@
 
 A World of Warcraft: Forever addon that replaces the bottom of the screen with
 the Warcraft III console, with a theme for every playable race: Human, Dwarf,
-Gnome, Night Elf, Orc, Tauren, Troll, Undead and Skyborne (High Order and
-Windshapers).
+Gnome, Night Elf, Orc, Tauren, Troll, Undead (Forsaken or Scourge) and
+Skyborne (High Order and Windshapers).
 
 The console is a port of a WoW 1.12 console addon: its layout, art, fonts and options menu,
 rebuilt for the current engine (Edit Mode, secret values, protected frames).
@@ -112,7 +112,8 @@ icons, portrait, minimap and chat.
 | --- | --- | --- |
 | Human | `human` | Warcraft III (Human console) |
 | Orc | `orc` | Warcraft III (Orc console) |
-| Undead | `undead` | Warcraft III (Undead console) |
+| Undead (Scourge) | `undead` | Warcraft III (Undead console) |
+| Forsaken | `forsaken` | Warcraft III's Forsaken console, cut like the original addon's Undead set |
 | Night Elf | `nightelf` | Warcraft III (Night Elf console) |
 | Dwarf | `dwarf` | Human art recoloured: granite, bronze trim, forge-ember accents |
 | Gnome | `gnome` | Human art recoloured: brushed steel, copper trim, teal and pink accents |
@@ -134,7 +135,8 @@ change. `tools/make_race_themes.py` makes them (see Development).
 
 **Default theme.** `auto` (the default) picks the theme of your character's
 race (`UnitRace("player")`): Human, Dwarf, Gnome, Night Elf, Orc, Tauren,
-Troll and Undead (`Scourge`) each get their own. Skyborne is token `Skyborne`
+Troll and Undead (`Scourge`) each get their own; Undead characters get
+Forsaken, and can pick the Scourge console instead. Skyborne is token `Skyborne`
 with race id 95 ("High Order Skyborne") or 96 ("Windshaper Skyborne"); the id
 picks the High Order or Windshapers theme. Without an id, the race name
 ("High Order", "Windshaper") or else the faction picks the variant.
@@ -160,7 +162,7 @@ of your faction. Saved themes from earlier versions keep working.
 
 ```
 /rui config                      open the options menu
-/rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|undead|windshapers|skyborne
+/rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
 /rui feeds                       list data feeds and top bar slots
 /rui slot <number> <feed>|none   put a feed in a top bar slot
 /rui scale 0.5-1.5               top bar scale

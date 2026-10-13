@@ -300,7 +300,9 @@ end
 
 -- Where each end's wall tops out: the minimap block's battlement (share of
 -- s) and the BottomRight_Top piece's (share of its height from its top).
-local LEFT_WALL = { human = 0.734, orc = 0.664, undead = 0.697, nightelf = 0.693 }
+-- (Human's minimap art has a faint stray column above its wall; 0.639 is the
+-- wall itself.)
+local LEFT_WALL = { human = 0.639, orc = 0.664, undead = 0.697, nightelf = 0.693 }
 local RIGHT_WALL = { human = 73 / 128, orc = 46 / 128, undead = 50 / 128, nightelf = 54 / 128 }
 
 ----------------------------------------------------------------------------

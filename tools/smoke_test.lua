@@ -1128,18 +1128,63 @@ do
 	fire("PLAYER_TARGET_CHANGED")
 	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall Son of Durotan", "plate mode: the hero screen stays the player's")
 	assert(target.plate.frame:IsShown() and not target.swap.frame:IsShown(), "plate mode shows the plate")
-	assert(target.plate.name._text == "Hogger" and target.plate.healthText._text == "412 / 666", "plate: name and health")
+	local pl = target.plate
+	assert(pl.name._text == "Hogger" and pl.info._text == "Level 11 Elite Beast", "plate: name and level line")
+	assert(pl.name == pl.plate.name and pl.info == pl.plate.level and not pl.plate.bar:IsShown(),
+		"plate: the hero's level plate, without an experience fill")
+	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
+		"plate: health and power numbers")
+	-- Long numbers are abbreviated and shrink to fit: never cut off.
+	local oldH, oldHM = UnitHealth, UnitHealthMax
+	UnitHealth = function(u) return u == "target" and 123456 or 300 end
+	UnitHealthMax = function(u) return u == "target" and 123456 or 450 end
+	fire("UNIT_HEALTH", "target")
+	local ht = pl.healthText
+	assert(ht._text == "123k / 123k" and ht:GetStringWidth() <= ht:GetWidth() and not ht._text:find("%.%.%."),
+		"plate: a long health value fits its bar")
+	UnitHealth = function(u) return u == "target" and 1234567 or 300 end
+	UnitHealthMax = function(u) return u == "target" and 12345678 or 450 end
+	fire("UNIT_HEALTH", "target")
+	assert(ht._text == "1.2m / 12.3m" and ht:GetStringWidth() <= ht:GetWidth(), "plate: millions fit too")
+	UnitHealth, UnitHealthMax = oldH, oldHM
+	fire("UNIT_HEALTH", "target")
+	-- No power: its slot stays empty; secret power counts as some.
+	local oldPM = UnitPowerMax
+	UnitPowerMax = function(u) return u == "target" and 0 or 200 end
+	fire("UNIT_MAXPOWER", "target")
+	assert(not pl.power:IsShown(), "plate: no power bar for a unit without power")
+	secret = true
+	fire("UNIT_MAXPOWER", "target")
+	assert(pl.power:IsShown(), "plate: secret power keeps the bar")
+	secret = false
+	UnitPowerMax = oldPM
+	fire("UNIT_MAXPOWER", "target")
+	assert(pl.power:IsShown(), "plate: the power bar comes back")
 	methods.SetTextColor = oldColor
 	inCombat = false
 	for m, fn in pairs(guarded) do methods[m] = fn end
 	fire("PLAYER_REGEN_ENABLED")
 	-- The plate stands on the wall above the stats panel, left of the stance row.
 	local LL, P = ns.layout, ns.layout.targetPlate
-	assert(math.abs(P.arch.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
-	assert(P.arch.x >= LL.xp.left.x - 0.05 * LL.s and P.box.x + P.box.w <= LL.stance.x, "the plate sits above the stats panel")
-	assert(P.pieces[1].file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.left, "the plate uses the theme's arch art")
+	local function R(r) return r.x + r.w end
+	local function T(r) return r.y + r.h end
+	local function inside(a, b)
+		return a.x >= b.x - 0.01 and a.y >= b.y - 0.01 and R(a) <= R(b) + 0.01 and T(a) <= T(b) + 0.01
+	end
+	assert(math.abs(P.frame.y - (LL.heroWallTop - 3)) < 0.01, "the plate stands on the wall")
+	assert(P.frame.x >= R(LL.tot.frame) and R(P.frame) <= LL.stance.x, "the plate sits between the ToT icon and the stance row")
+	assert(P.file == LL.theme .. "\\" .. ns.Layout.TARGET_ART.genFile, "the plate uses the theme's own plate art")
+	-- A miniature hero screen: bars under the portrait, info window beside it.
+	assert(inside(P.portrait, P.frame) and inside(P.info, P.frame), "plate windows inside the plate")
+	assert(T(P.health) <= P.portrait.y + 0.01 and T(P.power) <= P.health.y + 0.01, "health and power under the portrait")
+	assert(P.health.x < R(P.portrait) and R(P.health) > P.portrait.x, "the bars stand in the arch's foot")
+	assert(P.info.x >= R(P.portrait), "the info window is right of the portrait")
+	assert(inside(P.name, P.info) and inside(P.level.left, P.info) and inside(P.level.right, P.info)
+		and inside(P.cast, P.info), "name, level plate and cast bar inside the info window")
+	assert(P.combo.y > T(P.cast) and P.combo.y + P.combo.size < P.level.left.y, "combo points between level plate and cast bar")
+	assert(P.level.width < LL.xp.width * 0.8, "the level plate is a smaller copy of the hero's")
 	local p = ReforgedUITargetButton._points[1]
-	assert(p and p[2] == ns.root and math.abs(p[4] - P.arch.x) < 0.01, "the target button moved onto the plate after combat")
+	assert(p and p[2] == ns.root and math.abs(p[4] - P.frame.x) < 0.01, "the target button moved onto the plate after combat")
 	-- Swap mode puts the target button over the hero's portrait.
 	SlashCmdList.REFORGEDUI("target swap")
 	p = ReforgedUITargetButton._points[1]
@@ -1154,11 +1199,15 @@ do
 	config.targetButtons[2]._scripts.OnClick()
 	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "the options button switches to the plate")
 	config.targetButtons[1]._scripts.OnClick()
-	-- Every theme's plate art exists.
+	-- Every theme's plate art exists, with its windows, beside the stance row.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		local PL = Layout.Compute(1792, 768, { s = 250, m = 10, theme = key, zoneTextPos = 1 }).targetPlate
-		for _, piece in ipairs(PL.pieces) do
-			assert(exists(ADDON .. "art/" .. piece.file:gsub("\\", "/") .. ".tga"), "missing plate art " .. piece.file)
+		for _, sc in ipairs({ 240, 270 }) do
+			local LT = Layout.Compute(1365.33, 768, { s = sc, m = 10, theme = key, zoneTextPos = 1 })
+			local PL = LT.targetPlate
+			assert(exists(ADDON .. "art/" .. PL.file:gsub("\\", "/") .. ".tga"), "missing plate art " .. PL.file)
+			assert(PL.portrait and PL.health and PL.power and PL.info, "plate windows for " .. key)
+			assert(PL.frame.x >= LT.tot.frame.x + LT.tot.frame.w and PL.frame.x + PL.frame.w <= LT.stance.x,
+				"plate fits beside the stance row for " .. key)
 		end
 	end
 	hasTarget = false

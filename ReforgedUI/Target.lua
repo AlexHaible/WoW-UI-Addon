@@ -379,20 +379,69 @@ end
 -- into widgets, and anything that would compare or do sums on them runs
 -- under pcall (a failure leaves that part blank).
 
-local function getAura(index, filter)
-	local auraAPI = _G.C_UnitAuras or {}
-	if auraAPI.GetAuraDataByIndex then
-		local ok, data = pcall(auraAPI.GetAuraDataByIndex, "target", index, filter)
-		return ok and data or nil
+-- The target's auras of one kind (filter), at most `max`. Clients differ in
+-- what they answer, and in combat some ways of asking come back empty, so
+-- each is tried in turn: by index, by slot, the whole list, then UnitAura.
+-- Returns the list and how it was read.
+local function collectAuras(filter, max)
+	local api = _G.C_UnitAuras or {}
+	local list = {}
+	if api.GetAuraDataByIndex then
+		for i = 1, max do
+			local ok, data = pcall(api.GetAuraDataByIndex, "target", i, filter)
+			if not ok or type(data) ~= "table" then
+				break
+			end
+			list[#list + 1] = data
+		end
+		if #list > 0 then
+			return list, "index"
+		end
+	end
+	if api.GetAuraSlots and api.GetAuraDataBySlot then
+		local ok, slots = pcall(function()
+			return { select(2, api.GetAuraSlots("target", filter, max)) }
+		end)
+		if ok then
+			for _, slot in ipairs(slots) do
+				local okData, data = pcall(api.GetAuraDataBySlot, "target", slot)
+				if okData and type(data) == "table" and #list < max then
+					list[#list + 1] = data
+				end
+			end
+		end
+		if #list > 0 then
+			return list, "slot"
+		end
+	end
+	if api.GetUnitAuras then
+		local ok, all = pcall(api.GetUnitAuras, "target", filter, max)
+		if ok and type(all) == "table" then
+			for _, data in ipairs(all) do
+				if type(data) == "table" and #list < max then
+					list[#list + 1] = data
+				end
+			end
+		end
+		if #list > 0 then
+			return list, "list"
+		end
 	end
 	local unitAura = _G.UnitAura
 	if unitAura then
-		local ok, name, icon, count, dispel, duration, expires = pcall(unitAura, "target", index, filter)
-		if ok and name then
-			return { name = name, icon = icon, applications = count, dispelName = dispel, duration = duration,
-				expirationTime = expires }
+		for i = 1, max do
+			local ok, name, icon, count, dispel, duration, expires = pcall(unitAura, "target", i, filter)
+			if not ok or name == nil then
+				break
+			end
+			list[#list + 1] = { name = name, icon = icon, applications = count, dispelName = dispel,
+				duration = duration, expirationTime = expires }
+		end
+		if #list > 0 then
+			return list, "UnitAura"
 		end
 	end
+	return list, "none"
 end
 
 local function auraButton(parent, filter)
@@ -434,20 +483,19 @@ local function setAura(b, data, index)
 	b.index, b.auraID = index, data.auraInstanceID
 	b.icon:SetTexture(data.icon)
 	-- Stacks.
-	local stacks
-	if auraAPI.GetAuraApplicationDisplayCount and data.auraInstanceID then
-		local ok, text = pcall(auraAPI.GetAuraApplicationDisplayCount, "target", data.auraInstanceID, 2, 999)
-		stacks = ok and text or ""
-	else
-		local ok, text = pcall(function()
-			return (data.applications or 0) > 1 and tostring(data.applications) or ""
-		end)
-		stacks = ok and text or ""
-	end
-	b.count:SetText(stacks)
-	-- Time left, as a sweep.
+	local okCount, stacks = pcall(function()
+		if auraAPI.GetAuraApplicationDisplayCount then
+			return auraAPI.GetAuraApplicationDisplayCount("target", data.auraInstanceID, 2, 999)
+		end
+		return (data.applications or 0) > 1 and tostring(data.applications) or ""
+	end)
+	b.count:SetText(okCount and stacks or "")
+	-- Time left, as a sweep: from the aura's duration object where the
+	-- client has one (it takes secret times), else by sums under pcall.
 	local timed = pcall(function()
-		if data.duration and data.duration > 0 then
+		if auraAPI.GetAuraDuration and b.cd.SetCooldownFromDurationObject then
+			b.cd:SetCooldownFromDurationObject(auraAPI.GetAuraDuration("target", data.auraInstanceID))
+		elseif data.duration and data.duration > 0 then
 			b.cd:SetCooldown(data.expirationTime - data.duration, data.duration)
 		else
 			b.cd:Clear()
@@ -472,26 +520,29 @@ end
 -- For /rui auras: what the client reports on the target, to tell an empty
 -- list from an API that fails.
 function Target:DescribeAuras()
-	local api = _G.C_UnitAuras
-	local lines = { ("aura API: %s; target: %s; shown: %s"):format(
-		api and api.GetAuraDataByIndex and "C_UnitAuras" or (_G.UnitAura and "UnitAura" or "none"),
-		tostring(UnitExists("target")), tostring(self.auras and self.auras.frame:IsShown())) }
+	local api = _G.C_UnitAuras or {}
+	local have = {}
+	for _, fn in ipairs({ "GetAuraDataByIndex", "GetAuraSlots", "GetUnitAuras", "GetAuraDuration" }) do
+		if api[fn] then
+			have[#have + 1] = fn
+		end
+	end
+	local lines = { ("aura API: %s%s; target: %s; in combat: %s; shown: %s"):format(table.concat(have, ", "),
+		_G.UnitAura and ", UnitAura" or "", tostring(UnitExists("target")), tostring(InCombatLockdown()),
+		tostring(self.auras and self.auras.frame:IsShown())) }
 	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
+		local list, how = collectAuras(filter, 40)
 		local names = {}
-		for i = 1, 40 do
-			local data = getAura(i, filter)
-			if not data then
-				break
-			end
+		for _, data in ipairs(list) do
 			local ok, name = pcall(tostring, data.name)
 			names[#names + 1] = ok and name or "?"
 		end
 		local raw = ""
-		if api and api.GetAuraDataByIndex then
+		if api.GetAuraDataByIndex then
 			local ok, res = pcall(api.GetAuraDataByIndex, "target", 1, filter)
-			raw = ok and (" (first: " .. type(res) .. ")") or (" (error: " .. tostring(res) .. ")")
+			raw = ok and (" (by index: " .. type(res) .. ")") or (" (by index error: " .. tostring(res) .. ")")
 		end
-		lines[#lines + 1] = ("%s: %d%s %s"):format(filter, #names, raw, table.concat(names, ", "))
+		lines[#lines + 1] = ("%s: %d via %s%s %s"):format(filter, #names, how, raw, table.concat(names, ", "))
 	end
 	return lines
 end
@@ -519,11 +570,7 @@ function Target:UpdateAuras()
 	local row = 0
 	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
 		local list, shown = A[filter], 0
-		for i = 1, perRow * AURA_ROWS do
-			local data = getAura(i, filter)
-			if not data then
-				break
-			end
+		for i, data in ipairs((collectAuras(filter, perRow * AURA_ROWS))) do
 			local b = list[i] or auraButton(A.frame, filter)
 			list[i] = b
 			local col, line = (i - 1) % perRow, math.floor((i - 1) / perRow)

@@ -1311,6 +1311,18 @@ do
 		A.HARMFUL[2]:GetScript("OnEnter")(A.HARMFUL[2])
 		A.HARMFUL[2]:GetScript("OnLeave")(A.HARMFUL[2])
 	end
+	-- In combat asking by index may come back empty: the slots are asked.
+	local byIndex = C_UnitAuras.GetAuraDataByIndex
+	C_UnitAuras.GetAuraDataByIndex = function() return nil end
+	C_UnitAuras.GetAuraSlots = function(_, filter)
+		if filter == "HARMFUL" then return nil, 1, 2 end
+		return nil
+	end
+	C_UnitAuras.GetAuraDataBySlot = function(_, slot) return byIndex("target", slot, "HARMFUL") end
+	fire("UNIT_AURA", "target")
+	assert(target.auras.HARMFUL[2]:IsShown() and not target.auras.HARMFUL[3]:IsShown()
+		and not target.auras.HELPFUL[1]:IsShown(), "auras read by slot when asking by index fails")
+	assert(target:DescribeAuras()[2]:find("via slot"), "/rui auras says how they were read")
 	C_UnitAuras = nil
 	fire("UNIT_AURA", "target")
 	assert(target.auras.HARMFUL[1]:IsShown() == false, "auras gone with the target's auras")

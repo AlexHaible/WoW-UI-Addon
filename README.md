@@ -57,9 +57,15 @@ screen stays free on either side).
 - **Chat area**: the main chat window and its input box fill the black area
   at the right end of the console, which can be raised.
 - **Top bar** (Reforged UI) with Quests, Menu, Allies and Map buttons, the
-  day/night clock in the middle and slots for LibDataBroker feeds: gold, bag
-  space and durability fill the first three; right-click an empty slot
-  (Alt-right-click a filled one) to choose any feed.
+  day/night clock in the middle with Blizzard's micro buttons either side of
+  it (character, professions, talents, achievements, group finder,
+  collections, adventure guide, shop, ...: every one the plates don't
+  already stand for, in Blizzard's order), and slots for LibDataBroker feeds:
+  gold, bag space and durability fill the first three; right-click an empty
+  slot (Alt-right-click a filled one) to choose any feed. The micro buttons
+  are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
+  and disabled states work as usual; the micro menu itself stays empty and
+  click-through wherever Edit Mode puts it.
 
 The three action slots beside the minimap are the first three buttons of
 Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
@@ -83,8 +89,8 @@ area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
 the chat area upwards, portrait position and scale, low health threshold,
 rested XP colour, the stat icons, zone text position, chat input above the
-chat, health and power as percentages, and hiding the grid texture, micro
-buttons and chat icons.
+chat, health and power as percentages, and hiding the grid texture and chat
+icons. (The micro buttons always live in the top bar now.)
 
 | 21:9 Night Elf | 32:9 Orc |
 | --- | --- |

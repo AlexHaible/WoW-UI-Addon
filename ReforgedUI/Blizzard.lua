@@ -1,29 +1,15 @@
 -- Blizzard frames around the console. Frames we replace (player frame, bag
--- bar, status bars) are made invisible and click-through; the micro menu
--- moves on top of the action grid (or is hidden, the original addon's default), bag
--- windows open above the console and the client's Issue Reporter button is
--- lifted clear of it. Buffs and debuffs are held just below the top bar, the
--- way the chat window is held in the chat area. Everything else that
--- Edit Mode manages (cast bar, quest tracker, party frames, and the
--- stance and pet bar frames, whose buttons ActionBars.lua places) stays
--- wherever Edit Mode puts it: moving those from addon code makes Blizzard's
--- own code fail on "secret" values.
+-- bar, status bars) are made invisible and click-through (the micro menu's
+-- buttons live in the top bar, see TopBar.lua), bag windows open above the
+-- console and the client's Issue Reporter button is lifted clear of it.
+-- Buffs and debuffs are held just below the top bar, the way the chat window
+-- is held in the chat area. Everything else that Edit Mode manages (cast bar,
+-- quest tracker, party frames, and the stance and pet bar frames, whose
+-- buttons ActionBars.lua places) stays wherever Edit Mode puts it: moving
+-- those from addon code makes Blizzard's own code fail on "secret" values.
 
 local _, ns = ...
 local Blizzard = ns:RegisterModule("blizzard", {})
-
--- Micro buttons laid over the top bar's buttons (see TopBar.lua).
-local COVERS = { MainMenuMicroButton = true, QuestLogMicroButton = true, SocialsMicroButton = true,
-	FriendsMicroButton = true, GuildMicroButton = true }
-
-local function first(...)
-	for i = 1, select("#", ...) do
-		local name = select(i, ...)
-		if _G[name] then
-			return _G[name]
-		end
-	end
-end
 
 -- Replaced by our own hero screen, XP bar and bag row.
 local CONCEAL = {
@@ -33,39 +19,26 @@ local CONCEAL = {
 	"MainMenuExpBar", "ReputationWatchBar", "MainMenuBarMaxLevelBar",
 }
 
-local MICRO_NAMES = {
-	"CharacterMicroButton", "SpellbookMicroButton", "ProfessionMicroButton", "PlayerSpellsMicroButton",
-	"TalentMicroButton", "AchievementMicroButton", "QuestLogMicroButton", "SocialsMicroButton",
-	"GuildMicroButton", "LFGMicroButton", "LFDMicroButton", "WorldMapMicroButton", "CollectionsMicroButton",
-	"EJMicroButton", "StoreMicroButton", "MainMenuMicroButton", "HelpMicroButton",
-}
+-- True when `frame` holds one of the micro buttons the top bar shows:
+-- concealing it would make them invisible too.
+local function holdsMicro(frame)
+	for _, b in ipairs(ns.microButtons or {}) do
+		local p = b:GetParent()
+		while p do
+			if p == frame then
+				return true
+			end
+			p = p:GetParent()
+		end
+	end
+	return false
+end
 
 function Blizzard:OnEnable()
 	for _, name in ipairs(CONCEAL) do
-		ns:Conceal(_G[name])
-	end
-
-	self.micro = first("MicroMenuContainer", "MicroMenu")
-	if ns.db.consoleOpts.hideMicro then
-		-- The top bar's buttons open the game menu, and every window has
-		-- its key binding.
-		if self.micro then
-			ns:Conceal(self.micro)
-		else
-			for _, name in ipairs(MICRO_NAMES) do
-				ns:Conceal(_G[name])
-			end
-		end
-		self.micro = nil
-	elseif not self.micro then
-		-- Classic-style clients: micro buttons are loose children of the main
-		-- bar, so line them up one by one. The game menu, quest log and
-		-- social buttons sit over the top bar's buttons instead.
-		self.microButtons = {}
-		for _, name in ipairs(MICRO_NAMES) do
-			if _G[name] and not COVERS[name] then
-				self.microButtons[#self.microButtons + 1] = _G[name]
-			end
+		local f = _G[name]
+		if f and not ns.IsForbidden(f) and not holdsMicro(f) then
+			ns:Conceal(f)
 		end
 	end
 
@@ -102,20 +75,7 @@ function Blizzard:LiftContainers()
 	end
 end
 
-function Blizzard:OnLayout(L)
-	if self.micro then
-		ns:Lock(self.micro, function(f)
-			-- Shrink (never grow) until the menu fits on the action grid.
-			local w = f:GetWidth() * f:GetEffectiveScale() / ns.root:GetEffectiveScale()
-			if w > L.micro.maxW then
-				f:SetScale(f:GetScale() * L.micro.maxW / w)
-			end
-			ns:Anchor(f, "BOTTOMRIGHT", L.micro.right, L.micro.bottom)
-		end)
-	elseif self.microButtons then
-		self:LayoutMicroRow(L)
-	end
-
+function Blizzard:OnLayout()
 	self:LiftIssueReporter()
 	self:PlaceBuffs()
 end
@@ -165,25 +125,5 @@ function Blizzard:LiftIssueReporter()
 	end
 	if self.reporter then
 		ns:KeepAbove(self.reporter, function() return ns.layout.consoleTop + 6 end)
-	end
-end
-
--- Width of `b` in console units at scale 1.
-local function naturalWidth(b)
-	return b:GetWidth() * b:GetParent():GetEffectiveScale() / ns.root:GetEffectiveScale()
-end
-
-function Blizzard:LayoutMicroRow(L)
-	local buttons = self.microButtons
-	if #buttons == 0 then
-		return
-	end
-	local step = math.min(naturalWidth(buttons[1]), L.micro.maxW / #buttons)
-	local x0 = L.micro.right - #buttons * step
-	for i, btn in ipairs(buttons) do
-		ns:Lock(btn, function(b)
-			b:SetScale(step / naturalWidth(b))
-			ns:Anchor(b, "BOTTOMLEFT", x0 + (i - 1) * step, L.micro.bottom)
-		end)
 	end
 end

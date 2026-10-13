@@ -238,16 +238,30 @@ end
 PlayerCastingBarFrame = new("frame", "PlayerCastingBarFrame", UIParent)
 ObjectiveTrackerFrame = new("frame", "ObjectiveTrackerFrame", UIParent)
 ObjectiveTrackerFrame._h = 400
-CharacterMicroButton = new("button", "CharacterMicroButton", MainMenuBar)
-CharacterMicroButton._w, CharacterMicroButton._h = 28, 58
-MainMenuMicroButton = new("button", "MainMenuMicroButton", MainMenuBar)
-MainMenuMicroButton._w, MainMenuMicroButton._h = 28, 58
+-- The micro menu (Edit Mode's container, its buttons inside), scaled by
+-- Edit Mode's size setting.
+MicroMenuContainer = new("frame", "MicroMenuContainer", UIParent)
+MicroMenu = new("frame", "MicroMenu", MicroMenuContainer)
+MicroMenu._scale = 0.9
+for _, name in ipairs({ "CharacterMicroButton", "PlayerSpellsMicroButton", "AchievementMicroButton", "QuestLogMicroButton",
+	"GuildMicroButton", "LFDMicroButton", "CollectionsMicroButton", "EJMicroButton", "StoreMicroButton",
+	"MainMenuMicroButton", "SocialsMicroButton", "WorldMapMicroButton" }) do
+	local b = new("button", name, MicroMenu)
+	b._w, b._h = 32, 40
+end
+-- The shop is hidden until Blizzard shows it; one micro button we have no
+-- name for, and a forbidden child.
+StoreMicroButton._shown = false
+local unnamedMicro = new("button", nil, MicroMenu)
+unnamedMicro._w, unnamedMicro._h = 32, 40
+function unnamedMicro:GetName() return "FancyMicroButton" end
+local forbiddenMicro = new("button", nil, MicroMenu)
+forbiddenMicro._forbidden = true
+function forbiddenMicro:GetName() error("Attempt to access forbidden object") end
 GameTooltip = new("frame", "GameTooltip", UIParent)
 PlayerFrame = new("secure", "PlayerFrame", UIParent)
 PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
-QuestLogMicroButton = new("button", "QuestLogMicroButton", MainMenuBar)
-SocialsMicroButton = new("button", "SocialsMicroButton", MainMenuBar)
 local gameHour = 0
 function GetGameTime() return gameHour, 0 end
 function GetMoney() return 1234567 end
@@ -418,14 +432,14 @@ end
 -- 4 had options for the centre modes, chat width and placement and hiding
 -- the bags, all gone now.
 ReforgedUIDB = { scale = 1, theme = "auto",
-	consoleOpts = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240 } }
+	consoleOpts = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true } }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
-assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 4, "old default scale not migrated")
+assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 5, "old default scale not migrated")
 assert(ReforgedUIDB.consoleOpts.uiScale == 240 and ReforgedUIDB.consoleOpts.zoneText == 1, "console option defaults")
 do
 	local o = ReforgedUIDB.consoleOpts
-	assert(o.center == nil and o.hideBags == nil and o.chatWidth == nil and o.placeChat == nil,
+	assert(o.center == nil and o.hideBags == nil and o.chatWidth == nil and o.placeChat == nil and o.hideMicro == nil,
 		"removed options should be dropped from saved settings")
 end
 fire("PLAYER_ENTERING_WORLD")
@@ -487,12 +501,68 @@ assert(strayButton._points[1][2] == UIParent and strayButton:GetParent() == Mini
 assert(MinimapCluster.Tracking._points[1][1] == "CENTER", "tracking button should sit in its slot")
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")
-assert(CharacterMicroButton._alpha == 0, "micro buttons are hidden by default")
+-- Blizzard's micro buttons live in the top bar, either side of the clock:
+-- still Blizzard's (same parent, visible), anchored to UIParent, scaled to
+-- the bar. The plates' own buttons stay invisible.
+local function microAt(b, r, what)
+	local p = b._points[1]
+	assert(p and #b._points == 1 and p[2] == UIParent and p[1] == "BOTTOMLEFT", what .. " should be anchored to UIParent")
+	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
+	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
+	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
+	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
+	assert(b:GetAlpha() == 1 and b._shown and b._mouse ~= false, what .. " should be visible and clickable")
+end
+local function checkMicro(expected)
+	local T, tb = ns.topLayout, ns.modules.topbar
+	assert(#tb.microShown == #expected and #T.micro == #expected, "every shown micro button gets a place")
+	local nL = math.ceil(#expected / 2)
+	for i, b in ipairs(expected) do
+		assert(tb.microShown[i] == b, "micro buttons in Blizzard's order")
+		local r = T.micro[i]
+		microAt(b, r, b:GetName())
+		-- The clock frame's art: its texture is transparent beyond that
+		-- where it crosses the bar.
+		assert(not ns.Layout.Overlaps(r, T.clockArt), b:GetName() .. " overlaps the clock")
+		if i <= nL then
+			assert(r.x + r.w <= T.clockArt.x, b:GetName() .. " belongs left of the clock")
+		else
+			assert(r.x >= T.clockArt.x + T.clockArt.w, b:GetName() .. " belongs right of the clock")
+		end
+		for _, slot in ipairs(T.topSlots) do
+			assert(not ns.Layout.Overlaps(slot, r), "a feed slot overlaps " .. b:GetName())
+		end
+	end
+	-- Hugging the clock.
+	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
+		"micro buttons should hug the clock")
+end
+local MOVED = { CharacterMicroButton, PlayerSpellsMicroButton, AchievementMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, EJMicroButton, unnamedMicro }
+checkMicro(MOVED)
+assert(#StoreMicroButton._points == 0, "a hidden micro button stays where it is")
+assert(WorldMapMicroButton._alpha == 0 and #WorldMapMicroButton._points == 0, "the Map plate's micro button stays invisible")
+assert(MicroMenuContainer._alpha == nil and MicroMenu._alpha == nil and #MicroMenuContainer._points == 0,
+	"the micro menu stays where Edit Mode puts it, alpha untouched")
+assert(MicroMenuContainer._mouse == false and MicroMenu._mouse == false, "the empty micro menu lets clicks through")
+-- Blizzard laying the menu out again, or resizing it, changes nothing.
+CharacterMicroButton:ClearAllPoints()
+CharacterMicroButton:SetPoint("TOPLEFT", MicroMenu, "TOPLEFT", 0, 0)
+MicroMenu:SetScale(0.6)
+checkMicro(MOVED)
+-- The shop button shown: room is made for it, in its place in the order.
+StoreMicroButton._shown = true
+StoreMicroButton._hooks.OnShow(StoreMicroButton)
+flushTimers()
+MOVED = { CharacterMicroButton, PlayerSpellsMicroButton, AchievementMicroButton, GuildMicroButton,
+	LFDMicroButton, CollectionsMicroButton, EJMicroButton, StoreMicroButton, unnamedMicro }
+checkMicro(MOVED)
 -- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
 -- over the top bar's plates and clicked directly.
 for _, b in ipairs({ QuestLogMicroButton, MainMenuMicroButton, SocialsMicroButton }) do
 	local _, rel = b:GetPoint(1)
 	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, b:GetName() .. " should cover its top bar plate")
+	assert(b:GetParent() == MicroMenu, b:GetName() .. " keeps its parent")
 end
 
 -- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
@@ -701,11 +771,40 @@ for _, eb in ipairs(config.edits) do
 	assert(not tContains({ "chatWidth" }, eb.key), "no chat width option")
 end
 for _, cb in ipairs(config.checks) do
-	assert(not tContains({ "hideBags", "placeChat" }, cb.key), "no " .. tostring(cb.key) .. " option")
+	assert(not tContains({ "hideBags", "placeChat", "hideMicro" }, cb.key), "no " .. tostring(cb.key) .. " option")
 	assert(cb.key, "every checkbox is a plain option (no centre mode boxes)")
 end
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
+
+-- The top bar's pieces never collide: plates, micro buttons, clock and feed
+-- slots (slots give way first), the clock centred.
+local function checkTopBar()
+	local T, O = ns.topLayout, ns.Layout.Overlaps
+	assert(math.abs(T.clock.cx - T.W / 2) <= 1, "the clock stays centred")
+	checkMicro(MOVED)
+	local pieces = {}
+	for _, r in ipairs(T.micro) do
+		assert(r.x >= 0 and r.x + r.w <= T.W and r.y >= T.topBar.y and r.y + r.h <= T.H + 0.01, "micro button off the bar")
+		assert(r.h >= ns.Layout.TOP_SIZES.microMinH - 0.01, "micro buttons shrink only so far")
+		pieces[#pieces + 1] = r
+	end
+	for _, r in ipairs(T.topButtons) do
+		if r then
+			assert(not O(r, T.clockArt), "a plate overlaps the clock")
+			pieces[#pieces + 1] = r
+		end
+	end
+	for _, r in ipairs(T.topSlots) do
+		assert(not O(r, T.clockArt) and r.x >= 0 and r.x + r.w <= T.W, "a slot overlaps the clock or leaves the screen")
+		pieces[#pieces + 1] = r
+	end
+	for i = 1, #pieces do
+		for j = i + 1, #pieces do
+			assert(not O(pieces[i], pieces[j]), ("top bar pieces %d and %d overlap at %.0fx%.0f"):format(i, j, T.W, T.H))
+		end
+	end
+end
 
 -- Every theme, UI scale and screen shape lays out, centred with the chat
 -- area and inventory.
@@ -732,10 +831,13 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 			assert(LL.shift == 0 or math.abs((LL.W - LL.rightPoint) - LL.shift) <= 2, ("the console is centred: W %s s %s shift %s right %s"):format(LL.W, s, LL.shift, LL.rightPoint))
 		end
 	end
+	checkTopBar()
 	for _, p in ipairs({ "16:9", "21:9", "32:9" }) do
 		slash("layout " .. p)
-		slash("scale 1")
-		slash("scale 0.75")
+		for _, k in ipairs({ "1.5", "1", "0.5", "0.75" }) do
+			slash("scale " .. k)
+			checkTopBar()
+		end
 	end
 end
 checkAnchors()

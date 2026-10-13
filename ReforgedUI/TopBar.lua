@@ -1,7 +1,8 @@
 -- The Warcraft III top bar: menu buttons on the left, the day/night clock in
 -- the middle turning with the game's server time (sun at the bottom of the
--- window at noon, moon at midnight), and slots for LibDataBroker feeds, like
--- Titan Panel, everywhere else. Gold, bag space and durability are feeds of
+-- window at noon, moon at midnight) with Blizzard's own micro buttons
+-- (character, talents, achievements, group finder, ...) either side of it,
+-- and slots for LibDataBroker feeds, like Titan Panel, everywhere else. Gold, bag space and durability are feeds of
 -- our own and fill the first three slots by default. Right-click an empty
 -- slot, or Alt-right-click a filled one, to choose its feed.
 
@@ -336,6 +337,7 @@ function TopBar:OnEnable()
 	end)
 
 	self.buttons = {}
+	local covers = {}
 	for i, spec in ipairs(BUTTONS) do
 		local target = firstGlobal(spec.micro)
 		local fallback = spec.fallback and _G[spec.fallback]
@@ -350,6 +352,7 @@ function TopBar:OnEnable()
 			plate.text:SetText(spec.label)
 			local btn
 			if cover then
+				covers[cover] = true
 				self:SetupCover(plate, cover)
 			elseif target then
 				btn = CreateFrame("Button", "ReforgedUITopButton" .. i, plate, "SecureActionButtonTemplate")
@@ -368,6 +371,8 @@ function TopBar:OnEnable()
 			self.buttons[#self.buttons + 1] = plate
 		end
 	end
+
+	self:TakeMicroButtons(covers)
 
 	self:CreateFeeds()
 	if LDB then
@@ -427,6 +432,174 @@ local function coverPlate(b, plate)
 	b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * pe / b:GetEffectiveScale(), bottom * pe / b:GetEffectiveScale())
 end
 
+----------------------------------------------------------------------------
+-- Blizzard's micro buttons beside the clock
+
+-- Blizzard's order. The plates already stand for the quest log, game menu,
+-- social and world map buttons: those stay invisible, as covers over their
+-- plates or where they are. Every other micro button the client has (found
+-- by name, or among the micro menu's children) moves into the top bar, half
+-- either side of the clock, still Blizzard's own button with its own clicks,
+-- tooltip, alerts and enabled state; only its position and scale are ours.
+local MICRO_ORDER = {
+	"CharacterMicroButton", "SpellbookMicroButton", "ProfessionMicroButton", "PlayerSpellsMicroButton",
+	"TalentMicroButton", "AchievementMicroButton", "QuestLogMicroButton", "HousingMicroButton",
+	"SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton", "LFGMicroButton", "LFDMicroButton",
+	"WorldMapMicroButton", "CollectionsMicroButton", "EJMicroButton", "StoreMicroButton",
+	"MainMenuMicroButton", "HelpMicroButton",
+}
+local PLATE_MICRO = {
+	QuestLogMicroButton = true, MainMenuMicroButton = true, SocialsMicroButton = true,
+	FriendsMicroButton = true, WorldMapMicroButton = true,
+}
+
+local function microName(b)
+	if type(b) ~= "table" or ns.IsForbidden(b) then
+		return
+	end
+	local ok, name = pcall(b.GetName, b)
+	if ok and type(name) == "string" and name:find("MicroButton$") then
+		return name
+	end
+end
+
+local function plain(v)
+	return type(v) == "number" and not (issecretvalue and issecretvalue(v))
+end
+
+-- A button's art area: its height and bottom inset, without the part its
+-- hit rectangle leaves out (Classic-style buttons are taller than their art).
+local function artHeight(b)
+	local h = b:GetHeight()
+	if not (plain(h) and h > 0) then
+		return
+	end
+	local top, bottom = 0, 0
+	if b.GetHitRectInsets then
+		local _, _, t, bt = b:GetHitRectInsets()
+		top, bottom = plain(t) and t or 0, plain(bt) and bt or 0
+	end
+	if h - top - bottom > 0 then
+		return h - top - bottom, bottom
+	end
+	return h, 0
+end
+
+function TopBar:TakeMicroButtons(covers)
+	local rank = {}
+	for i, name in ipairs(MICRO_ORDER) do
+		rank[name] = i
+	end
+	local found, seen, byLayout = {}, {}, true
+	local function consider(b, n)
+		local name = microName(b)
+		if not name or seen[b] or covers[b] then
+			return
+		end
+		seen[b] = true
+		if PLATE_MICRO[name] then
+			ns:Conceal(b) -- e.g. the world map button, which the Map plate clicks
+			return
+		end
+		local index = b.layoutIndex
+		byLayout = byLayout and plain(index)
+		found[#found + 1] = { button = b, index = plain(index) and index or 0, rank = rank[name] or (#MICRO_ORDER + n) }
+	end
+	for i, name in ipairs(MICRO_ORDER) do
+		consider(_G[name], i)
+	end
+	local menu = _G.MicroMenu
+	if type(menu) == "table" and menu.GetChildren and not ns.IsForbidden(menu) then
+		for i, child in ipairs({ menu:GetChildren() }) do
+			consider(child, i)
+		end
+	end
+	-- The micro menu lays its buttons out by layoutIndex where it has one.
+	table.sort(found, function(a, b)
+		if byLayout and a.index ~= b.index then
+			return a.index < b.index
+		end
+		return a.rank < b.rank
+	end)
+	self.micro = {}
+	for i, entry in ipairs(found) do
+		self.micro[i] = entry.button
+	end
+	ns.microButtons = self.micro
+	if #self.micro == 0 then
+		return
+	end
+
+	-- The micro menu stays where Edit Mode puts it, empty now; let clicks
+	-- through it.
+	for _, name in ipairs({ "MicroMenuContainer", "MicroMenu" }) do
+		local f = _G[name]
+		if type(f) == "table" and f.EnableMouse and not ns.IsForbidden(f) then
+			ns:RunOutOfCombat("micro mouse " .. name, function() f:EnableMouse(false) end)
+		end
+	end
+
+	-- Blizzard shows and hides some buttons (the shop, for one): make room
+	-- for exactly the shown ones. A new size for the micro menu (Edit Mode)
+	-- rescales its buttons, so put them back.
+	local relayout = ns:Throttle(function() ns:Relayout() end, 0.1)
+	local hooked = {}
+	for _, b in ipairs(self.micro) do
+		b:HookScript("OnShow", relayout)
+		b:HookScript("OnHide", relayout)
+		local p = b:GetParent()
+		while p and p ~= UIParent and not hooked[p] and not ns.IsForbidden(p) do
+			hooked[p] = true
+			hooksecurefunc(p, "SetScale", function() self:PlaceMicro() end)
+			p = p:GetParent()
+		end
+	end
+end
+
+-- Width/height of each shown micro button, for the layout (Core.lua).
+function ns:TopBarMicroRatios()
+	local ratios, shown = {}, {}
+	for _, b in ipairs(TopBar.micro or {}) do
+		if b:IsShown() then
+			local w, h = b:GetWidth(), artHeight(b)
+			ratios[#ratios + 1] = (plain(w) and w > 0 and h) and w / h or 0.8
+			shown[#shown + 1] = b
+		end
+	end
+	TopBar.microShown = shown
+	return ratios
+end
+
+-- Scales `b` so its art is `r.h` top bar units tall and anchors it to
+-- UIParent (never to our frames) at `r`, keeping its parent.
+local function placeMicro(b, r)
+	local h, bottom = artHeight(b)
+	if not h then
+		return
+	end
+	local rootScale = ns.topRoot:GetEffectiveScale()
+	local parent = b:GetParent() or UIParent
+	b:SetScale(r.h * rootScale / (h * parent:GetEffectiveScale()))
+	local s = rootScale / b:GetEffectiveScale()
+	b:ClearAllPoints()
+	b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", r.x * s, r.y * s - bottom)
+end
+
+-- The micro menu lays its buttons out again now and then; the lock puts
+-- them back.
+function TopBar:PlaceMicro()
+	local rects = ns.topLayout and ns.topLayout.micro
+	if not rects then
+		return
+	end
+	for i, b in ipairs(self.microShown or {}) do
+		local r = rects[i]
+		if r then
+			ns:Lock(b, function(f) placeMicro(f, r) end, { "SetScale" })
+		end
+	end
+end
+
 function TopBar:UpdateClock()
 	local h, m = GetGameTime()
 	local hours = (h or 12) + (m or 0) / 60
@@ -453,6 +626,7 @@ function TopBar:OnLayout()
 			ns:Lock(plate.cover, function(b) coverPlate(b, plate) end, { "SetScale" })
 		end
 	end
+	self:PlaceMicro()
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)
 		place(slot, r)

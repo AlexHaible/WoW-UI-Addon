@@ -13,7 +13,7 @@ local DEFAULTS = {
 	theme = "auto", -- auto (race default) | skyborne (by faction) | a key of ns.Themes
 	layout = "auto", -- top bar: auto | standard | wide | superwide
 	scale = 0.75, -- top bar
-	version = 4,
+	version = 5,
 	modules = {
 		console = true,
 		hero = true,
@@ -39,7 +39,6 @@ local DEFAULTS = {
 		healthPercent = false,
 		powerPercent = false,
 		hideGrid = false,
-		hideMicro = true,
 		hideChatIcons = false,
 		chatInputAbove = false,
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
@@ -69,6 +68,11 @@ local function migrate(db)
 		-- the bags shown: those options are gone.
 		local o = db.consoleOpts
 		o.center, o.chatWidth, o.hideBags, o.placeChat = nil, nil, nil, nil
+	end
+	if (db.version or 1) < 5 and type(db.consoleOpts) == "table" then
+		-- Version 5 moved Blizzard's micro buttons into the top bar, beside
+		-- the clock: the option to hide them is gone.
+		db.consoleOpts.hideMicro = nil
 	end
 	db.version = DEFAULTS.version
 end
@@ -404,7 +408,10 @@ function ns:Relayout()
 		topRoot:ClearAllPoints()
 		topRoot:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
 		topRoot:SetSize(TW, TH)
-		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout)
+		-- The top bar makes room beside its clock for Blizzard's micro
+		-- buttons (TopBar.lua).
+		local micro = self.TopBarMicroRatios and self:TopBarMicroRatios()
+		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout, micro)
 
 		local L = self.Layout.Compute(W, 768, self:LayoutOptions())
 		self.layout = L

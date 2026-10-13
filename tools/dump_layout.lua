@@ -8,8 +8,9 @@ local ns = {}
 assert(loadfile(here .. "/../ReforgedUI/Layout.lua"))("ReforgedUI", ns)
 local L = ns.Layout.Compute(W, 768, { s = s, m = m, theme = theme, zoneTextPos = 1 })
 L.byKey = nil
--- The top bar has its own scale (0.75 by default: 1024 units tall).
-L.topBar = ns.Layout.ComputeTopBar(W * 1024 / 768, 1024, "auto")
+-- The top bar has its own scale (0.75 by default: 1024 units tall), with
+-- Retail's eight micro buttons (32x40) that the plates don't stand for.
+L.topBar = ns.Layout.ComputeTopBar(W * 1024 / 768, 1024, "auto", { 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8 })
 
 local function encode(v)
 	local t = type(v)

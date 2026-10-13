@@ -158,6 +158,12 @@ def top_bar(c, theme_key, T, hour=15):
         if b:
             c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
             c.text(b["x"], b["y"], b["w"], b["h"], label, 12, title)
+    # Blizzard's micro buttons beside the clock (stand-ins: a framed icon
+    # and a letter each).
+    for i, (b, letter) in enumerate(zip(T["micro"], "CPTAGLJS")):
+        c.paste(icon(500 + i), b["x"] + 1, b["y"] + 1, b["w"] - 2, b["h"] - 2)
+        c.rect(b["x"], b["y"], b["w"], b["h"], outline=(214, 170, 72, 255))
+        c.text(b["x"], b["y"], b["w"], b["h"], letter, 13, (255, 236, 160))
     for i, b in enumerate(T["topSlots"]):
         c.rect(b["x"], b["y"], b["w"], b["h"], fill=inset, outline=line)
         if i < 3:

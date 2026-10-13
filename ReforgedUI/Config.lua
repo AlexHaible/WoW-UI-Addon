@@ -148,7 +148,6 @@ function Config:Build()
 		return y + 26
 	end
 	self:Check("Hide actionbar grid texture", "hideGrid", x, nextY(), relayout)
-	self:Check("Hide Microbuttons (reload)", "hideMicro", x, nextY())
 	self:Check("Show HP as %", "healthPercent", x, nextY(), function() ns.modules.hero:Update() end)
 	self:Check("Show power as %", "powerPercent", x, nextY(), function() ns.modules.hero:Update() end)
 	self:Check("Hide chat icons (reload)", "hideChatIcons", x, nextY())
@@ -161,10 +160,10 @@ function Config:Build()
 	end)
 
 	-- Target display: on the hero screen (Warcraft III) or a plate on the wall.
-	label(f, "Target display", x, -332)
+	label(f, "Target display", x, -306)
 	self.targetButtons = {}
 	for i, spec in ipairs({ { "swap", "Swap" }, { "plate", "Wall plate" } }) do
-		local b = button(f, spec[2], 90, x + 112 + (i - 1) * 94, -328, function()
+		local b = button(f, spec[2], 90, x + 112 + (i - 1) * 94, -302, function()
 			ns.modules.target:SetMode(spec[1])
 			self:Refresh()
 		end)

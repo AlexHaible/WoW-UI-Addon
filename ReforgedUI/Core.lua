@@ -499,6 +499,69 @@ local function repairEditModeLayouts()
 	end
 end
 
+-- Edit Mode's default cast bar sits over the console, and moving it from
+-- addon code breaks Blizzard's own (see Blizzard.lua). So each custom layout
+-- whose cast bar is still in its default place (and not locked to the
+-- player frame) is given a place just above the console instead: saved in
+-- the layout, it is Edit Mode that puts it there, and it can still be moved.
+-- Preset layouts can't be changed; for those a message says what to do.
+local CAST_BAR_GAP = 8
+function ns:RaiseCastBar()
+	local systems = Enum and Enum.EditModeSystem
+	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
+		and self.layout) then
+		return
+	end
+	local ok, info = pcall(C_EditMode.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
+		return
+	end
+	local bar = _G.PlayerCastingBarFrame
+	local scale = bar and bar:GetScale() or 1
+	if not scale or scale <= 0 then
+		scale = 1
+	end
+	local y = math.floor((self.layout.consoleTop * UIParent:GetHeight() / 768 + CAST_BAR_GAP) / scale + 0.5)
+	local lock = Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame
+	local raised = 0
+	for _, layout in ipairs(info.layouts) do
+		for _, system in ipairs(layout.systems or {}) do
+			if system.system == systems.CastBar and system.isInDefaultPosition then
+				local locked = false
+				for _, setting in ipairs(system.settings or {}) do
+					if lock and setting.setting == lock and setting.value == 1 then
+						locked = true
+					end
+				end
+				if not locked then
+					system.anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM",
+						offsetX = 0, offsetY = y }
+					system.isInDefaultPosition = false
+					raised = raised + 1
+				end
+			end
+		end
+	end
+	if raised > 0 and pcall(C_EditMode.SaveLayouts, info) then
+		self:Print(("moved the cast bar above the console in %d Edit Mode layout(s); /reload if it hasn't moved.")
+			:format(raised))
+	end
+	-- The first layouts are Blizzard's presets, which addons can't change.
+	local presets = 2
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		if okP and type(list) == "table" then
+			presets = #list
+		end
+	end
+	if type(info.activeLayout) == "number" and info.activeLayout <= presets and not self.db.castBarHint then
+		self.db.castBarHint = true
+		self:Print("your Edit Mode layout is one of Blizzard's presets, which addons can't change: in Edit Mode,"
+			.. " drag the Cast Bar above the console (or copy the layout, and the next login moves it).")
+	end
+end
+
 ----------------------------------------------------------------------------
 -- Startup
 
@@ -537,6 +600,7 @@ local function init()
 
 	ns:Relayout()
 	ns:ApplyTheme()
+	ns:RaiseCastBar()
 
 	ns:On("DISPLAY_SIZE_CHANGED", function() ns:Relayout() end)
 	ns:On("UI_SCALE_CHANGED", function() ns:Relayout() end)

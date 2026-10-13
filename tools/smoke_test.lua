@@ -347,12 +347,22 @@ function tContains(t, v) for _, x in ipairs(t) do if x == v then return true end
 FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local savedLayouts
+Enum = Enum or {}
+Enum.EditModeSystem = { ActionBar = 0, CastBar = 1 }
+Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 C_EditMode = {
 	GetLayouts = function()
+		if savedLayouts then
+			return savedLayouts
+		end
 		return { activeLayout = 3, layouts = { { layoutName = "Mine", systems = {
 			{ system = 12, anchorInfo = { point = "TOPRIGHT", relativeTo = "ReforgedUIConsole", relativePoint = "BOTTOMLEFT",
 				offsetX = 1000, offsetY = 600 }, isInDefaultPosition = false },
 			{ system = 0, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM" } },
+			{ system = 1, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetY = 120 },
+				isInDefaultPosition = true },
+		} }, { layoutName = "Locked", systems = {
+			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
@@ -473,6 +483,18 @@ flushTimers()
 local repaired = savedLayouts and savedLayouts.layouts[1].systems[1]
 assert(repaired and repaired.anchorInfo.relativeTo == "UIParent" and repaired.isInDefaultPosition,
 	"Edit Mode anchors to our frames should be repaired")
+do
+	-- The default cast bar is given a place above the console (not one locked
+	-- to the player frame), once.
+	local cast = savedLayouts.layouts[1].systems[3]
+	local top = ns.layout.consoleTop * UIParent:GetHeight() / 768
+	assert(not cast.isInDefaultPosition and cast.anchorInfo.relativeTo == "UIParent"
+		and cast.anchorInfo.offsetY > top, "cast bar raised above the console")
+	assert(savedLayouts.layouts[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
+	local y = cast.anchorInfo.offsetY
+	ns:RaiseCastBar()
+	assert(savedLayouts.layouts[1].systems[3].anchorInfo.offsetY == y, "a moved cast bar is left alone")
+end
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 for key, mod in pairs(ns.modules) do
 	assert(mod.enabled, key .. " failed to enable")

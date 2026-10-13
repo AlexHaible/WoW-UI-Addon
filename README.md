@@ -86,7 +86,11 @@ Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
 this client. (The stance and pet bars' own frames stay put too, empty and
-click-through; only their buttons move into the console.)
+click-through; only their buttons move into the console.) The one
+exception is the cast bar's default place, which is under the console: in
+each of your own Edit Mode layouts where the cast bar is still there, the
+addon saves a place just above the console instead (Blizzard's preset
+layouts can't be changed by addons; move it in Edit Mode there).
 
 ## Options
 
@@ -157,7 +161,7 @@ of your faction. Saved themes from earlier versions keep working.
    logs in. Only the first three buttons of bar 8 are used (the slots beside
    the minimap); the rest are parked off screen, so you can set it to as few
    icons as Edit Mode allows.
-3. Move the cast bar, focus frame and anything else Edit Mode manages to
+3. Move the focus frame and anything else Edit Mode manages to
    where you want them around the console.
 
 ## Commands

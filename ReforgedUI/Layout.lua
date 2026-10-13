@@ -252,7 +252,8 @@ Layout.FILLER_ART = FILLER_ART
 -- proportions when the cap is stretched or squeezed to the wall's height,
 -- `inset` (optional) the share of its width on either side that only the
 -- crown reaches (the shaft below is that much narrower).
--- With `rise` the cap's top is fitted to `rise` above that end's wall top;
+-- With `rise` the cap's top is fitted to `rise` above that end's wall top
+-- (0: flush with it, so each cap ends its own wall);
 -- without it the cap keeps its natural height (taller where the chat area
 -- is raised above it). Files are under art/<theme>/.
 --
@@ -266,7 +267,7 @@ Layout.ENDCAP_ART = {
 }
 Layout.ENDCAP_GEN = {
 	left = "endcaps\\endcap_left_gen", right = "endcaps\\endcap_right_gen",
-	w = 0.26, h = 0.8125, overlap = 0.065, head = 0.25, inset = 0.2, rise = 0.07,
+	w = 0.26, h = 0.8125, overlap = 0.065, head = 0.25, inset = 0.2, rise = 0,
 }
 -- Themes tools/make_endcaps.py builds stand-in caps for.
 Layout.ENDCAP_GEN_THEMES = {
@@ -764,12 +765,10 @@ local function buildCaps(L, W, add)
 	end
 	local leftX = L.minimapArt.x + ov - w
 	local rightX = L.rightPoint - ov
-	-- Both caps stand as tall as the taller end needs.
-	local capH = max(capTop(LEFT_WALL[t] * s), capTop(L.rightWallTop))
 	L.endcaps = {
 		fallback = C.fallback, real = C.real, overlap = ov,
-		left = rect(leftX, 0, w, capH),
-		right = rect(rightX, 0, w, capH),
+		left = rect(leftX, 0, w, capTop(LEFT_WALL[t] * s)),
+		right = rect(rightX, 0, w, capTop(L.rightWallTop)),
 	}
 	-- The shafts (below the crowns), which must stay clear of the content.
 	local inset = (C.inset or 0) * w

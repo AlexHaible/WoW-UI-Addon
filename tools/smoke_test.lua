@@ -1083,8 +1083,10 @@ do
 						for _, cap in ipairs({ l, r }) do
 							assert(cap.h > LL.s * 0.5 and cap.y == 0, "end caps stand on the floor: " .. where)
 						end
-						-- The caps rise above the wall at their end.
-						assert(r.y + r.h > LL.rightWallTop, "right cap below the chat wall: " .. where)
+						-- Each cap ends its own wall: flush with its top.
+						if not LL.endcaps.real then
+							assert(math.abs(r.y + r.h - LL.rightWallTop) < 0.01, "right cap not flush with the chat wall: " .. where)
+						end
 						-- The cogwheel: in the chat area's bottom-right corner, inside
 						-- its frame, clear of the chat input box.
 						local g, bg = LL.cogwheel, LL.byKey.chat_bg.rect

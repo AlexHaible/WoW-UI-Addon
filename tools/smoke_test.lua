@@ -559,9 +559,15 @@ local function checkMicro(expected)
 			assert(not ns.Layout.Overlaps(slot, r), "a feed slot overlaps " .. b:GetName())
 		end
 	end
-	-- Hugging the clock.
-	assert(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w) < 5 and T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w) < 5,
+	-- Close to the clock, the two halves mirrored about it (the narrower
+	-- half centred in the wider one's width).
+	local n, cx = #T.micro, T.clock.cx
+	assert(math.min(T.clockArt.x - (T.micro[nL].x + T.micro[nL].w), T.micro[nL + 1].x - (T.clockArt.x + T.clockArt.w)) < 5,
 		"micro buttons should hug the clock")
+	local midL = (T.micro[1].x + T.micro[nL].x + T.micro[nL].w) / 2
+	local midR = (T.micro[nL + 1].x + T.micro[n].x + T.micro[n].w) / 2
+	assert(math.abs((cx - midL) - (midR - cx)) < 1, "micro button halves not mirrored about the clock")
+	assert(math.abs((cx - T.microSpan.x) - (T.microSpan.x + T.microSpan.w - cx)) < 1, "micro span not centred on the clock")
 end
 -- The Adventure Guide and shop are left out; Legacy and the game menu
 -- button close the row.

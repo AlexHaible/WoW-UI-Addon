@@ -102,9 +102,12 @@ function Layout.ComputeTopBar(W, H, profile, micro, folder)
 	local bandBottom = H - TOP.topH + 16 - (TRIM_OPEN[folder] or 0)
 	local plateY = bandBottom + (H - bandBottom - plateH) / 2
 
-	-- Micro buttons hug the clock's art, half on each side, centred on the
-	-- slots. Where the core's left edge (left) or the screen edge (right)
-	-- leave too little room they shrink, down to microMinH.
+	-- Micro buttons flank the clock's art, half on each side, centred on
+	-- the slots. Both halves take the width of the wider one, the narrower
+	-- centred in it, so the row is mirrored about the clock even when the
+	-- halves differ by a button. Where the core's left edge (left) or the
+	-- screen edge (right) leave too little room they shrink, down to
+	-- microMinH.
 	local n = #micro
 	local nL = math.ceil(n / 2)
 	local artL, artR = T.clockArt.x - TOP.microClockGap, right(T.clockArt) + TOP.microClockGap
@@ -115,30 +118,29 @@ function Layout.ComputeTopBar(W, H, profile, micro, folder)
 		end
 		return sum, max(0, i1 - i0) * TOP.microGap
 	end
+	local sumL, gapsL = ratios(1, nL)
+	local sumR, gapsR = ratios(nL + 1, n)
+	local sum, gaps = max(sumL, sumR), max(gapsL, gapsR)
 	local h = TOP.microH
-	for _, side in ipairs({ { 1, nL, artL - (coreX + 16 + TOP.slotGap) }, { nL + 1, n, W - 8 - artR } }) do
-		local sum, gaps = ratios(side[1], side[2])
-		if sum > 0 then
-			h = min(h, (side[3] - gaps) / sum)
-		end
+	if sum > 0 then
+		h = min(h, (artL - (coreX + 16 + TOP.slotGap) - gaps) / sum, (W - 8 - artR - gaps) / sum)
 	end
 	h = max(TOP.microMinH, h)
+	local span = sum * h + gaps
 	local my = plateY + plateH / 2 - h / 2
 	T.micro = {}
-	local sumL, gapsL = ratios(1, nL)
-	local mx = artL - (sumL * h + gapsL)
-	local microL, microR = artL, artR
-	if n > 0 then
-		microL = mx
-	end
+	local mx = artL - span + (span - (sumL * h + gapsL)) / 2
 	for i = 1, n do
 		if i == nL + 1 then
-			mx = artR
+			mx = artR + (span - (sumR * h + gapsR)) / 2
 		end
 		local w = micro[i] * h
 		T.micro[i] = rect(mx, my, w, h)
 		mx = mx + w + TOP.microGap
-		microR = max(microR, mx - TOP.microGap)
+	end
+	local microL, microR = artL, artR
+	if n > 0 then
+		microL, microR = artL - span, artR + span
 	end
 	T.microSpan = rect(microL, my, microR - microL, h)
 

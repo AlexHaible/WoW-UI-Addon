@@ -165,6 +165,8 @@ MinimapCluster.Tracking._w, MinimapCluster.Tracking._h = 32, 32
 MinimapCluster.IndicatorFrame = new("frame", nil, MinimapCluster)
 GameTimeFrame = new("button", "GameTimeFrame", MinimapCluster)
 GameTimeFrame._w, GameTimeFrame._h = 40, 40
+-- Forever's day/night moon: a keyless child of the cluster.
+MinimapCluster.DielFrame = new("frame", nil, MinimapCluster)
 TimeManagerClockButton = new("button", "TimeManagerClockButton", MinimapCluster)
 -- A forbidden frame among UIParent's children: touching it is an error.
 local forbiddenFrame = new("frame", nil, UIParent)
@@ -525,6 +527,8 @@ assert(StanceBar._mouse == false and PetActionBar._mouse == false and StanceBar.
 	"stance and pet bar frames are click-through, not hidden")
 -- The day/night indicator is hidden, not moved.
 assert(GameTimeFrame._alpha == 0 and #GameTimeFrame._points == 0, "GameTimeFrame should be concealed, not moved")
+assert(MinimapCluster.DielFrame._alpha == 0 and #MinimapCluster.DielFrame._points == 0,
+	"Forever's DielFrame (the moon) should be concealed, not moved")
 for _, b in ipairs(ns.modules.minimap.buttons) do
 	assert(b ~= GameTimeFrame, "GameTimeFrame must not join the minimap button row")
 end

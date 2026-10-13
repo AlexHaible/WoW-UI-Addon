@@ -147,10 +147,10 @@ function MinimapModule:OnEnable()
 	self.buttons = collectButtons(skip)
 end
 
--- The minimap cluster's day/night indicator (GameTimeFrame, a moon or sun
--- in the screen's top-right corner), by name or by one careful look through
+-- The minimap cluster's day/night indicator (Forever's DielFrame, or
+-- GameTimeFrame elsewhere: a moon or sun in the screen's top-right corner), by name or by one careful look through
 -- the cluster's and UIParent's children.
-local TIME_NAMES = { "GameTime", "DayNight", "TimeOfDay" }
+local TIME_NAMES = { "GameTime", "DayNight", "TimeOfDay", "Diel" }
 
 function MinimapModule:FindTimeFrames()
 	local list, seen = {}, {}
@@ -163,6 +163,7 @@ function MinimapModule:FindTimeFrames()
 	add(_G.GameTimeFrame)
 	local cluster = MinimapCluster
 	if cluster then
+		add(cluster.DielFrame)
 		add(cluster.GameTimeFrame)
 		add(cluster.GameTime)
 	end

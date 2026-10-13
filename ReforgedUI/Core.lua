@@ -223,6 +223,19 @@ end
 -- `also` names further methods that should re-apply the lock (e.g. SetScale).
 -- Keeps a single texture (a frame's border or background) invisible.
 local concealedRegions = setmetatable({}, { __mode = "k" })
+-- Warcraft III's steel command-button frame over a button's icon (above the
+-- icon, below its count and cooldown).
+function ns:IconFrame(btn)
+	if btn.reforgedFrame then
+		return btn.reforgedFrame
+	end
+	local t = btn:CreateTexture(nil, "ARTWORK", nil, 7)
+	t:SetTexture(self.MEDIA .. "Common\\iconframe")
+	t:SetAllPoints()
+	btn.reforgedFrame = t
+	return t
+end
+
 function ns:ConcealRegion(region)
 	if not region or not region.SetAlpha or concealedRegions[region] or forbidden(region) then
 		return

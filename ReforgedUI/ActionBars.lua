@@ -54,9 +54,9 @@ local MAIN_ART_GLOBALS = {
 
 local skinned = setmetatable({}, { __mode = "k" })
 
--- The grid art is the button frame: drop Blizzard's slot art, but keep each
--- icon's own border (and the mask that rounds the icon to fit it), so icons
--- don't look flat.
+-- The grid art is the button frame: drop Blizzard's border and slot art,
+-- let the icon fill the cell, and lay Warcraft III's steel button frame over
+-- it so the icon looks like a recessed command button, not a flat square.
 local function SkinButton(btn)
 	if skinned[btn] then
 		return
@@ -64,6 +64,14 @@ local function SkinButton(btn)
 	skinned[btn] = true
 	local name = btn:GetName()
 	local icon = btn.icon or _G[name .. "Icon"]
+	if icon and btn.IconMask and icon.RemoveMaskTexture then
+		icon:RemoveMaskTexture(btn.IconMask)
+	end
+	local normal = btn:GetNormalTexture()
+	if normal then
+		normal:SetAlpha(0)
+	end
+	ns:IconFrame(btn)
 	for _, key in ipairs({ "SlotBackground", "SlotArt" }) do
 		local region = btn[key]
 		if region and region.SetAlpha and region ~= icon then

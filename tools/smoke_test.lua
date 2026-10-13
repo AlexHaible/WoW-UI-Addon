@@ -649,6 +649,9 @@ end
 -- The gold dividers between buttons stay invisible, even after Blizzard
 -- updates them.
 assert(ActionButton7.RightDivider._alpha == 0, "button dividers hidden")
+for _, b in ipairs({ ActionButton1, MultiBar7Button1, ReforgedUIBagSlot1, ReforgedUIKeyRing }) do
+	assert(b.reforgedFrame and b.reforgedFrame._tex:find("iconframe"), b:GetName() .. " has the steel icon frame")
+end
 ActionButton7.RightDivider:SetAlpha(1)
 assert(ActionButton7.RightDivider._alpha == 0, "button dividers stay hidden")
 MainActionBar:UpdateDividers()

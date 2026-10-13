@@ -44,9 +44,12 @@ screen stays free on either side).
   options (or `/rui target plate`) instead puts the target in a small
   portrait arch standing on the wall above the stats panel. Either way the
   target's target is a small unit icon above the portrait (blue when it is
-  you, else green, yellow or red), with the target's debuffs and buffs in
-  rows of icons beside it (above the plate in plate mode; debuffs framed in
-  their dispel colour, a sweep for the time left, hover for the tooltip).
+  you, else green, yellow or red), with the target's buffs and debuffs
+  beside it (above the plate in plate mode). Those are Blizzard's own aura
+  icons: in combat the game lets no addon read a target's auras, so
+  Blizzard's target frame stays with everything but its auras made
+  invisible, and the "Reforged UI" Edit Mode layout places it (buffs on
+  top) so the icons land there.
   Left-click targets, right-click opens the unit menu.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
@@ -93,7 +96,9 @@ click-through; only their buttons move into the console.)
 **Edit Mode layout.** The first time each character logs in, the addon
 switches it to an account-wide Edit Mode layout called "Reforged UI", made
 once as a copy of the layout you were using, with the cast bar just above the
-console (its default place is under it) and raid-style party frames. When the
+console (its default place is under it), raid-style party frames, and the
+target frame placed for its aura icons (again at each login and target mode
+change). When the
 layout is made, the raid frame options are turned on too: class colours,
 power bars for every role, debuffs, aggro highlight, incoming heals, main
 tank and assist, health as a percentage. Everything lives in the layout and

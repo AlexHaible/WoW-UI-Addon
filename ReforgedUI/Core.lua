@@ -505,7 +505,11 @@ end
 --  * the cast bar just above the console (its default place is under it, and
 --    moving it from addon code breaks Blizzard's own, see Blizzard.lua);
 --  * raid-style party frames, and the raid frames' options (class colours,
---    power bars, debuffs) turned on when the layout is made.
+--    power bars, debuffs) turned on when the layout is made;
+--  * Blizzard's target frame, buffs on top, placed so its aura icons (all
+--    that is left visible of it, see Target.lua) stand beside the target of
+--    target. Placed again at each login and target mode change, as it
+--    follows the console's layout.
 -- It is all saved in the layout, so it is Edit Mode that applies it and
 -- every piece can still be moved and changed there. A cast bar that is still
 -- in its default place in any other layout of the player's own is raised too.
@@ -574,6 +578,44 @@ local function setCVar(name, value)
 	end
 end
 
+-- Blizzard puts the first aura icon's bottom-left corner this far from its
+-- target frame's top-left corner when buffs are on top (TargetFrame.lua).
+local TARGET_AURA_X, TARGET_AURA_Y = 5, -15
+
+-- Places the target frame in `layout`; true if that changed it.
+function ns:PlaceTargetAuras(layout)
+	local frames, sys = Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem
+	local target = self.modules.target
+	local spot = target and target.enabled and target:AuraSpot()
+	local tf = frames and sys.UnitFrame and findSystem(layout, sys.UnitFrame, frames.Target)
+	if not (spot and tf) then
+		return false
+	end
+	local k = UIParent:GetHeight() / 768
+	local scale = TargetFrame and TargetFrame:GetScale() or 1
+	if not scale or scale <= 0 then
+		scale = 1
+	end
+	local x = math.floor(spot.x0 * k / scale - TARGET_AURA_X + 0.5)
+	local y = math.floor(spot.y * k / scale - TARGET_AURA_Y + 0.5)
+	local a = tf.anchorInfo or {}
+	local changed = not (a.point == "TOPLEFT" and a.relativeTo == "UIParent" and a.relativePoint == "BOTTOMLEFT"
+		and a.offsetX == x and a.offsetY == y) or tf.isInDefaultPosition
+	tf.anchorInfo = { point = "TOPLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = x, offsetY = y }
+	tf.anchorInfo2 = nil
+	tf.isInDefaultPosition = false
+	local onTop = Enum.EditModeUnitFrameSetting and Enum.EditModeUnitFrameSetting.BuffsOnTop
+	if onTop then
+		local set = false
+		for _, entry in ipairs(tf.settings or {}) do
+			set = set or (entry.setting == onTop and entry.value == 1)
+		end
+		changed = changed or not set
+		setSetting(tf, onTop, 1)
+	end
+	return changed
+end
+
 function ns:SetupEditMode()
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
@@ -630,13 +672,15 @@ function ns:SetupEditMode()
 		end
 	end
 
+	local placed = index and self:PlaceTargetAuras(info.layouts[index])
+
 	local raised = 0
 	for _, layout in ipairs(info.layouts) do
 		if raiseCastBar(layout, castY) then
 			raised = raised + 1
 		end
 	end
-	if (made or raised > 0) and not pcall(C_EditMode.SaveLayouts, info) then
+	if (made or placed or raised > 0) and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
 	if made then
@@ -728,7 +772,6 @@ local function usage()
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
 		.. " topbar, config; needs /reload)")
 	print("  /rui status")
-	print("  /rui auras  (what the game reports on your target's buffs and debuffs)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui reset")
 end
@@ -773,10 +816,6 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
-	elseif cmd == "auras" and ns.modules.target.enabled then
-		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
-			ns:Print(line)
-		end
 	elseif cmd == "status" then
 		local L, T = ns.layout, ns.topLayout
 		ns:Print(("theme %s, UI scale %d, console shifted %d, screen %.0fx%.0f units; top bar %s (%s), scale %.2f"):format(

@@ -13,8 +13,8 @@
 --    (Hero.CreateLevelPlate, Hero.MakeBar).
 --
 -- In both, the target's target is a small unit icon on the wall above the
--- portrait, and its buffs and debuffs are rows of icons beside it (above the
--- plate in plate mode); hover one for its tooltip. Clicks go to our own secure unit buttons: left-click targets the
+-- portrait, and its buffs and debuffs (Blizzard's own icons, see below)
+-- beside it, above the plate in plate mode. Clicks go to our own secure unit buttons: left-click targets the
 -- unit, right-click opens its menu. Their visibility follows the units
 -- through RegisterUnitWatch, so nothing secure is shown, hidden or moved in
 -- combat; the swap itself only changes non-secure visuals.
@@ -28,8 +28,6 @@ local Target = ns:RegisterModule("target", {})
 
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
 local MAX_COMBO = 5
-local AURA_ROWS = 2 -- rows each for debuffs and buffs
-local DEBUFF_DEFAULT = { r = 0.8, g = 0, b = 0 }
 Target.MODES = { "swap", "plate" }
 
 local REACTION = {
@@ -284,6 +282,8 @@ end
 function Target:SetMode(mode)
 	ns.db.consoleOpts.targetMode = mode == "plate" and "plate" or "swap"
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
+	-- Blizzard's aura icons follow, through the Edit Mode layout.
+	ns:RunOutOfCombat("target-auras", function() ns:SetupEditMode() end)
 	self:Refresh()
 end
 
@@ -375,233 +375,40 @@ function Target:CreateToT()
 end
 
 ----------------------------------------------------------------------------
--- Buffs and debuffs. Aura data can hold secret values: they only ever go
--- into widgets, and anything that would compare or do sums on them runs
--- under pcall (a failure leaves that part blank).
+-- Buffs and debuffs. In combat the client lets no addon read a target's
+-- auras ("cannot be accessed when secret while tainted"), only Blizzard's
+-- own code. So Blizzard's target frame stays, showing nothing but its aura
+-- icons: its portrait, bars, art, cast bar and target of target are made
+-- invisible, and the "Reforged UI" Edit Mode layout (Core.lua) places it,
+-- buffs on top, so the icons stand on the wall beside the target of target
+-- (above the plate in plate mode).
 
--- The target's auras of one kind (filter), at most `max`. Clients differ in
--- what they answer, and in combat some ways of asking come back empty, so
--- each is tried in turn: by index, by slot, the whole list, then UnitAura.
--- Returns the list and how it was read.
-local function collectAuras(filter, max)
-	local api = _G.C_UnitAuras or {}
-	local list = {}
-	if api.GetAuraDataByIndex then
-		for i = 1, max do
-			local ok, data = pcall(api.GetAuraDataByIndex, "target", i, filter)
-			if not ok or type(data) ~= "table" then
-				break
-			end
-			list[#list + 1] = data
-		end
-		if #list > 0 then
-			return list, "index"
-		end
-	end
-	if api.GetAuraSlots and api.GetAuraDataBySlot then
-		local ok, slots = pcall(function()
-			return { select(2, api.GetAuraSlots("target", filter, max)) }
-		end)
-		if ok then
-			for _, slot in ipairs(slots) do
-				local okData, data = pcall(api.GetAuraDataBySlot, "target", slot)
-				if okData and type(data) == "table" and #list < max then
-					list[#list + 1] = data
-				end
-			end
-		end
-		if #list > 0 then
-			return list, "slot"
-		end
-	end
-	if api.GetUnitAuras then
-		local ok, all = pcall(api.GetUnitAuras, "target", filter, max)
-		if ok and type(all) == "table" then
-			for _, data in ipairs(all) do
-				if type(data) == "table" and #list < max then
-					list[#list + 1] = data
-				end
-			end
-		end
-		if #list > 0 then
-			return list, "list"
-		end
-	end
-	local unitAura = _G.UnitAura
-	if unitAura then
-		for i = 1, max do
-			local ok, name, icon, count, dispel, duration, expires = pcall(unitAura, "target", i, filter)
-			if not ok or type(name) == "nil" then
-				break
-			end
-			list[#list + 1] = { name = name, icon = icon, applications = count, dispelName = dispel,
-				duration = duration, expirationTime = expires }
-		end
-		if #list > 0 then
-			return list, "UnitAura"
-		end
-	end
-	return list, "none"
-end
-
-local function auraButton(parent, filter)
-	local b = CreateFrame("Frame", nil, parent)
-	b:EnableMouse(true)
-	b.filter = filter
-	b.border = b:CreateTexture(nil, "BACKGROUND")
-	b.border:SetTexture(ns:ArtPath("other\\white_background"))
-	b.border:SetPoint("TOPLEFT", b, "TOPLEFT", -1, 1)
-	b.border:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
-	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetAllPoints(b)
-	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
-	b.cd:SetAllPoints(b)
-	if b.cd.SetHideCountdownNumbers then
-		b.cd:SetHideCountdownNumbers(true)
-	end
-	b.count = b:CreateFontString(nil, "OVERLAY")
-	font(b.count, 9)
-	b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -1)
-	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
-		local byID = self.filter == "HELPFUL" and GameTooltip.SetUnitBuffByAuraInstanceID
-			or GameTooltip.SetUnitDebuffByAuraInstanceID
-		if byID and self.auraID then
-			pcall(byID, GameTooltip, "target", self.auraID, self.filter)
-		elseif GameTooltip.SetUnitAura then
-			pcall(GameTooltip.SetUnitAura, GameTooltip, "target", self.index, self.filter)
-		end
-		GameTooltip:Show()
-	end)
-	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	return b
-end
-
-local function setAura(b, data, index)
-	local auraAPI = _G.C_UnitAuras or {}
-	b.index, b.auraID = index, data.auraInstanceID
-	b.icon:SetTexture(data.icon)
-	-- Stacks. In combat the count can be a secret string, which may go
-	-- into the text but not be tested, so it is set inside the pcall.
-	b.count:SetText("")
-	pcall(function()
-		if auraAPI.GetAuraApplicationDisplayCount then
-			b.count:SetText(auraAPI.GetAuraApplicationDisplayCount("target", data.auraInstanceID, 2, 999))
-		elseif (data.applications or 0) > 1 then
-			b.count:SetText(tostring(data.applications))
-		end
-	end)
-	-- Time left, as a sweep: from the aura's duration object where the
-	-- client has one (it takes secret times), else by sums under pcall.
-	local timed = pcall(function()
-		if auraAPI.GetAuraDuration and b.cd.SetCooldownFromDurationObject then
-			b.cd:SetCooldownFromDurationObject(auraAPI.GetAuraDuration("target", data.auraInstanceID))
-		elseif data.duration and data.duration > 0 then
-			b.cd:SetCooldown(data.expirationTime - data.duration, data.duration)
-		else
-			b.cd:Clear()
-		end
-	end)
-	if not timed then
-		b.cd:Clear()
-	end
-	-- Debuffs framed in their dispel colour, buffs in black.
-	if b.filter == "HARMFUL" then
-		local ok, c = pcall(function()
-			local colors = _G.DebuffTypeColor
-			return colors and colors[data.dispelName or "none"]
-		end)
-		c = ok and c or DEBUFF_DEFAULT
-		b.border:SetVertexColor(c.r, c.g, c.b, 1)
-	else
-		b.border:SetVertexColor(0, 0, 0, 1)
-	end
-end
-
--- For /rui auras: what the client reports on the target, to tell an empty
--- list from an API that fails.
-function Target:DescribeAuras()
-	local api = _G.C_UnitAuras or {}
-	local have = {}
-	for _, fn in ipairs({ "GetAuraDataByIndex", "GetAuraSlots", "GetUnitAuras", "GetAuraDuration" }) do
-		if api[fn] then
-			have[#have + 1] = fn
-		end
-	end
-	local lines = { ("aura API: %s%s; target: %s; in combat: %s; shown: %s"):format(table.concat(have, ", "),
-		_G.UnitAura and ", UnitAura" or "", tostring(UnitExists("target")), tostring(InCombatLockdown()),
-		tostring(self.auras and self.auras.frame:IsShown())) }
-	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
-		local list, how = collectAuras(filter, 40)
-		local names = {}
-		for _, data in ipairs(list) do
-			local name = "(secret)"
-			if not isSecret(data.name) then
-				local ok, text = pcall(tostring, data.name)
-				name = ok and text or "?"
-			end
-			names[#names + 1] = name
-		end
-		local raw = ""
-		if api.GetAuraDataByIndex then
-			local ok, res = pcall(api.GetAuraDataByIndex, "target", 1, filter)
-			raw = ok and (" (by index: " .. type(res) .. ")") or (" (by index error: " .. tostring(res) .. ")")
-		end
-		lines[#lines + 1] = ("%s: %d via %s%s %s"):format(filter, #names, how, raw, table.concat(names, ", "))
-	end
-	if self.auraError then
-		lines[#lines + 1] = "last error: " .. tostring(self.auraError)
-	end
-	return lines
-end
-
-function Target:CreateAuras()
-	local f = CreateFrame("Frame", nil, ns.root)
-	f:SetFrameStrata("LOW")
-	f:SetFrameLevel(20)
-	f:SetAllPoints(ns.root)
-	f:Hide()
-	self.auras = { frame = f, HARMFUL = {}, HELPFUL = {} }
-end
-
-function Target:UpdateAuras()
-	local A, L = self.auras, self.layout
-	local v = self:View()
-	A.frame:SetShown(v ~= nil and L ~= nil)
-	if not (v and L) then
-		return
+-- Where the first aura icon's bottom-left corner goes, in console units.
+function Target:AuraSpot()
+	local L = self.layout
+	if not L then
+		return nil
 	end
 	local T = L.targetAuras
-	local spot = v == self.plate and T.plate or T.swap
-	local step = T.size + T.gap
-	local perRow = math.max(1, math.floor((spot.x1 - spot.x0 + T.gap) / step))
-	local row = 0
-	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
-		local list, shown = A[filter], 0
-		for i, data in ipairs((collectAuras(filter, perRow * AURA_ROWS))) do
-			local b = list[i] or auraButton(A.frame, filter)
-			list[i] = b
-			local col, line = (i - 1) % perRow, math.floor((i - 1) / perRow)
-			place(b, { x = spot.x0 + col * step, y = spot.y + (row + line) * step, w = T.size, h = T.size })
-			-- One aura the client won't let us read fully still shows.
-			local ok, err = pcall(setAura, b, data, i)
-			if not ok then
-				self.auraError = err
-			end
-			b:Show()
-			shown = i
-		end
-		for i = shown + 1, #list do
-			list[i]:Hide()
-		end
-		row = row + math.ceil(shown / perRow)
+	return (self:Mode() == "swap" and ns.modules.hero.enabled) and T.swap or T.plate
+end
+
+function Target:KeepBlizzardAuras()
+	local tf = TargetFrame
+	if not (tf and tf.TargetFrameContainer and tf.TargetFrameContent) then
+		ns:Conceal(tf)
+		return
 	end
+	for _, f in ipairs({ tf.TargetFrameContainer, tf.TargetFrameContent, tf.spellbar or _G.TargetFrameSpellBar,
+		tf.totFrame or TargetFrameToT, _G.TargetFrameNumericalThreat }) do
+		ns:Conceal(f)
+	end
+	-- Clicks go to our own target button; the aura icons keep theirs.
+	ns:RunOutOfCombat("target-frame-mouse", function() tf:EnableMouse(false) end)
 end
 
 function Target:OnEnable()
-	ns:Conceal(TargetFrame)
-	ns:Conceal(TargetFrameToT)
+	self:KeepBlizzardAuras()
 
 	self:CreateSwap()
 	self:CreatePlate()
@@ -609,7 +416,6 @@ function Target:OnEnable()
 	-- plate in plate mode (above the hero's own player button).
 	self.button = secureButton("ReforgedUITargetButton", "target", 30)
 	self:CreateToT()
-	self:CreateAuras()
 
 	local function unitEvent(events, fn)
 		for _, e in ipairs(events) do
@@ -625,7 +431,6 @@ function Target:OnEnable()
 	unitEvent({ "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION", "UNIT_CLASSIFICATION_CHANGED" }, self.UpdateName)
 	unitEvent({ "UNIT_MODEL_CHANGED", "UNIT_PORTRAIT_UPDATE" }, self.UpdateModel)
 	unitEvent({ "UNIT_TARGET" }, self.UpdateToT)
-	unitEvent({ "UNIT_AURA" }, self.UpdateAuras)
 	unitEvent({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }, self.UpdateCast)
@@ -663,7 +468,6 @@ function Target:Refresh()
 	if active then
 		self:UpdateAll()
 	end
-	self:UpdateAuras()
 end
 
 function Target:UpdateAll()

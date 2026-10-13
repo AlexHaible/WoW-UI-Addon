@@ -240,6 +240,9 @@ MainMenuBarBackpackButton = new("button", "MainMenuBarBackpackButton", UIParent)
 for i = 0, 3 do new("button", "CharacterBag" .. i .. "Slot", UIParent) end
 TargetFrame = new("secure", "TargetFrame", UIParent)
 TargetFrameToT = new("secure", "TargetFrameToT", TargetFrame)
+TargetFrame.TargetFrameContainer = new("frame", nil, TargetFrame)
+TargetFrame.TargetFrameContent = new("frame", nil, TargetFrame)
+TargetFrameSpellBar = new("frame", "TargetFrameSpellBar", TargetFrame)
 StanceBar = new("secure", "StanceBar", UIParent)
 PetActionBar = new("secure", "PetActionBar", UIParent)
 for i = 1, 10 do
@@ -350,8 +353,8 @@ local savedLayouts
 Enum = Enum or {}
 Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
-Enum.EditModeUnitFrameSystemIndices = { Party = 2 }
-Enum.EditModeUnitFrameSetting = { UseRaidStylePartyFrames = 4 }
+Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
+Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
 Enum.EditModeLayoutType = { Account = 1 }
 local cvars = { raidFramesDisplayClassColor = "0", raidFramesDisplayPowerBars = "0" }
 C_CVar = { GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end }
@@ -368,6 +371,7 @@ C_EditMode = {
 			{ system = 1, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetY = 120 },
 				isInDefaultPosition = true },
 			{ system = 3, systemIndex = 2, settings = { { setting = 4, value = 0 } } },
+			{ system = 3, systemIndex = 1, isInDefaultPosition = true, settings = { { setting = 2, value = 0 } } },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 		} } } }
@@ -509,6 +513,20 @@ do
 	assert(ours.systems[4].settings[1].value == 1 and L[1].systems[4].settings[1].value == 0,
 		"raid-style party frames in our layout only")
 	assert(ours.systems[1].anchorInfo.relativeTo == "UIParent", "the copy is of the repaired layout")
+	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
+	-- target aura spot: above the plate (the mode at login), then beside the
+	-- target of target once swap mode is picked.
+	local k = UIParent:GetHeight() / 768
+	local function auraAt(spot, what)
+		local tf = savedLayouts.layouts[3].systems[5]
+		assert(not tf.isInDefaultPosition and tf.settings[1].value == 1, "target frame placed, buffs on top")
+		assert(math.abs(tf.anchorInfo.offsetX + 5 - spot.x0 * k) <= 1
+			and math.abs(tf.anchorInfo.offsetY - 15 - spot.y * k) <= 1, "target auras " .. what)
+	end
+	auraAt(ns.layout.targetAuras.plate, "above the plate")
+	ns.modules.target:SetMode("swap")
+	auraAt(ns.layout.targetAuras.swap, "beside the target of target")
+	assert(L[1].systems[5].isInDefaultPosition, "other layouts keep their target frame")
 	assert(L[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
 	assert(cvars.raidFramesDisplayClassColor == "1" and cvars.raidFramesDisplayPowerBars == "1"
 		and cvars.raidFramesHealthText == nil, "raid frame options on (only those the client has)")
@@ -547,10 +565,15 @@ assert(PlayerFrame:GetParent() == UIParent and PlayerFrame._alpha == 0 and Playe
 local _, _, _, _, py = PlayerFrame:GetPoint(1)
 assert(py == -4, "the player frame must not be moved")
 -- Our target display replaces Blizzard's target frame and its target of
--- target: invisible and click-through, never moved or reparented.
-for _, f in ipairs({ TargetFrame, TargetFrameToT }) do
-	assert(f._alpha == 0 and f._mouse == false and #f._points == 0, f._name .. " should be concealed, not moved")
+-- target: invisible and click-through, never moved or reparented, all but
+-- the target frame's own aura icons (only Blizzard's code may read them in
+-- combat).
+for _, f in ipairs({ TargetFrameToT, TargetFrame.TargetFrameContainer, TargetFrame.TargetFrameContent,
+	TargetFrameSpellBar }) do
+	assert(f._alpha == 0 and #f._points == 0, tostring(f._name) .. " should be concealed, not moved")
 end
+assert(TargetFrame._alpha ~= 0 and TargetFrame._mouse == false and #TargetFrame._points == 0,
+	"the target frame stays visible for its auras, click-through and not moved")
 assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")
 assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil and #MinimapCluster._points == 0,
 	"the minimap cluster must be left alone")
@@ -1275,71 +1298,6 @@ do
 	for i, pip in ipairs(target.swap.combo) do
 		assert(pip.gem:IsShown() == (i <= 3) and pip.socket:IsShown(), "three combo points lit")
 	end
-	-- Buffs and debuffs: debuffs in the first row, buffs after them, each
-	-- capped at two rows; secret durations leave the sweep blank.
-	local oldSetTexture
-	local secretDuration = setmetatable({}, { __lt = function() error("compared a secret value") end,
-		__le = function() error("compared a secret value") end,
-		__sub = function() error("did sums on a secret value") end })
-	C_UnitAuras = {
-		GetAuraDataByIndex = function(_, i, filter)
-			if filter == "HARMFUL" and i <= 3 then
-				return { icon = 100 + i, auraInstanceID = i, applications = i, dispelName = i == 1 and "Magic" or nil,
-					duration = i == 2 and secretDuration or 10, expirationTime = 20 }
-			elseif filter == "HELPFUL" and i <= 60 then
-				return { icon = 200 + i, auraInstanceID = 100 + i, applications = 0, duration = 0 }
-			end
-		end,
-	}
-	DebuffTypeColor = { Magic = { r = 0.2, g = 0.6, b = 1 }, none = { r = 0.8, g = 0, b = 0 } }
-	fire("UNIT_AURA", "target")
-	do
-		local A, T = target.auras, ns.layout.targetAuras
-		local perRow = math.floor((T.swap.x1 - T.swap.x0 + T.gap) / (T.size + T.gap))
-		local function shown(list)
-			local n = 0
-			for _, b in ipairs(list) do if b:IsShown() then n = n + 1 end end
-			return n
-		end
-		assert(A.frame:IsShown() and shown(A.HARMFUL) == 3 and shown(A.HELPFUL) == 2 * perRow,
-			"target debuffs, and buffs capped at two rows")
-		assert(perRow >= 8, "room for a row of target auras beside the target of target")
-		assert(A.HARMFUL[1].border._vertex[3] == 1 and A.HARMFUL[3].border._vertex[1] == 0.8,
-			"debuffs framed in their dispel colour")
-		local lines = target:DescribeAuras()
-		assert(#lines == 3 and lines[2]:find("^HARMFUL: 3"), "/rui auras lists the target's auras")
-		SlashCmdList.REFORGEDUI("auras")
-		A.HARMFUL[2]:GetScript("OnEnter")(A.HARMFUL[2])
-		A.HARMFUL[2]:GetScript("OnLeave")(A.HARMFUL[2])
-	end
-	-- An aura whose stacks can't be read still shows, and the error is kept
-	-- for /rui auras.
-	C_UnitAuras.GetAuraApplicationDisplayCount = function() error("secret stacks") end
-	methods.SetTexture, oldSetTexture = function(self, path)
-		if path == 102 then error("no texture") end
-		return oldSetTexture(self, path)
-	end, methods.SetTexture
-	fire("UNIT_AURA", "target")
-	methods.SetTexture = oldSetTexture
-	C_UnitAuras.GetAuraApplicationDisplayCount = nil
-	assert(target.auras.HARMFUL[2]:IsShown() and target.auras.HARMFUL[3]:IsShown(), "a failing aura still shows")
-	local described = target:DescribeAuras()
-	assert(described[#described]:find("no texture"), "/rui auras shows the last error")
-	-- In combat asking by index may come back empty: the slots are asked.
-	local byIndex = C_UnitAuras.GetAuraDataByIndex
-	C_UnitAuras.GetAuraDataByIndex = function() return nil end
-	C_UnitAuras.GetAuraSlots = function(_, filter)
-		if filter == "HARMFUL" then return nil, 1, 2 end
-		return nil
-	end
-	C_UnitAuras.GetAuraDataBySlot = function(_, slot) return byIndex("target", slot, "HARMFUL") end
-	fire("UNIT_AURA", "target")
-	assert(target.auras.HARMFUL[2]:IsShown() and not target.auras.HARMFUL[3]:IsShown()
-		and not target.auras.HELPFUL[1]:IsShown(), "auras read by slot when asking by index fails")
-	assert(target:DescribeAuras()[2]:find("via slot"), "/rui auras says how they were read")
-	C_UnitAuras = nil
-	fire("UNIT_AURA", "target")
-	assert(target.auras.HARMFUL[1]:IsShown() == false, "auras gone with the target's auras")
 	-- Secret health: still reaches the bar, never compared, text left empty.
 	secretTarget = true
 	fire("UNIT_HEALTH", "target")
@@ -1377,7 +1335,7 @@ do
 		"clearing the target restores the player's name and level")
 	assert(hero.xp.name._r == 1 and hero.xp.name._g == 1, "the player's name colour is restored")
 	assert(hero.stats[1]:IsShown() and hero.stats[4]:IsShown() and hero.xp.bar:IsShown(), "stat icons come back")
-	assert(not target.swap.frame:IsShown() and not target.auras.frame:IsShown(), "the target bars and auras go away")
+	assert(not target.swap.frame:IsShown(), "the target bars go away")
 	-- Switching the mode in combat: visuals now, the click area after combat.
 	SlashCmdList.REFORGEDUI("target plate")
 	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "/rui target plate")

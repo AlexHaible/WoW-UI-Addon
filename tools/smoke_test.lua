@@ -343,6 +343,12 @@ playerRace, playerRaceFile, playerFaction, playerRaceID = "Orc", "Orc", "Horde",
 function UnitRace() return playerRace, playerRaceFile, playerRaceID end
 function UnitFactionGroup() return playerFaction end
 function UnitName() return "Thrall" end
+-- Forever returns a character's surname where the realm would be.
+function GetUnitName(unit, full)
+	local name = UnitName(unit)
+	if full and unit == "player" then return name .. " Son of Durotan" end
+	return name
+end
 function UnitLevel() return 12 end
 function UnitClass() return "Shaman", "SHAMAN" end
 function UnitHealth() return 300 end
@@ -566,7 +572,7 @@ local hero = ns.modules.hero
 assert(hero.health.text._text == "300 / 450" and hero.health._value == 300, "health")
 assert(hero.power.text._text == "120 / 200", "power")
 assert(hero.power._color[3] == 1 and hero.power._color[1] == 0, "mana is blue")
-assert(hero.xp.level._text == "Level 12 Shaman" and hero.xp.name._text == "Thrall", "name and level")
+assert(hero.xp.level._text == "Level 12 Shaman" and hero.xp.name._text == "Thrall Son of Durotan", "name and level")
 assert(math.abs(hero.xp.bar._w - L.xp.bar.w / 4) < 0.01, "XP bar at 25%")
 assert(math.abs(hero.xp.rested._w - L.xp.bar.w * 1500 / 4000) < 0.01, "rested XP")
 assert(hero.stats[1].value._text == "10 - 16", "main hand damage")
@@ -983,7 +989,7 @@ do
 	-- Clearing the target restores the player, in combat.
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")
-	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall" and hero.xp.level._text == "Level 12 Shaman",
+	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall Son of Durotan" and hero.xp.level._text == "Level 12 Shaman",
 		"clearing the target restores the player's name and level")
 	assert(hero.xp.name._r == 1 and hero.xp.name._g == 1, "the player's name colour is restored")
 	assert(hero.stats[1]:IsShown() and hero.stats[4]:IsShown() and hero.xp.bar:IsShown(), "stat icons come back")
@@ -993,7 +999,7 @@ do
 	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "/rui target plate")
 	hasTarget = true
 	fire("PLAYER_TARGET_CHANGED")
-	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall", "plate mode: the hero screen stays the player's")
+	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall Son of Durotan", "plate mode: the hero screen stays the player's")
 	assert(target.plate.frame:IsShown() and not target.swap.frame:IsShown(), "plate mode shows the plate")
 	assert(target.plate.name._text == "Hogger" and target.plate.healthText._text == "412 / 666", "plate: name and health")
 	methods.SetTextColor = oldColor

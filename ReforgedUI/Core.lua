@@ -266,6 +266,17 @@ function ns:Anchor(frame, point, x, y)
 	frame:SetPoint(point, UIParent, "BOTTOMLEFT", x * s, y * s)
 end
 
+-- A unit's full name: on Forever a character's surname comes back where
+-- other clients put the realm, and GetUnitName(unit, true) joins the two
+-- ("John Dwarfadin").
+function ns:FullName(unit)
+	local name = GetUnitName and GetUnitName(unit, true)
+	if type(name) ~= "string" or name == "" then
+		name = UnitName(unit)
+	end
+	return name
+end
+
 function ns:PlaceRect(frame, r, point)
 	self:Anchor(frame, point or "BOTTOMLEFT", r.x, r.y)
 	if r.w and r.h then

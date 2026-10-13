@@ -11,14 +11,14 @@ local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 
 -- Label, Blizzard micro button to click (secure), and a fallback function for
 -- clients without that button. `cover` is a Blizzard button laid, invisible,
--- over ours so the player clicks it directly: the game menu button opens on
--- its own mouse-up (a secure click does nothing), and opening the menu from
--- addon code is blocked (ToggleGameMenu stops spell casts) or taints the menu
--- and the Edit Mode button in it.
+-- over ours so the player clicks it directly: the game menu, quest log and
+-- social buttons open on their own mouse-up (a secure click does nothing),
+-- and opening the menu from addon code is blocked (ToggleGameMenu stops
+-- spell casts) or taints the menu and the Edit Mode button in it.
 local BUTTONS = {
-	{ label = QUESTLOG_BUTTON or "Quests", micro = { "QuestLogMicroButton" }, fallback = "ToggleQuestLog" },
-	{ label = MAINMENU_BUTTON or "Menu", micro = {}, cover = "MainMenuMicroButton" },
-	{ label = SOCIAL_BUTTON or "Allies", micro = { "SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton" },
+	{ label = QUESTLOG_BUTTON or "Quests", micro = {}, cover = { "QuestLogMicroButton" }, fallback = "ToggleQuestLog" },
+	{ label = MAINMENU_BUTTON or "Menu", micro = {}, cover = { "MainMenuMicroButton" } },
+	{ label = SOCIAL_BUTTON or "Allies", micro = {}, cover = { "SocialsMicroButton", "FriendsMicroButton", "GuildMicroButton" },
 		fallback = "ToggleFriendsFrame" },
 	{ label = WORLD_MAP or "Map", micro = { "WorldMapMicroButton" }, fallback = "ToggleWorldMap" },
 }
@@ -339,7 +339,7 @@ function TopBar:OnEnable()
 	for i, spec in ipairs(BUTTONS) do
 		local target = firstGlobal(spec.micro)
 		local fallback = spec.fallback and _G[spec.fallback]
-		local cover = spec.cover and _G[spec.cover]
+		local cover = spec.cover and firstGlobal(spec.cover)
 		if cover and ns.IsForbidden(cover) then
 			cover = nil
 		end

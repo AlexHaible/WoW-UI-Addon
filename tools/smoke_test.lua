@@ -241,6 +241,7 @@ PlayerFrame = new("secure", "PlayerFrame", UIParent)
 PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
 QuestLogMicroButton = new("button", "QuestLogMicroButton", MainMenuBar)
+SocialsMicroButton = new("button", "SocialsMicroButton", MainMenuBar)
 local gameHour = 0
 function GetGameTime() return gameHour, 0 end
 function GetMoney() return 1234567 end
@@ -464,8 +465,12 @@ assert(MinimapCluster.Tracking._points[1][1] == "CENTER", "tracking button shoul
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")
 assert(CharacterMicroButton._alpha == 0, "micro buttons are hidden by default")
-assert(ReforgedUITopButton1 and ReforgedUITopButton1:GetAttribute("clickbutton") == QuestLogMicroButton,
-	"quests button should click the quest log micro button")
+-- Quests, Menu and Allies are Blizzard's own micro buttons, laid invisible
+-- over the top bar's plates and clicked directly.
+for _, b in ipairs({ QuestLogMicroButton, MainMenuMicroButton, SocialsMicroButton }) do
+	local _, rel = b:GetPoint(1)
+	assert(rel == UIParent and b:GetAlpha() == 0 and b._mouse == true, b:GetName() .. " should cover its top bar plate")
+end
 
 -- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do

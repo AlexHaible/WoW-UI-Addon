@@ -12,6 +12,10 @@
 local _, ns = ...
 local Blizzard = ns:RegisterModule("blizzard", {})
 
+-- Micro buttons laid over the top bar's buttons (see TopBar.lua).
+local COVERS = { MainMenuMicroButton = true, QuestLogMicroButton = true, SocialsMicroButton = true,
+	FriendsMicroButton = true, GuildMicroButton = true }
+
 local function first(...)
 	for i = 1, select("#", ...) do
 		local name = select(i, ...)
@@ -55,11 +59,11 @@ function Blizzard:OnEnable()
 		self.micro = nil
 	elseif not self.micro then
 		-- Classic-style clients: micro buttons are loose children of the main
-		-- bar, so line them up one by one. The game menu button sits over the
-		-- top bar's Menu button instead.
+		-- bar, so line them up one by one. The game menu, quest log and
+		-- social buttons sit over the top bar's buttons instead.
 		self.microButtons = {}
 		for _, name in ipairs(MICRO_NAMES) do
-			if _G[name] and name ~= "MainMenuMicroButton" then
+			if _G[name] and not COVERS[name] then
 				self.microButtons[#self.microButtons + 1] = _G[name]
 			end
 		end

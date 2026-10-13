@@ -270,7 +270,7 @@ Layout.ENDCAP_GEN = {
 }
 -- Themes tools/make_endcaps.py builds stand-in caps for.
 Layout.ENDCAP_GEN_THEMES = {
-	human = true, orc = true, undead = true, nightelf = true, gnome = true, tauren = true, troll = true,
+	human = true, orc = true, undead = true, nightelf = true, dwarf = true, gnome = true, tauren = true, troll = true,
 	highorder = true, windshapers = true,
 }
 -- The chat area gives up width so the caps fit beside it, down to this
@@ -334,7 +334,7 @@ Layout.TARGET_ART = {
 		nightelf = { portrait = { 54, 64, 115, 126 }, health = { 54, 195, 115, 20 }, power = { 54, 220, 115, 18 },
 			info = { 197, 52, 291, 191 } },
 	},
-	fallback = { dwarf = "human" },
+	fallback = {},
 }
 
 -- Theme folder, file and windows of `art`'s plate.

@@ -1054,7 +1054,7 @@ do
 	local O = Layout.Overlaps
 	for _, key in ipairs(ns.THEME_ORDER) do
 		local C = Layout.EndcapArt(key)
-		assert(C.fallback == (key == "dwarf"), key .. ": only Dwarf (hand-built art) borrows its end caps")
+		assert(not C.fallback, key .. ": every theme has end caps of its own")
 		for _, side in ipairs({ "left", "right" }) do
 			local path = ADDON .. "art/" .. C.folder .. "/" .. C[side]:gsub("\\", "/") .. ".tga"
 			assert(exists(path), "missing end cap " .. path)

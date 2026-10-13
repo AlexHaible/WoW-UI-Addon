@@ -21,9 +21,8 @@ both outer faces are finished. The crown keeps its proportions; the shaft
 is stretched to the cap's height, and the crown is cut back to the shaft's
 width (no overhang, so no T shape).
 
-Themes in make_race_themes.HAND_BUILT (Dwarf) are skipped: their art comes
-from the art pipeline, and until it does Layout.lua falls back to the base
-faction's caps. Deterministic: running it again gives the same files.
+Themes in make_race_themes.HAND_BUILT (Dwarf) get theirs from their own
+hand-built pillar too; only the *_gen files are written, never real art. Deterministic: running it again gives the same files.
 """
 import os
 import sys
@@ -33,10 +32,9 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from make_race_themes import HAND_BUILT  # noqa: E402
 
 ART = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI", "art"))
-THEMES = ("human", "orc", "undead", "nightelf", "gnome", "tauren", "troll", "highorder", "windshapers")
+THEMES = ("human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll", "highorder", "windshapers")
 
 OUT_W, OUT_H = 128, 512
 # The cap's shape on screen (width / height); Layout.ENDCAP_ART's w and h
@@ -102,10 +100,8 @@ def make(theme):
 
 
 def main(args):
-    themes = args or [t for t in THEMES if t not in HAND_BUILT]
+    themes = args or list(THEMES)
     for t in themes:
-        if t in HAND_BUILT:
-            sys.exit("%s has hand-built art; its end caps come from the art pipeline" % t)
         if not os.path.isdir(os.path.join(ART, t)):
             sys.exit("unknown theme %s" % t)
         make(t)

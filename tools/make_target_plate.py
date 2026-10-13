@@ -25,8 +25,8 @@ finds (portrait opening, the two bar slots and the info window) as pixel
 rects of the 512x256 texture, top-left origin; they are the `gen` entries of
 Layout.TARGET_ART (`--windows` prints them). The output is deterministic.
 
-Hand-built themes (make_race_themes.HAND_BUILT) are skipped: their plate needs
-art from the art pipeline, and until then they use their base faction's.
+Hand-built themes (make_race_themes.HAND_BUILT, Dwarf) get theirs from their
+own hand-built art too; only targetplate_gen.tga is written, never real art.
 """
 import os
 import sys
@@ -36,7 +36,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from make_race_themes import HAND_BUILT, RACES  # noqa: E402
+from make_race_themes import RACES  # noqa: E402
 
 ART = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI", "art"))
 OUT_W, OUT_H = 512, 256
@@ -164,10 +164,8 @@ def main(args):
     if args == ["--windows"]:
         print_windows()
         return
-    themes = args or [t for t in THEMES if t not in HAND_BUILT]
+    themes = args or list(THEMES)
     for t in themes:
-        if t in HAND_BUILT:
-            sys.exit("%s has hand-built art; its plate comes from the art pipeline" % t)
         if t not in THEMES:
             sys.exit("unknown theme %s" % t)
         make(t)

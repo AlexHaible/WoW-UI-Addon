@@ -30,7 +30,8 @@ screen stays free on either side).
   group leader and PvP icons. The background pulses red under the low health
   threshold.
 - **Hero screen**: name, level and class, the experience bar with rested
-  experience (hover for the numbers) and four stat icons. Armour is fixed; the
+  experience (hover for the numbers, right-click for its colour: purple,
+  blue or none) and four stat icons. Armour is fixed; the
   other three show main hand, off hand (block chance and value with a shield),
   ranged, ammo (yellow under 400, red under 200), spell power, healing or
   nothing, chosen per class from each icon's right-click menu. Druid forms and Ghost Wolf swap
@@ -94,7 +95,7 @@ menu keeps the original addon's options, minus the layout ones (the centre modes
 area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
 the chat area upwards, portrait position and scale, low health threshold,
-rested XP colour, zone text position, chat input above the
+zone text position, chat input above the
 chat, health and power as percentages, and hiding the grid texture and chat
 icons. (The micro buttons always live in the top bar now.)
 

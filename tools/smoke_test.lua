@@ -730,6 +730,20 @@ assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[1] == "offhand", "menu choice sets 
 ns.ShowMenu = function() return false end
 hero.stats[1]:GetScript("OnMouseUp")(hero.stats[1], "RightButton")
 assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[1] == "ranged", "without menus a right-click steps on")
+-- A right-click on the experience bar picks the rested colour.
+ns.ShowMenu = function(_, owner, title, items)
+	menuOpened = { owner = owner, title = title, items = items }
+	return true
+end
+hero.xp.hover:GetScript("OnMouseUp")(hero.xp.hover, "RightButton")
+assert(menuOpened.owner == hero.xp.hover and #menuOpened.items == 3, "rested colour menu: Purple, Blue, None")
+assert(menuOpened.items[2].checked and not menuOpened.items[1].checked, "the default blue is ticked")
+menuOpened.items[1].func()
+assert(ReforgedUIDB.consoleOpts.restedColor[1] == 0.5 and ReforgedUIDB.consoleOpts.restedColor[3] == 0.5, "purple chosen")
+ns.ShowMenu = function() return false end
+hero.xp.hover:GetScript("OnMouseUp")(hero.xp.hover, "RightButton")
+assert(ReforgedUIDB.consoleOpts.restedColor[3] == 1, "without menus a right-click steps to the next colour")
+hero:SetRestedColor({ 0, 0, 1, 0.5 })
 ns.ShowMenu = oldMenu
 hero:SetIconChoice(1, "main")
 assert(not hero.stats[4]:GetScript("OnMouseUp"), "armour has no menu")

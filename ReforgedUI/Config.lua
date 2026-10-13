@@ -19,11 +19,6 @@ local THEME_BUTTONS = {
 	{ "undead", "Scourge" }, { "windshapers", "Windshapers" },
 }
 local THEME_COLUMNS = 7
-local RESTED_COLORS = {
-	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
-	{ "Blue", { 0, 0, 1, 0.5 } },
-	{ "None", { 0, 0, 0, 0 } },
-}
 local ZONE_TEXT = { "Zone text: bottom", "Zone text: top", "Zone text: hidden" }
 
 local function relayout()
@@ -176,18 +171,8 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 126)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 168)
 
-	-- Rested experience colour.
-	label(f, "Rested XP colors", x, y - 214)
-	for i, spec in ipairs(RESTED_COLORS) do
-		button(f, spec[1], 64, x + (i - 1) * 68, y - 232, function()
-			ns.db.consoleOpts.restedColor = { unpack(spec[2]) }
-			ns.modules.hero:UpdateXP()
-		end)
-	end
-	button(f, "Custom", 64, x + 3 * 68, y - 232, function() self:PickRestedColor() end)
-
-	-- Stat icons: chosen from each icon's right-click menu on the console.
-	label(f, "Right-click a weapon icon on the console to choose what it shows.", 20, -388,
+	-- Stat icons and the rested colour: chosen from right-click menus on the console.
+	label(f, "Right-click a weapon icon to choose what it shows, or the experience bar for its rested colour.", 20, -388,
 		"GameFontNormalSmall")
 
 	button(f, "Apply", 120, 20, -420, function() self:Apply() end)
@@ -215,25 +200,6 @@ function Config:Apply()
 	num("portraitScale", 0, 35)
 	relayout()
 	self:Refresh()
-end
-
-function Config:PickRestedColor()
-	local c = ns.db.consoleOpts.restedColor
-	local function set()
-		local r, g, b = ColorPickerFrame:GetColorRGB()
-		local a = ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha() or 0.5
-		ns.db.consoleOpts.restedColor = { r, g, b, a }
-		ns.modules.hero:UpdateXP()
-	end
-	local previous = { unpack(c) }
-	pcall(ColorPickerFrame.SetupColorPickerAndShow, ColorPickerFrame, {
-		r = c[1], g = c[2], b = c[3], opacity = c[4], hasOpacity = true,
-		swatchFunc = set, opacityFunc = set,
-		cancelFunc = function()
-			ns.db.consoleOpts.restedColor = previous
-			ns.modules.hero:UpdateXP()
-		end,
-	})
 end
 
 function Config:Refresh()

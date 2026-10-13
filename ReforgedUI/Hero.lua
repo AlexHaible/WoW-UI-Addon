@@ -320,8 +320,46 @@ function Hero:CreateXP(holder)
 		self:UpdateXP()
 		hideInfo()
 	end)
+	hover:SetScript("OnMouseUp", function(_, button)
+		if button == "RightButton" then
+			self:OpenRestedMenu()
+		end
+	end)
 	xp.hover = hover
 	self.xp = xp
+end
+
+Hero.RESTED_COLORS = {
+	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
+	{ "Blue", { 0, 0, 1, 0.5 } },
+	{ "None", { 0, 0, 0, 0 } },
+}
+
+function Hero:SetRestedColor(color)
+	ns.db.consoleOpts.restedColor = { unpack(color) }
+	self:UpdateXP()
+end
+
+-- Right-click menu of the experience bar: the rested colour. Without the
+-- menu API a right-click steps to the next colour.
+function Hero:OpenRestedMenu()
+	local c, current = ns.db.consoleOpts.restedColor, 0
+	for i, spec in ipairs(Hero.RESTED_COLORS) do
+		local same = true
+		for k = 1, 4 do
+			same = same and math.abs((c[k] or 0) - spec[2][k]) < 0.01
+		end
+		if same then
+			current = i
+		end
+	end
+	local items = {}
+	for i, spec in ipairs(Hero.RESTED_COLORS) do
+		items[i] = { text = spec[1], checked = i == current, func = function() self:SetRestedColor(spec[2]) end }
+	end
+	if not ns:ShowMenu(self.xp.hover, "Rested experience colour", items) then
+		self:SetRestedColor(Hero.RESTED_COLORS[current % #Hero.RESTED_COLORS + 1][2])
+	end
 end
 
 function Hero:UpdateXP()

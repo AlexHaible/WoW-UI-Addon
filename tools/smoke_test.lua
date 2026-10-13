@@ -260,6 +260,11 @@ end
 -- A feature Forever doesn't have, the container's own border, and a stray
 -- frame left in the container.
 HousingMicroButton = new("button", "HousingMicroButton", MicroMenu)
+-- The game menu button's backing: one anchor, a size of its own.
+local menuBacking = MainMenuMicroButton:CreateTexture()
+menuBacking:SetPoint("CENTER", MainMenuMicroButton, "CENTER", 0, 0)
+menuBacking:SetSize(MainMenuMicroButton._w, MainMenuMicroButton._h)
+menuBacking._atlas, menuBacking._shown = "UI-HUD-MicroMenu-ButtonBG-Up", true
 -- Forever's classic talent and spellbook buttons, next to the newer one.
 for _, name in ipairs({ "TalentMicroButton", "SpellbookMicroButton", "LegacyMicroButton" }) do
 	local b = new("button", name, MicroMenu)
@@ -560,6 +565,14 @@ end
 -- of our own close the row.
 local menuMicro = ns.modules.topbar.menuMicro
 assert(menuMicro, "a game menu button at the end of the micro row")
+local copiedBacking
+for _, t in ipairs({ menuMicro:GetRegions() }) do
+	if t._atlas == menuBacking._atlas then
+		assert(t._w == menuMicro._w and t._h == menuMicro._h, "the copied backing is the button's size")
+		copiedBacking = true
+	end
+end
+assert(copiedBacking, "the game menu button's backing is copied")
 local MOVED = { CharacterMicroButton, SpellbookMicroButton, TalentMicroButton, GuildMicroButton,
 	LFDMicroButton, CollectionsMicroButton, unnamedMicro, LegacyMicroButton, menuMicro }
 checkMicro(MOVED)

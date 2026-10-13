@@ -630,18 +630,36 @@ function TopBar:CreateMenuMicro(plate, like)
 			skip[b[getter](b) or false] = true
 		end
 	end
+	-- Its latency bar would only be a still picture here.
+	for key, v in pairs(b) do
+		if type(key) == "string" and (key:find("Performance") or key:find("Latency")) then
+			skip[v] = true
+		end
+	end
 	for _, region in ipairs({ b:GetRegions() }) do
 		if region.GetObjectType and region:GetObjectType() == "Texture" and not skip[region] and region:IsShown() then
 			copies[region] = copyTexture(f, region)
 		end
 	end
+	-- Sizes and offsets scale from Blizzard's button to ours.
+	local bw, bh = b:GetWidth(), b:GetHeight()
+	local kx = (plain(bw) and bw > 0) and f:GetWidth() / bw or 1
+	local ky = (plain(bh) and bh > 0) and f:GetHeight() / bh or 1
 	for region, t in pairs(copies) do
 		local ok = pcall(function()
-			for i = 1, region:GetNumPoints() do
+			local n = region:GetNumPoints()
+			for i = 1, n do
 				local point, rel, relPoint, x, y = region:GetPoint(i)
 				rel = (rel == nil or rel == b) and f or copies[rel]
 				assert(rel)
-				t:SetPoint(point, rel, relPoint, x, y)
+				t:SetPoint(point, rel, relPoint, (x or 0) * kx, (y or 0) * ky)
+			end
+			-- One anchor: the texture has a size of its own (the button's
+			-- backing, centred on it, for one).
+			if n == 1 then
+				local w, h = region:GetWidth(), region:GetHeight()
+				assert(plain(w) and plain(h))
+				t:SetSize(w * kx, h * ky)
 			end
 		end)
 		if not ok or region:GetNumPoints() == 0 then

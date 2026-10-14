@@ -38,7 +38,7 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 - Animated 3D portrait with health and power bars.
 - Rest, combat, leader and PvP icons. The portrait pulses red when your health is low.
 - Name, level and class, plus an experience bar showing rested XP. Right-click the bar to choose its colour.
-- Four stat icons showing main hand, off hand, ranged, ammo, spell power, healing or armour, chosen from each icon's right-click menu or the options menu.
+- Four stat icons, each showing main hand, off hand (block chance and value with a shield), ranged, ammo, spell power, healing, armour or nothing. Pick them per class from each icon's right-click menu or the options menu. Hover an icon for the details of that slot.
 
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.
@@ -48,19 +48,21 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 
 **Action grid**
 - Action bars 1–3, twelve slots each.
-- These are Blizzard's own buttons, so bindings, paging, cooldowns and proc glows all work as normal.
+- These are Blizzard's own buttons, so bindings, paging, cooldowns and proc glows all work as normal. Icons show in full, in Warcraft III's steel button frame.
+- Rather arrange the bars yourself? Turn on **Let Edit Mode place action bars 1-3**: they start over the grid and you can then move, resize and reflow them in Edit Mode like any bar.
 - Stance, aura, form and pet buttons stand on the wall above the grid.
 
 **Inventory**
-- Your bags in the 2×3 inventory, plus the key ring.
+- Your bags in the 2×3 inventory, each with its free slots, plus the classic key ring button on the wall beside them.
 - Clicks go through Blizzard's bag buttons, so bag addons like **BetterBags** open as usual.
 
 **Chat area**
 - Your main chat window sits in the black panel at the right end of the console, and can be raised.
+- Prefer it elsewhere? Turn on **Let me move and resize the chat window**, then drag and resize it as you like.
 
 **Top bar**
 - The **day/night clock** in the middle, with Blizzard's menu buttons either side of it.
-- **Data broker slots** (LibDataBroker) out to the screen edges. Gold, bag space and durability are filled in by default; hover the gold to see every character's gold and the total. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons.
+- **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold and the total. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons.
 
 ---
 
@@ -70,6 +72,8 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - The cast bar is above the console.
 - Party frames use the raid-style frames, with class colours, power bars, debuffs, aggro highlight and incoming heals turned on.
 - The target frame is placed so its buff and debuff icons sit next to the target display.
+
+When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
 
 Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
 
@@ -83,7 +87,7 @@ Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wh
 
 ## Options
 
-Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui config`, or go to **Options → AddOns → Reforged UI**. Options include:
+Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui config`, or go to **Options → AddOns → Reforged UI**, where the menu opens right inside the game's options. Options include:
 - theme and UI scale
 - raising the chat area
 - portrait position
@@ -91,6 +95,8 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - zone text position
 - health and power as percentages
 - moving and resizing the chat window yourself
+- letting Edit Mode place action bars 1-3
+- the four stat icons
 - and a few more.
 
 ## Commands

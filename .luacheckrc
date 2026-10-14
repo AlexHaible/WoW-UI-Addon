@@ -5,11 +5,11 @@ ignore = {
 	"212", -- unused argument (event handlers)
 }
 globals = {
-	"ReforgedUIDB", "SlashCmdList", "SLASH_REFORGEDUI1", "SLASH_REFORGEDUI2", "GetMinimapShape",
+	"ReforgedUI", "ReforgedUIDB", "SlashCmdList", "SLASH_REFORGEDUI1", "SLASH_REFORGEDUI2", "GetMinimapShape",
 }
 read_globals = {
 	-- WoW API and frames (Retail and Classic-based clients)
-	"AddonCompartmentFrame", "BACKPACK_TOOLTIP", "C_Container", "C_PvP", "ClearOverrideBindings",
+	"DamageMeter", "DamageMeterEntryMixin", "AddonCompartmentFrame", "BACKPACK_TOOLTIP", "C_Container", "C_PvP", "ClearOverrideBindings",
 	"ContainerFrameCombinedBags", "ContainerIDToInventoryID", "CreateColor", "CreateFrame",
 	"EQUIP_CONTAINER", "ExpansionLandingPageMinimapButton", "FCF_SavePositionAndDimensions",
 	"GameTimeFrame", "GameTooltip", "GameTooltip_Hide", "GameTooltip_SetDefaultAnchor",

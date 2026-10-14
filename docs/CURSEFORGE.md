@@ -77,6 +77,8 @@ When Reforged UI changes the layout it offers a quick reload, so Blizzard's fram
 
 Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
 
+**Damage meter:** the game's built-in damage meter wears your theme's frame, rails, bar texture and font. This comes as a separate addon in the same download, **Reforged UI: Damage Meter**. Untick it in the addon list if you'd rather keep Blizzard's look or use another meter.
+
 ---
 
 ## Getting started

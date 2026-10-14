@@ -464,10 +464,34 @@ function ns:Relayout()
 	end)
 end
 
+-- Companion addons (ReforgedUI_DamageMeter, listed separately in the addon
+-- list so it can be left unloaded) follow the theme through this global.
+ns.themeCallbacks = {}
+ReforgedUI = {
+	FONT = ns.FONT,
+	-- The theme's key (also its art folder name) and its table (Themes.lua).
+	GetTheme = function()
+		return ns.themeKey, ns.theme
+	end,
+	-- fn(key, theme) runs now if a theme is set, and on every theme change.
+	RegisterThemeCallback = function(fn)
+		ns.themeCallbacks[#ns.themeCallbacks + 1] = fn
+		if ns.ready and ns.theme then
+			fn(ns.themeKey, ns.theme)
+		end
+	end,
+}
+
 function ns:ApplyTheme()
 	self.themeKey = self:ResolveThemeKey(self.db.theme)
 	self.theme = self.Themes[self.themeKey]
 	self:ForEachModule("OnTheme", self.theme)
+	for _, fn in ipairs(self.themeCallbacks) do
+		local ok, err = pcall(fn, self.themeKey, self.theme)
+		if not ok then
+			geterrorhandler()(err)
+		end
+	end
 	-- The original addon's pieces sit differently per theme.
 	if self.ready then
 		self:Relayout()

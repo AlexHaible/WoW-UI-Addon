@@ -112,6 +112,15 @@ After any such change the addon offers a reload: Blizzard applies layout
 changes made by an addon as addon code, and its party frames would otherwise
 error later (for example when Edit Mode closes).
 
+**Damage meter.** The game's own damage meter is dressed in the theme by a
+second addon, *Reforged UI: Damage Meter* (`ReforgedUI_DamageMeter`), which
+ships with Reforged UI and shows as its own entry in the addon list, so it can
+be left unloaded. Each meter window and its breakdown get the theme's top bar
+trim around them (beam and posts, mitred at the corners), a dark inset, the theme's rail
+under the header and every bar, and Warcraft III's bar texture and font. It only changes
+art: the meter's numbers, its settings and its place (Edit Mode) are left to
+Blizzard.
+
 ## Options
 
 Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI). The
@@ -185,7 +194,8 @@ of your faction. Saved themes from earlier versions keep working.
 
 ## Setting up
 
-1. Copy the `ReforgedUI` folder into the AddOns folder of your Forever install.
+1. Copy the `ReforgedUI` folder (and `ReforgedUI_DamageMeter`, for the damage
+   meter skin) into the AddOns folder of your Forever install.
    **Restart the game client completely** (not just `/reload`): the addon has
    new files, which the game only picks up on a full restart.
 2. Action Bars 2, 3 and 8 are turned on for you the first time each character
@@ -272,4 +282,11 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   Human's until its own exist.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
+- `python3 tools/make_damage_meter.py [theme ...]` makes the damage meter
+  skin's own art (`ReforgedUI_DamageMeter/art/<theme>`): the rail from each
+  theme's target plate, the mitred corner where the top bar's beam and post
+  meet, and side posts for themes whose top bar has none (Skyborne). The
+  border itself is the top bar's trim from `Media/`.
+  `python3 tools/render_damage_meter.py out.png` mocks the skin up for every
+  theme.
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

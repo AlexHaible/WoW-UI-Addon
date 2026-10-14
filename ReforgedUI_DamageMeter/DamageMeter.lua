@@ -31,7 +31,10 @@ local INSET = 4 -- how far the trim overlaps the window's edge
 -- Themes whose top bar has no side posts of their own (Skyborne's are
 -- empty) get a post from make_damage_meter.py: their edge, upright. The
 -- value is that file's height (its width is 32).
-local OWN_EDGEV = { highorder = 256, windshapers = 256 }
+local OWN_EDGEV = { highorder = 256, windshapers = 256, undead = 256 }
+-- Themes whose top bar edge is a thin beam with nothing under it (Scourge's
+-- bone) get a thicker one from make_damage_meter.py, and its posts too.
+local OWN_EDGE = { undead = true }
 
 local themeKey, theme
 
@@ -88,7 +91,8 @@ local function PaintBorder(f)
 	local out = EDGE - INSET -- how far the trim reaches past the window
 	local W, H = box:GetWidth() + 2 * out, box:GetHeight() + 2 * out
 	local own = OWN_EDGEV[themeKey]
-	local edge, post = media .. "edge", own and (ART .. themeKey .. "\\edgev") or (media .. "edgev")
+	local edge = OWN_EDGE[themeKey] and (ART .. themeKey .. "\\edge") or (media .. "edge")
+	local post = own and (ART .. themeKey .. "\\edgev") or (media .. "edgev")
 
 	-- Beam halves: edge.tga repeats every 8 EDGE; the join took its first
 	-- EDGE (u 0 to 1/8), so each half carries on from there.

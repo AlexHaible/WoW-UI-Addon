@@ -11,6 +11,12 @@ edge, edgev, corner), which is made to repeat. This script makes the rest:
   power slots (gold for Human, wood for Orc, iron for Undead, ...), cut from
   art/<theme>/targetplate.tga at the slots in Layout.TARGET_ART and stretched
   along its length. It goes under the meter's header and under every bar.
+* edge.tga (256x32), only for the themes in THICK, whose top bar edge is
+  a thin beam with clear rows on its inner side (Scourge's bone, which the
+  top bar's panel fills behind): the beam's rows stretched to the full 32,
+  so it meets the window. Their posts are this edge stood upright too
+  (Scourge's own edgev is wood and iron, not bone), so the frame is one
+  piece all round. DamageMeter.lua's OWN_EDGE lists them.
 * edgev.tga (32x256), only for themes whose top bar has no side posts of
   their own (Skyborne's edgev is empty): their edge stood upright, its top
   turned outwards. DamageMeter.lua's OWN_EDGEV lists them.
@@ -34,6 +40,7 @@ ART = os.path.join(ADDON, "art")
 MEDIA = os.path.join(ADDON, "Media")
 OUT = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI_DamageMeter", "art"))
 RAIL_W, RAIL_H = 128, 8
+THICK = {"undead"}
 FOLDERS = {"human": "Human", "orc": "Orc", "undead": "Undead", "nightelf": "NightElf", "dwarf": "Dwarf",
            "gnome": "Gnome", "tauren": "Tauren", "troll": "Troll", "highorder": "HighOrder",
            "windshapers": "Windshapers", "forsaken": "Forsaken"}
@@ -81,10 +88,18 @@ def needs_edgev(theme):
     return (a[..., 3] > 40).mean() < 0.2
 
 
-def upright_edge(theme):
-    """edge.tga (256x32) turned so its top faces left: the outer side of an
+def thick_edge(theme):
+    """edge.tga's beam alone (its rows with any opaque pixels), stretched to
+    the texture's full height."""
+    img = Image.open(os.path.join(MEDIA, FOLDERS[theme], "edge.tga")).convert("RGBA")
+    rows = np.where((np.asarray(img)[..., 3] > 128).any(axis=1))[0]
+    return img.crop((0, rows[0], img.width, rows[-1] + 1)).resize(img.size, Image.LANCZOS)
+
+
+def upright_edge(edge):
+    """An edge (256x32) turned so its top faces left: the outer side of an
     edgev post."""
-    return Image.open(os.path.join(MEDIA, FOLDERS[theme], "edge.tga")).convert("RGBA").rotate(90, expand=True)
+    return edge.convert("RGBA").rotate(90, expand=True)
 
 
 def join(beam, post):
@@ -104,8 +119,13 @@ def make(theme, rects):
     rail(theme, rects).save(os.path.join(folder, "rail.tga"), compression="tga_rle")
     made = ["rail", "join"]
     edge = Image.open(os.path.join(MEDIA, FOLDERS[theme], "edge.tga"))
-    if needs_edgev(theme):
-        post = upright_edge(theme)
+    own_edge = theme in THICK
+    if own_edge:
+        edge = thick_edge(theme)
+        edge.save(os.path.join(folder, "edge.tga"), compression="tga_rle")
+        made.append("edge")
+    if own_edge or needs_edgev(theme):
+        post = upright_edge(edge)
         post.save(os.path.join(folder, "edgev.tga"), compression="tga_rle")
         made.append("edgev")
     else:

@@ -201,6 +201,10 @@ function IssueReporterButton:GetBottom() local _, _, _, _, y = self:GetPoint(1);
 ChatFrame1 = new("frame", "ChatFrame1", UIParent)
 ChatFrame1.ButtonFrame = new("frame", "ChatFrame1ButtonFrame", ChatFrame1)
 QuickJoinToastButton = new("button", "QuickJoinToastButton", UIParent)
+ChatFrameChannelButton = new("button", "ChatFrameChannelButton", ChatFrame1.ButtonFrame)
+ChatFrameMenuButton = new("button", "ChatFrameMenuButton", ChatFrame1.ButtonFrame)
+ChatFrameToggleVoiceDeafenButton = new("button", "ChatFrameToggleVoiceDeafenButton", ChatFrame1.ButtonFrame)
+ChatFrameToggleVoiceDeafenButton:Hide()
 QuickJoinToastButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 20, 600)
 ChatFrame1EditBox = new("editbox", "ChatFrame1EditBox", UIParent)
 MainMenuBar = new("frame", "MainMenuBar", UIParent)
@@ -1031,8 +1035,8 @@ end
 assert(L.bagSlots[1] == L.inventory[6] and L.bagSlots[6] == L.inventory[2], "backpack top-left, reagent bag bottom-right")
 assert(not inv.buttons[6]:IsShown(), "no reagent bag slot on this client")
 assert(inv.holder:IsShown() and inv.holder._alpha == nil, "bags always show")
-assert(L.keyRing.x + L.keyRing.w <= L.inventory[1].x and L.keyRing.x > L.bars.main.xs[12] + L.bars.main.size,
-	"the key ring stands between the action grid and the inventory, clear of the chat buttons")
+assert(L.keyRing.x >= L.inventory[2].x + L.inventory[2].w and L.keyRing.x + L.keyRing.w <= L.chat.x,
+	"the key ring stands between the inventory and the chat area")
 inv.buttons[1]._scripts.OnClick(inv.buttons[1])
 inv.buttons[3]._scripts.OnClick(inv.buttons[3])
 assert(MainMenuBarBackpackButton._clicks == 1 and CharacterBag1Slot._clicks == 1, "bag clicks go to Blizzard's buttons")
@@ -1103,6 +1107,11 @@ assert(L.chat.y + L.chat.h < L.byKey.br_top.rect.y, "the chat's top line stays u
 QuickJoinToastButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 20, 600)
 assert(QuickJoinToastButton._points[1][2] == ChatFrame1.ButtonFrame
 	and QuickJoinToastButton._points[1][3] == "TOPLEFT", "social button over the chat buttons")
+assert(ChatFrameMenuButton._points[1][2] == ChatFrameChannelButton, "chat menu button under the channel button")
+ChatFrameToggleVoiceDeafenButton:Show()
+ChatFrameToggleVoiceDeafenButton._hooks.OnShow(ChatFrameToggleVoiceDeafenButton)
+assert(ChatFrameMenuButton._points[1][2] == ChatFrameToggleVoiceDeafenButton, "and under the voice buttons while they show")
+ChatFrameToggleVoiceDeafenButton:Hide()
 
 -- Protected frames moved in combat are queued until combat ends.
 inCombat = true

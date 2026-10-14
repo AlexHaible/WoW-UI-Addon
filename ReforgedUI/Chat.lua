@@ -89,4 +89,33 @@ function Chat:OnLayout(L)
 			f:SetPoint("BOTTOMLEFT", column, "TOPLEFT", 0, 2)
 		end)
 	end
+	-- The chat menu (speech bubble) button stacks under the channel button
+	-- (and the voice buttons, while they show) instead of at the bottom of
+	-- the column, leaving the lower wall to the key ring.
+	local menu = _G.ChatFrameMenuButton
+	local channel = _G.ChatFrameChannelButton
+	if menu and channel and not ns.db.consoleOpts.hideChatIcons then
+		local stack = { channel, _G.ChatFrameToggleVoiceDeafenButton, _G.ChatFrameToggleVoiceMuteButton }
+		local function place(f)
+			local above = channel
+			for i = 1, 3 do
+				local b = stack[i]
+				if b and b:IsShown() then
+					above = b
+				end
+			end
+			f:ClearAllPoints()
+			f:SetPoint("TOP", above, "BOTTOM", 0, -2)
+		end
+		ns:Lock(menu, place)
+		if not self.voiceHooked then
+			self.voiceHooked = true
+			for i = 2, 3 do
+				if stack[i] then
+					stack[i]:HookScript("OnShow", function() ns:Lock(menu, place) end)
+					stack[i]:HookScript("OnHide", function() ns:Lock(menu, place) end)
+				end
+			end
+		end
+	end
 end

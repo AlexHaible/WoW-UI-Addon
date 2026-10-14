@@ -60,7 +60,7 @@ screen stays free on either side).
   above the grid, as in Warcraft III; these are Blizzard's buttons too.
 - **Inventory**: the bags in the 2x3 inventory (backpack top-left, bags 1-4,
   reagent bag bottom-right where the client has one) with the key ring to its
-  left. Clicks go through Blizzard's own bag buttons, so bag addons such as
+  right, under the chat buttons. Clicks go through Blizzard's own bag buttons, so bag addons such as
   BetterBags open as usual; drag a bag onto a slot to equip it.
 - **Chat area**: the main chat window and its input box fill the black area
   at the right end of the console, which can be raised. The options

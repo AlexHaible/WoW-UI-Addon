@@ -113,6 +113,7 @@ function methods:GetScript(k) return self._scripts[k] end
 function methods:CreateTexture() return new("texture", nil, self) end
 function methods:CreateFontString() return new("fontstring", nil, self) end
 function methods:GetNormalTexture() return new("texture", nil, self) end
+function methods:SetNormalTexture(t) self._normal = t end
 methods.GetPushedTexture = methods.GetNormalTexture
 methods.GetHighlightTexture = methods.GetNormalTexture
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
@@ -789,9 +790,11 @@ end
 -- The gold dividers between buttons stay invisible, even after Blizzard
 -- updates them.
 assert(ActionButton7.RightDivider._alpha == 0, "button dividers hidden")
-for _, b in ipairs({ ActionButton1, MultiBar7Button1, ReforgedUIBagSlot1, ReforgedUIKeyRing }) do
+for _, b in ipairs({ ActionButton1, MultiBar7Button1, ReforgedUIBagSlot1 }) do
 	assert(b.reforgedFrame and b.reforgedFrame._tex:find("iconframe"), b:GetName() .. " has the steel icon frame")
 end
+assert(not ReforgedUIKeyRing.reforgedFrame and ReforgedUIKeyRing._normal:find("UI%-Button%-KeyRing"),
+	"the key ring keeps Blizzard's own key ring button art")
 ActionButton7.RightDivider:SetAlpha(1)
 assert(ActionButton7.RightDivider._alpha == 0, "button dividers stay hidden")
 MainActionBar:UpdateDividers()

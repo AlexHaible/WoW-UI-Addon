@@ -11,7 +11,7 @@ local Inventory = ns:RegisterModule("inventory", {})
 
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
-local KEYRING_ICON = "Interface\\Icons\\INV_Misc_Key_03"
+local KEYRING_ICON = "Interface\\Buttons\\UI-Button-KeyRing"
 local REAGENT_BAG = 5
 
 local Container = C_Container or {}
@@ -97,9 +97,16 @@ local function makeButton(holder, name)
 end
 
 function Inventory:CreateKeyRing(holder)
-	local btn = makeButton(holder, "ReforgedUIKeyRing")
-	btn.icon:SetTexture(KEYRING_ICON)
-	btn.icon:SetTexCoord(0.3, 0.7, 0.07, 0.93)
+	-- Blizzard's own tall key ring button (normal, pushed and highlight art),
+	-- without the steel icon frame of the bag buttons.
+	local btn = CreateFrame("Button", "ReforgedUIKeyRing", holder)
+	btn:SetNormalTexture(KEYRING_ICON)
+	btn:SetPushedTexture(KEYRING_ICON .. "-Down")
+	btn:SetHighlightTexture(KEYRING_ICON .. "-Highlight", "ADD")
+	for _, t in ipairs({ btn:GetNormalTexture(), btn:GetPushedTexture(), btn:GetHighlightTexture() }) do
+		t:SetTexCoord(0, 0.5625, 0, 0.609375)
+	end
+	btn:SetScript("OnLeave", onLeave)
 	btn:SetScript("OnClick", toggleKeyRing)
 	btn:SetScript("OnReceiveDrag", function()
 		if PutKeyInKeyRing then

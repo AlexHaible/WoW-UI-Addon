@@ -7,7 +7,7 @@
 ## X-Date: @project-date-iso@
 ## X-Category: Interface Enhancements
 ## SavedVariables: ReforgedUIDB
-## IconTexture: Interface\Icons\INV_BannerPVP_02
+## IconTexture: Interface\AddOns\ReforgedUI\Media\Common\icon
 ## X-Curse-Project-ID: 1743952
 
 ## Category-enUS: User Interface

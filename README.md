@@ -75,7 +75,8 @@ screen stays free on either side).
   which have their keys, and no adventure guide or shop), and slots for
   LibDataBroker feeds, the same distance either side of the centre and out
   to the screen edges: gold, bag space and durability fill the first three
-  (right of the clock); right-click an empty
+  (right of the clock; hover the gold for every character's gold and the
+  total); right-click an empty
   slot (Alt-right-click a filled one) to choose any feed. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and

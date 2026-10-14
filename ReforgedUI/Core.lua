@@ -28,6 +28,9 @@ local DEFAULTS = {
 	},
 	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
 	broker = {},
+	-- Each character's money in copper, by realm then name, for the gold
+	-- feed's tooltip: { [realm] = { [name] = { money = n, class = "MAGE" } } }.
+	money = {},
 	-- The original addon's options (its config menu, see Config.lua).
 	consoleOpts = {
 		uiScale = 240, -- 240-270

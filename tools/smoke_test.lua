@@ -966,6 +966,23 @@ gameHour = 12
 tb:UpdateClock()
 assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
 assert(tb.slots[1].text._text == tb.FormatMoney(1234567), "slot 1 should show the money")
+-- The gold tooltip lists every character's saved gold, richest first, and the total.
+assert(ReforgedUIDB.money.Forever.Thrall.money == 1234567, "this character's money is saved")
+ReforgedUIDB.money.Forever.Jaina = { money = 5000000, class = "MAGE" }
+ReforgedUIDB.money.Elsewhere = { Rexxar = { money = 100, class = "HUNTER" } }
+do
+	local lines = {}
+	local fake = {
+		AddLine = function(_, text) lines[#lines + 1] = text end,
+		AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+	}
+	tb.feeds.gold.OnTooltipShow(fake)
+	local text = table.concat(lines, "\n")
+	assert(text:find("Jaina=", 1, true) < text:find("Thrall=", 1, true), "richest first")
+	assert(text:find("Thrall=", 1, true) < text:find("Elsewhere", 1, true), "this realm first")
+	assert(text:find("Total=" .. tb.FormatMoney(5000000 + 1234567 + 100), 1, true), "total of all characters")
+end
+ReforgedUIDB.money = { Forever = { Thrall = ReforgedUIDB.money.Forever.Thrall } }
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
 assert(tb.slots[3].text._text:find("20%%"), "slot 3 should show durability")
 assert(tb.slots[4].text._text == "", "slot 4 should start empty")

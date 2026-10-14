@@ -70,10 +70,7 @@ function TopBar:CreateFeeds()
 		gold = LDB:NewDataObject(FEED_GOLD, {
 			type = "data source", label = "Gold", text = formatMoney(0),
 			icon = "Interface\\MoneyFrame\\UI-GoldIcon",
-			OnTooltipShow = function(tip)
-				tip:AddLine("Gold", 1, 1, 1)
-				tip:AddLine(formatMoney(GetMoney()), 1, 1, 1)
-			end,
+			OnTooltipShow = function(tip) TopBar:GoldTooltip(tip) end,
 		}),
 		bags = LDB:NewDataObject(FEED_BAGS, {
 			type = "data source", label = "Bags", text = "0 / 0",
@@ -99,12 +96,71 @@ function TopBar:CreateFeeds()
 	end
 end
 
+-- Remember this character's money, so every character's gold can be listed.
+function TopBar:SaveMoney()
+	local name, realm = UnitName("player"), GetRealmName and GetRealmName()
+	if not (name and realm) then
+		return
+	end
+	local _, class = UnitClass("player")
+	local byRealm = ns.db.money[realm] or {}
+	ns.db.money[realm] = byRealm
+	byRealm[name] = { money = GetMoney(), class = class }
+end
+
+-- The gold feed's tooltip: every character's gold, richest first, grouped by
+-- realm (this realm first), and the total.
+function TopBar:GoldTooltip(tip)
+	self:SaveMoney()
+	tip:AddLine("Gold", 1, 1, 1)
+	local here = GetRealmName and GetRealmName()
+	local realms = {}
+	for realm in pairs(ns.db.money) do
+		realms[#realms + 1] = realm
+	end
+	table.sort(realms, function(a, b)
+		if (a == here) ~= (b == here) then
+			return a == here
+		end
+		return a < b
+	end)
+	local total = 0
+	for _, realm in ipairs(realms) do
+		local chars = {}
+		for name, info in pairs(ns.db.money[realm]) do
+			chars[#chars + 1] = { name = name, money = info.money or 0, class = info.class }
+		end
+		table.sort(chars, function(a, b)
+			if a.money ~= b.money then
+				return a.money > b.money
+			end
+			return a.name < b.name
+		end)
+		if #realms > 1 then
+			tip:AddLine(" ")
+			tip:AddLine(realm, 1, 0.82, 0)
+		end
+		for _, c in ipairs(chars) do
+			local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
+			local r, g, b = 1, 1, 1
+			if color and color.r then
+				r, g, b = color.r, color.g, color.b
+			end
+			tip:AddDoubleLine(c.name, formatMoney(c.money), r, g, b, 1, 1, 1)
+			total = total + c.money
+		end
+	end
+	tip:AddLine(" ")
+	tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
+end
+
 function TopBar:UpdateFeeds()
 	local feeds = self.feeds
 	if not feeds then
 		return
 	end
 	feeds.gold.text = formatMoney(GetMoney())
+	self:SaveMoney()
 
 	local free, total = 0, 0
 	if numSlots and numFreeSlots then

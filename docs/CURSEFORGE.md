@@ -60,7 +60,7 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 
 **Top bar**
 - The **day/night clock** in the middle, with Blizzard's menu buttons either side of it.
-- **Data broker slots** (LibDataBroker) out to the screen edges. Gold, bag space and durability are filled in by default. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons.
+- **Data broker slots** (LibDataBroker) out to the screen edges. Gold, bag space and durability are filled in by default; hover the gold to see every character's gold and the total. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons.
 
 ---
 

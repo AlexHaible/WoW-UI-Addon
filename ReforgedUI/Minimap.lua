@@ -2,9 +2,9 @@
 -- button in the round slot under it, the mail slot beside it (a grey letter
 -- when there is no mail), the zone name on the bottom (or top) edge of the
 -- map and zooming with the mouse wheel. Blizzard's other minimap buttons
--- line up along the top edge of the map, after the addon compartment's
--- button: other addons' minimap buttons are gathered in its drawer, which
--- opens over the map. The day/night (or
+-- line up along the top edge of the map; other addons' minimap buttons are
+-- gathered in a compartment whose button sits just above the map and opens
+-- a flyout upwards. The day/night (or
 -- calendar) indicator is made invisible: the top bar has its own clock.
 --
 -- The map stays a child of its cluster (an Edit Mode frame we never move or
@@ -171,10 +171,11 @@ function MinimapModule:OnEnable()
 end
 
 ----------------------------------------------------------------------------
--- The addon compartment: a button at the start of the row on the map that
--- opens a drawer of the other addons' minimap buttons.
+-- The addon compartment: a button beside the map that opens a flyout of the
+-- other addons' minimap buttons.
 
 local BAG_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
+local FLYOUT_ROWS = 8
 
 function MinimapModule:CreateCompartment()
 	local toggle = CreateFrame("Button", "ReforgedUIAddonCompartment", self.holder)
@@ -197,7 +198,9 @@ function MinimapModule:CreateCompartment()
 	self.toggle = toggle
 
 	local drawer = CreateFrame("Frame", "ReforgedUIAddonDrawer", self.holder)
-	drawer:SetFrameLevel(self.holder:GetFrameLevel() + 10)
+	-- Over the game world and the console, like a menu.
+	drawer:SetFrameStrata("MEDIUM")
+	drawer:SetFrameLevel(50)
 	drawer.bg = drawer:CreateTexture(nil, "BACKGROUND")
 	drawer.bg:SetAllPoints()
 	drawer.bg:SetColorTexture(0, 0, 0, 0.75)
@@ -325,50 +328,46 @@ function MinimapModule:OnLayout(L)
 		end)
 	end
 
-	-- The compartment and Blizzard's other buttons in a row along the top
-	-- edge of the map, shrinking to fit them all.
+	-- Blizzard's other buttons in a row along the top edge of the map,
+	-- shrinking to fit them all.
 	self.layout = L
 	local row = L.minimapButtons
-	local hasAddons = #self.addonButtons > 0
-	self.toggle:SetShown(hasAddons)
-	local first = {}
-	if hasAddons then
-		first[1] = self.toggle
-	end
-	for _, btn in ipairs(self.buttons) do
-		first[#first + 1] = btn
-	end
-	local n = #first
+	local n = #self.buttons
 	local size = math.min(row.size, (row.maxW - (n - 1) * 2) / math.max(n, 1))
-	for i, btn in ipairs(first) do
+	for i, btn in ipairs(self.buttons) do
 		local x = row.x + (i - 1) * (size + 2)
-		if btn == self.toggle then
-			ns:PlaceRect(btn, { x = x, y = row.y - size, w = size, h = size })
-		else
-			ns:Lock(btn, function(b)
-				fit(b, size)
-				ns:Anchor(b, "TOPLEFT", x, row.y)
-			end, { "SetScale" })
-		end
+		ns:Lock(btn, function(b)
+			fit(b, size)
+			ns:Anchor(b, "TOPLEFT", x, row.y)
+		end, { "SetScale" })
 	end
 
-	-- The drawer: under the row, as many buttons a line as fit the map.
-	size = row.size
-	local cols = math.max(1, math.floor((row.maxW - 2) / (size + 2)))
+	-- The compartment: a button beside the map, and a flyout of the addon
+	-- buttons opening upwards from it, in columns of FLYOUT_ROWS that grow
+	-- to the left (towards the screen's edge, away from the console).
+	local c = L.addonCompartment
 	local count = #self.addonButtons
-	local lines = math.max(1, math.ceil(count / cols))
-	local top = row.y - size - 2
-	local w = math.min(count, cols) * (size + 2) + 2
-	ns:PlaceRect(self.drawer, { x = row.x - 2, y = top - lines * (size + 2) - 2, w = w, h = lines * (size + 2) + 2 })
+	self.toggle:SetShown(count > 0)
+	ns:PlaceRect(self.toggle, c)
+	size = c.w
+	local cols = math.max(1, math.ceil(count / FLYOUT_ROWS))
+	local rows = math.min(math.max(count, 1), FLYOUT_ROWS)
+	local step = size + 2
+	local bottom = c.y + c.h + 2
+	ns:PlaceRect(self.drawer, { x = c.x + c.w + 2 - cols * step - 2, y = bottom, w = cols * step + 2,
+		h = rows * step + 2 })
 	for i, btn in ipairs(self.addonButtons) do
-		local col, line = (i - 1) % cols, math.floor((i - 1) / cols)
-		local x, y = row.x + col * (size + 2), top - 2 - line * (size + 2)
+		local col, line = math.floor((i - 1) / FLYOUT_ROWS), (i - 1) % FLYOUT_ROWS
+		local x, y = c.x - col * step, bottom + 2 + line * step
 		if btn:GetParent() ~= self.drawer then
 			btn:SetParent(self.drawer)
 		end
+		-- Above the flyout's background, whatever the addon set.
+		btn:SetFrameStrata(self.drawer:GetFrameStrata())
+		btn:SetFrameLevel(self.drawer:GetFrameLevel() + 2)
 		ns:Lock(btn, function(b)
 			fit(b, size)
-			ns:Anchor(b, "TOPLEFT", x, y)
+			ns:Anchor(b, "BOTTOMLEFT", x, y)
 		end, { "SetScale" })
 	end
 end

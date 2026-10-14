@@ -23,8 +23,8 @@ screen stays free on either side).
   its bottom or top edge, the tracking button in the round slot below it, the
   mail slot (a grey letter when there is no mail) and three action slots
   beside it. Other addons' minimap buttons go in a compartment: click the bag
-  at the start of the row along the top edge of the map to open or close its
-  drawer (Blizzard's own buttons stay in that row); the minimap's day/night indicator is hidden (the top bar has the
+  just above the map's top-right corner to open or close a flyout of them
+  (Blizzard's own buttons line up along the top edge of the map); the minimap's day/night indicator is hidden (the top bar has the
   clock).
 - **Portrait block**: animated 3D portrait (click to target yourself,
   right-click for your menu), health and power bars under it, rest/combat,

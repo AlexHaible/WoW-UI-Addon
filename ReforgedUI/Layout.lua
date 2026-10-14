@@ -902,6 +902,9 @@ local function build(W, H, o, X0, chatW)
 	-- Other minimap buttons (calendar, addon buttons, ...) along the top
 	-- edge of the map.
 	L.minimapButtons = { x = mm.x + 2, y = top(mm) - 2, size = 0.07 * s, maxW = mm.w - 4 }
+	-- The addon compartment's button, just above the map's top-right corner;
+	-- its flyout opens upwards from there.
+	L.addonCompartment = rect(right(mm) - 0.07 * s, top(mm) + 2, 0.07 * s, 0.07 * s)
 
 	-- Portrait.
 	local px, py = o.portraitX or 100, o.portraitY or 100

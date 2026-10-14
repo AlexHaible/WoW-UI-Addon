@@ -32,7 +32,7 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 - Square minimap with mouse-wheel zoom, and the zone name on its edge.
 - Tracking button and mail slot.
 - Three extra action slots, which use Action Bar 8, so they bind like any bar.
-- Addon minimap buttons are tucked into a compartment: click the bag at the top of the map to open or close it.
+- Addon minimap buttons are tucked into a compartment: click the bag above the map to open a flyout of them.
 
 **Portrait and hero screen**
 - Animated 3D portrait with health and power bars.

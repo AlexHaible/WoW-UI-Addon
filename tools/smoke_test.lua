@@ -679,6 +679,10 @@ do
 	assert(addonButton:GetParent() == mm.drawer and addonButton._points[1][2] == UIParent,
 		"addon buttons go in the compartment's drawer")
 	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
+	local toggleTop = mm.toggle._points[1][5] * unit(mm.toggle) + L.addonCompartment.h
+	assert(mm.drawer._points[1][5] * unit(mm.drawer) > toggleTop and addonButton._points[1][5] * unit(addonButton) > toggleTop,
+		"the flyout opens upwards from its button")
+	assert(L.addonCompartment.y >= L.minimap.y + L.minimap.h, "the compartment's button sits above the map")
 	mm.toggle:GetScript("OnClick")(mm.toggle)
 	assert(mm.drawer:IsShown() and ReforgedUIDB.consoleOpts.addonDrawerOpen, "clicking opens the drawer")
 	mm.toggle:GetScript("OnClick")(mm.toggle)

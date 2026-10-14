@@ -1703,7 +1703,7 @@ do
 		end
 		assert(w.Header._color and c.Background._color and c.SourceWindow.Background._color, "insets are coloured")
 		local corners = 0
-		local corner = "ReforgedUI\\Media\\" .. ns.Themes[key].folder .. "\\corner"
+		local corner = "ReforgedUI_DamageMeter\\art\\" .. key .. "\\join"
 		for _, f in ipairs(allFrames) do
 			local under = rawget(f, "_parent")
 			while under and under ~= w do under = rawget(under, "_parent") end
@@ -1729,8 +1729,10 @@ do
 
 	-- Every theme has its meter art.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		local path = DM_ADDON .. "art/" .. key .. "/rail.tga"
-		assert(exists(path), "missing " .. path)
+		for _, file in ipairs({ "rail", "join" }) do
+			local path = DM_ADDON .. "art/" .. key .. "/" .. file .. ".tga"
+			assert(exists(path), "missing " .. path)
+		end
 	end
 end
 print("smoke test passed")

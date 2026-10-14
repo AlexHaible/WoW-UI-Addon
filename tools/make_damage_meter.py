@@ -14,6 +14,10 @@ edge, edgev, corner), which is made to repeat. This script makes the rest:
 * edgev.tga (32x256), only for themes whose top bar has no side posts of
   their own (Skyborne's edgev is empty): their edge stood upright, its top
   turned outwards. DamageMeter.lua's OWN_EDGEV lists them.
+* join.tga (32x32): the top-left corner, where the beam (the first 32 px of
+  edge.tga) and the post (the first 32 px of edgev.tga) meet in a mitre along
+  the diagonal, as on a picture frame. DamageMeter.lua mirrors it for the
+  other corners and runs each side out from it.
 
 The output is deterministic.
 """
@@ -83,14 +87,30 @@ def upright_edge(theme):
     return Image.open(os.path.join(MEDIA, FOLDERS[theme], "edge.tga")).convert("RGBA").rotate(90, expand=True)
 
 
+def join(beam, post):
+    """Top-left mitre: the beam above the diagonal from the outer corner,
+    the post below it, blended over a pixel either side."""
+    b = np.asarray(beam.convert("RGBA").crop((0, 0, 32, 32))).astype(np.float32)
+    p = np.asarray(post.convert("RGBA").crop((0, 0, 32, 32))).astype(np.float32)
+    y, x = np.mgrid[0:32, 0:32]
+    w = np.clip((x - y) / 2.0 + 0.5, 0, 1)[..., None]  # 1 above the diagonal
+    out = b * w + p * (1 - w)
+    return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), "RGBA")
+
+
 def make(theme, rects):
     folder = os.path.join(OUT, theme)
     os.makedirs(folder, exist_ok=True)
     rail(theme, rects).save(os.path.join(folder, "rail.tga"), compression="tga_rle")
-    made = ["rail"]
+    made = ["rail", "join"]
+    edge = Image.open(os.path.join(MEDIA, FOLDERS[theme], "edge.tga"))
     if needs_edgev(theme):
-        upright_edge(theme).save(os.path.join(folder, "edgev.tga"), compression="tga_rle")
+        post = upright_edge(theme)
+        post.save(os.path.join(folder, "edgev.tga"), compression="tga_rle")
         made.append("edgev")
+    else:
+        post = Image.open(os.path.join(MEDIA, FOLDERS[theme], "edgev.tga"))
+    join(edge, post).save(os.path.join(folder, "join.tga"), compression="tga_rle")
     print("wrote", os.path.relpath(folder, os.path.join(HERE, "..")), ", ".join(made))
 
 

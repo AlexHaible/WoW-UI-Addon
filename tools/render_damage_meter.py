@@ -91,27 +91,42 @@ def repeat(img, w, h, period, axis):
 
 
 def border(img, theme, ox, oy, w, h):
-    E, C, OUT, INSET = (round(v * PX) for v in (EDGE, CORNER, CORNER_OUT, INSET_U))
-    x0, y0 = ox - E + INSET, oy - E + INSET
-    x1, y1 = ox + w + E - INSET, oy + h + E - INSET
+    """The trim as PaintBorder lays it out: mitred joins at the corners, each
+    side running out from them and mirrored at its middle."""
+    E, INSET = round(EDGE * PX), round(INSET_U * PX)
+    C = E
     canvas = Image.new("RGBA", (img.width + 2 * C, img.height + 2 * C))
     canvas.alpha_composite(img, (C, C))
-    x0, y0, x1, y1 = x0 + C, y0 + C, x1 + C, y1 + C
-    edge, edgev, corner = kit(theme, "edge"), kit(theme, "edgev"), kit(theme, "corner")
-    ep = round(edge.width * E / edge.height)
-    vp = round(edgev.height * E / edgev.width)
-    top = repeat(edge, x1 - x0, E, ep, 0)
-    canvas.alpha_composite(top, (x0, y0))
-    canvas.alpha_composite(top.transpose(Image.FLIP_TOP_BOTTOM), (x0, y1 - E))
-    side = repeat(edgev, E, y1 - y0 - 2 * E + 4, vp, 1)
-    canvas.alpha_composite(side.transpose(Image.FLIP_LEFT_RIGHT), (x1 - E, y0 + E - 2))
-    canvas.alpha_composite(side, (x0, y0 + E - 2))
-    c = corner.resize((C, C), Image.LANCZOS)
-    canvas.alpha_composite(c, (x1 - C + OUT, y0 - OUT))
-    canvas.alpha_composite(c.transpose(Image.FLIP_LEFT_RIGHT), (x0 - OUT, y0 - OUT))
-    cb = c.transpose(Image.FLIP_TOP_BOTTOM)
-    canvas.alpha_composite(cb, (x1 - C + OUT, y1 - C + OUT))
-    canvas.alpha_composite(cb.transpose(Image.FLIP_LEFT_RIGHT), (x0 - OUT, y1 - C + OUT))
+    x0, y0 = ox - E + INSET + C, oy - E + INSET + C
+    x1, y1 = ox + w + E - INSET + C, oy + h + E - INSET + C
+    edge, edgev = kit(theme, "edge"), kit(theme, "edgev")
+    joint = tex(theme, "join").resize((E, E), Image.LANCZOS)
+    # Beam: edge scaled to E tall, the first E px belong to the join.
+    beam = edge.resize((round(edge.width * E / edge.height), E), Image.LANCZOS)
+    hw = (x1 - x0) // 2 - E
+    strip = Image.new("RGBA", (hw, E))
+    for i in range(0, hw + beam.width, beam.width):
+        strip.alpha_composite(beam, (i - E, 0))
+    canvas.alpha_composite(strip, (x0 + E, y0))
+    canvas.alpha_composite(strip.transpose(Image.FLIP_LEFT_RIGHT), (x1 - E - hw, y0))
+    bstrip = strip.transpose(Image.FLIP_TOP_BOTTOM)
+    canvas.alpha_composite(bstrip, (x0 + E, y1 - E))
+    canvas.alpha_composite(bstrip.transpose(Image.FLIP_LEFT_RIGHT), (x1 - E - hw, y1 - E))
+    # Posts likewise.
+    col = edgev.resize((E, round(edgev.height * E / edgev.width)), Image.LANCZOS)
+    hh = (y1 - y0) // 2 - E
+    pstrip = Image.new("RGBA", (E, hh))
+    for i in range(0, hh + col.height, col.height):
+        pstrip.alpha_composite(col, (0, i - E))
+    canvas.alpha_composite(pstrip, (x0, y0 + E))
+    canvas.alpha_composite(pstrip.transpose(Image.FLIP_TOP_BOTTOM), (x0, y1 - E - hh))
+    rp = pstrip.transpose(Image.FLIP_LEFT_RIGHT)
+    canvas.alpha_composite(rp, (x1 - E, y0 + E))
+    canvas.alpha_composite(rp.transpose(Image.FLIP_TOP_BOTTOM), (x1 - E, y1 - E - hh))
+    canvas.alpha_composite(joint, (x0, y0))
+    canvas.alpha_composite(joint.transpose(Image.FLIP_LEFT_RIGHT), (x1 - E, y0))
+    canvas.alpha_composite(joint.transpose(Image.FLIP_TOP_BOTTOM), (x0, y1 - E))
+    canvas.alpha_composite(joint.transpose(Image.ROTATE_180), (x1 - E, y1 - E))
     return canvas
 
 
@@ -125,6 +140,10 @@ def render(theme, m, inset, scale, W, H):
     d = ImageDraw.Draw(img)
     d.rectangle((ox, oy, ox + w - 1, oy + h - 1), fill=c + (int(0.85 * 255),))
     d.rectangle((ox, oy, ox + w - 1, oy + 32 * PX - 1), fill=c + (255,))
+    # Blizzard's header text and bars are drawn over the border (it is in the
+    # window's BORDER layer, under its text and child frames).
+    back, img = img, Image.new("RGBA", img.size)
+    d = ImageDraw.Draw(img)
     rail = tex(theme, "rail")
     img.alpha_composite(rail.resize((w, 3 * PX)), (ox, oy + 32 * PX - PX))
     font = ImageFont.truetype(FONT, 11 * PX)
@@ -150,17 +169,22 @@ def render(theme, m, inset, scale, W, H):
     # Border, as PaintBorder lays it out: the theme's top bar trim (edge,
     # edgev, corner from ReforgedUI/Media) around the outside of the window,
     # overlapping it by INSET.
-    img = border(img, theme, ox, oy, w, h)
-    return img
+    back = border(back, theme, ox, oy, w, h)
+    C = (back.width - img.width) // 2
+    back.alpha_composite(img, (C, C))
+    return back
 
 
 def main(args):
     out = args[0] if args else "damage-meter.png"
     W, H = (int(args[1]), int(args[2])) if len(args) > 2 else (400, 200)
     src = open(os.path.join(DM, "DamageMeter.lua"), encoding="utf-8").read()
-    global EDGE, CORNER, CORNER_OUT, INSET_U
-    num = lambda n: float(re.search(r"local %s = ([\d.]+)" % n, src).group(1))
-    EDGE, CORNER, CORNER_OUT, INSET_U = num("EDGE"), num("CORNER"), num("CORNER_OUT"), num("INSET")
+    global EDGE, INSET_U
+    def num(n, env={}):
+        expr = re.search(r"local %s = ([^-\n]+?)\s*(--|\n)" % n, src).group(1)
+        env[n] = eval(expr, {}, dict(env))
+        return env[n]
+    EDGE, INSET_U = num("EDGE"), num("INSET")
     frames = {t: None for t in FOLDERS}
     scale = 1
     names = insets()

@@ -1,7 +1,7 @@
 -- Reforged UI: Damage Meter. Dresses the game's own damage meter
 -- (Blizzard_DamageMeter) in the current Reforged UI theme: each meter window
--- and its breakdown window get the theme's top bar trim around them (beam,
--- posts and corners, as on the top bar), a dark inset inside, the theme's
+-- and its breakdown window get the theme's top bar trim around them (beam
+-- and posts, mitred at the corners), a dark inset inside, the theme's
 -- rail under the header and under every bar (art/<theme>/, cut by
 -- tools/make_damage_meter.py), Warcraft III bar texture and the original
 -- addon's font.
@@ -20,11 +20,12 @@ local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
 local RAIL_H = 3
 -- The border is the top bar's trim (Art.lua): edge.tga (256x32) along the
 -- top and, flipped, the bottom; edgev.tga (32x128, outer side on the left)
--- down the sides; corner.tga (64x64, drawn for the top-right) at each corner.
--- In window units:
-local EDGE = 14 -- trim thickness
-local CORNER = 24 -- corner size
-local CORNER_OUT = 10 -- how far a corner sticks out past the trim (it reaches INSET into the window, as the trim does)
+-- down the sides. The two meet in mitred corners (join.tga, made by
+-- make_damage_meter.py from the same two textures), like a picture frame.
+-- Each side runs out from its two corners and is mirrored at its middle, so
+-- all four corners are the same join and the pattern always meets it the
+-- same way. In window units:
+local EDGE = 14 -- trim thickness (32 px of the art)
 local INSET = 4 -- how far the trim overlaps the window's edge
 
 -- Themes whose top bar has no side posts of their own (Skyborne's are
@@ -49,22 +50,32 @@ end
 -- overlapping it by INSET. Nothing of Blizzard's moves; `box` is the rect it
 -- goes around.
 
+local PIECES = { "topL", "topR", "bottomL", "bottomR", "leftT", "leftB", "rightT", "rightB", "tl", "tr", "bl", "br" }
+
 local function CreateBorder(window)
 	local f = CreateFrame("Frame", nil, window)
-	f:SetFrameLevel(window:GetFrameLevel() + 20)
 	f.box = CreateFrame("Frame", nil, f)
+	-- The trim is drawn in the window's own BORDER layer: over its header
+	-- and background, under its text and buttons, so it never hides the
+	-- timer or the dropdowns.
 	f.pieces = {}
-	-- Corners above the trim, so they cover its ends.
-	for _, key in ipairs({ "top", "bottom", "left", "right" }) do
-		f.pieces[key] = f:CreateTexture(nil, "ARTWORK")
+	for _, key in ipairs(PIECES) do
+		f.pieces[key] = window:CreateTexture(nil, "BORDER")
 	end
-	for _, key in ipairs({ "tl", "tr", "bl", "br" }) do
-		f.pieces[key] = f:CreateTexture(nil, "ARTWORK", nil, 1)
-		f.pieces[key]:SetSize(CORNER, CORNER)
-	end
-	f.header = f:CreateTexture(nil, "ARTWORK", nil, 2)
+	f.header = f:CreateTexture(nil, "ARTWORK")
 	f.header:SetHeight(RAIL_H)
 	return f
+end
+
+-- One half of a side: from the corner at `point` (of `box`, pushed `dx`,
+-- `dy` outwards) `len` units along the side, the texture's repeat coords
+-- running from `a0` to `a1` along it (a1 < a0 mirrors it).
+local function half(tex, file, box, point, dx, dy, w, h, l, r, t, b)
+	tex:SetTexture(file, "REPEAT", "REPEAT")
+	tex:ClearAllPoints()
+	tex:SetPoint(point, box, point, dx, dy)
+	tex:SetSize(w, h)
+	tex:SetTexCoord(l, r, t, b)
 end
 
 -- Lays the border out around `box` for the current theme.
@@ -76,51 +87,33 @@ local function PaintBorder(f)
 	local media = MEDIA .. theme.folder .. "\\"
 	local out = EDGE - INSET -- how far the trim reaches past the window
 	local W, H = box:GetWidth() + 2 * out, box:GetHeight() + 2 * out
-
-	-- edge.tga repeats every 256 / 32 * EDGE units.
-	local u = W / (8 * EDGE)
-	p.top:SetTexture(media .. "edge", "REPEAT", "CLAMP")
-	p.top:ClearAllPoints()
-	p.top:SetPoint("TOPLEFT", box, "TOPLEFT", -out, out)
-	p.top:SetPoint("TOPRIGHT", box, "TOPRIGHT", out, out)
-	p.top:SetHeight(EDGE)
-	p.top:SetTexCoord(0, u, 0, 1)
-	p.bottom:SetTexture(media .. "edge", "REPEAT", "CLAMP")
-	p.bottom:ClearAllPoints()
-	p.bottom:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", -out, -out)
-	p.bottom:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", out, -out)
-	p.bottom:SetHeight(EDGE)
-	p.bottom:SetTexCoord(0, u, 1, 0)
-
-	-- The posts run between the top and bottom trim, under their ends.
 	local own = OWN_EDGEV[themeKey]
-	local post = own and (ART .. themeKey .. "\\edgev") or (media .. "edgev")
-	local v = (H - 2 * EDGE + 4) / ((own or 128) / 32 * EDGE)
-	p.left:SetTexture(post, "CLAMP", "REPEAT")
-	p.left:ClearAllPoints()
-	p.left:SetPoint("TOPLEFT", box, "TOPLEFT", -out, out - EDGE + 2)
-	p.left:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", -out, -out + EDGE - 2)
-	p.left:SetWidth(EDGE)
-	p.left:SetTexCoord(0, 1, 0, v)
-	p.right:SetTexture(post, "CLAMP", "REPEAT")
-	p.right:ClearAllPoints()
-	p.right:SetPoint("TOPRIGHT", box, "TOPRIGHT", out, out - EDGE + 2)
-	p.right:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", out, -out + EDGE - 2)
-	p.right:SetWidth(EDGE)
-	p.right:SetTexCoord(1, 0, 0, v)
+	local edge, post = media .. "edge", own and (ART .. themeKey .. "\\edgev") or (media .. "edgev")
 
-	-- corner.tga is drawn for the top-right corner; mirrored for the rest.
-	local c = out + CORNER_OUT
-	for key, spec in pairs({
-		tr = { "TOPRIGHT", c, c, 0, 1, 0, 1 }, tl = { "TOPLEFT", -c, c, 1, 0, 0, 1 },
-		br = { "BOTTOMRIGHT", c, -c, 0, 1, 1, 0 }, bl = { "BOTTOMLEFT", -c, -c, 1, 0, 1, 0 },
-	}) do
-		local tex = p[key]
-		tex:SetTexture(media .. "corner")
-		tex:ClearAllPoints()
-		tex:SetPoint(spec[1], box, spec[1], spec[2], spec[3])
-		tex:SetTexCoord(spec[4], spec[5], spec[6], spec[7])
-	end
+	-- Beam halves: edge.tga repeats every 8 EDGE; the join took its first
+	-- EDGE (u 0 to 1/8), so each half carries on from there.
+	local hw = math.max(0, W / 2 - EDGE)
+	local u0, u1 = 1 / 8, 1 / 8 + hw / (8 * EDGE)
+	half(p.topL, edge, box, "TOPLEFT", -out + EDGE, out, hw, EDGE, u0, u1, 0, 1)
+	half(p.topR, edge, box, "TOPRIGHT", out - EDGE, out, hw, EDGE, u1, u0, 0, 1)
+	half(p.bottomL, edge, box, "BOTTOMLEFT", -out + EDGE, -out, hw, EDGE, u0, u1, 1, 0)
+	half(p.bottomR, edge, box, "BOTTOMRIGHT", out - EDGE, -out, hw, EDGE, u1, u0, 1, 0)
+
+	-- Post halves: edgev.tga repeats every (its height / 32) EDGE.
+	local period = (own or 128) / 32
+	local hh = math.max(0, H / 2 - EDGE)
+	local v0, v1 = 1 / period, 1 / period + hh / (period * EDGE)
+	half(p.leftT, post, box, "TOPLEFT", -out, out - EDGE, EDGE, hh, 0, 1, v0, v1)
+	half(p.leftB, post, box, "BOTTOMLEFT", -out, -out + EDGE, EDGE, hh, 0, 1, v1, v0)
+	half(p.rightT, post, box, "TOPRIGHT", out, out - EDGE, EDGE, hh, 1, 0, v0, v1)
+	half(p.rightB, post, box, "BOTTOMRIGHT", out, -out + EDGE, EDGE, hh, 1, 0, v1, v0)
+
+	-- join.tga is the top-left corner; mirrored for the rest.
+	local join = ART .. themeKey .. "\\join"
+	half(p.tl, join, box, "TOPLEFT", -out, out, EDGE, EDGE, 0, 1, 0, 1)
+	half(p.tr, join, box, "TOPRIGHT", out, out, EDGE, EDGE, 1, 0, 0, 1)
+	half(p.bl, join, box, "BOTTOMLEFT", -out, -out, EDGE, EDGE, 0, 1, 1, 0)
+	half(p.br, join, box, "BOTTOMRIGHT", out, -out, EDGE, EDGE, 1, 0, 1, 0)
 
 	f.header:SetTexture(ART .. themeKey .. "\\rail")
 end

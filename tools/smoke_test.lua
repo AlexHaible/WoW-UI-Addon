@@ -628,6 +628,19 @@ do
 	local offered = #popups
 	ns:SetupEditMode()
 	assert(#popups == offered, "no reload offered when nothing changed")
+	-- The game hands offsets back rounded its own way: still no reload.
+	for _, layout in ipairs(savedLayouts.layouts) do
+		if layout.layoutName == ns.EDIT_LAYOUT then
+			for _, sys in ipairs(layout.systems) do
+				if sys.anchorInfo and sys.anchorInfo.point == "TOPLEFT" and sys.anchorInfo.relativePoint == "BOTTOMLEFT" then
+					sys.anchorInfo.offsetX = sys.anchorInfo.offsetX + 0.6
+					sys.anchorInfo.offsetY = sys.anchorInfo.offsetY - 1
+				end
+			end
+		end
+	end
+	ns:SetupEditMode()
+	assert(#popups == offered, "no reload offered for offsets the game rounded")
 	-- "Let Edit Mode place action bars 1-3": the bars are placed in our
 	-- layout once over the grid rows, at a grid-like icon size in whichever
 	-- form the layout stores it, and then left to the player.

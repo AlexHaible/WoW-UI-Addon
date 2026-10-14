@@ -655,9 +655,20 @@ function ns:PlaceTargetAuras(layout)
 	end
 	local x = math.floor(spot.x0 * k / scale - TARGET_AURA_X + 0.5)
 	local y = math.floor(spot.y * k / scale - TARGET_AURA_Y + 0.5)
+	-- The game hands saved offsets back rounded its own way, so a pixel or
+	-- two either way counts as already in place (otherwise every login
+	-- would save the layout again and ask for a reload).
 	local a = tf.anchorInfo or {}
-	local changed = not (a.point == "TOPLEFT" and a.relativeTo == "UIParent" and a.relativePoint == "BOTTOMLEFT"
-		and a.offsetX == x and a.offsetY == y) or tf.isInDefaultPosition
+	local function near(v, want)
+		return type(v) == "number" and math.abs(v - want) <= 2
+	end
+	local inPlace = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
+		and a.relativePoint == "BOTTOMLEFT" and near(a.offsetX, x) and near(a.offsetY, y)
+		and not tf.isInDefaultPosition
+	local changed = not inPlace
+	if inPlace then
+		x, y = a.offsetX, a.offsetY
+	end
 	tf.anchorInfo = { point = "TOPLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = x, offsetY = y }
 	tf.anchorInfo2 = nil
 	tf.isInDefaultPosition = false
@@ -665,7 +676,7 @@ function ns:PlaceTargetAuras(layout)
 	if onTop then
 		local set = false
 		for _, entry in ipairs(tf.settings or {}) do
-			set = set or (entry.setting == onTop and entry.value == 1)
+			set = set or (entry.setting == onTop and entry.value ~= 0 and entry.value ~= false)
 		end
 		changed = changed or not set
 		setSetting(tf, onTop, 1)

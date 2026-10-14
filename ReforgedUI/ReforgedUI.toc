@@ -8,6 +8,7 @@
 ## X-Category: Interface Enhancements
 ## SavedVariables: ReforgedUIDB
 ## IconTexture: Interface\Icons\INV_BannerPVP_02
+## X-Curse-Project-ID: 1743952
 
 ## Category-enUS: User Interface
 ## Category-deDE: Benutzeroberfläche

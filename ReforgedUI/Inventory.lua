@@ -11,7 +11,8 @@ local Inventory = ns:RegisterModule("inventory", {})
 
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
-local KEYRING_ICON = "Interface\\Buttons\\UI-Button-KeyRing"
+local KEYRING_ART = "Interface\\Buttons\\UI-Button-KeyRing"
+local KEYRING_ICON = "Interface\\Icons\\INV_Misc_Key_03"
 local REAGENT_BAG = 5
 
 local Container = C_Container or {}
@@ -98,13 +99,27 @@ end
 
 function Inventory:CreateKeyRing(holder)
 	-- Blizzard's own tall key ring button (normal, pushed and highlight art),
-	-- without the steel icon frame of the bag buttons.
+	-- without the steel icon frame of the bag buttons. SetTexture returns
+	-- false when the client lacks the file; then it is a key icon in the
+	-- bag buttons' steel frame instead.
 	local btn = CreateFrame("Button", "ReforgedUIKeyRing", holder)
-	btn:SetNormalTexture(KEYRING_ICON)
-	btn:SetPushedTexture(KEYRING_ICON .. "-Down")
-	btn:SetHighlightTexture(KEYRING_ICON .. "-Highlight", "ADD")
-	for _, t in ipairs({ btn:GetNormalTexture(), btn:GetPushedTexture(), btn:GetHighlightTexture() }) do
-		t:SetTexCoord(0, 0.5625, 0, 0.609375)
+	local normal = btn:CreateTexture(nil, "ARTWORK")
+	if normal:SetTexture(KEYRING_ART) ~= false then
+		btn:SetNormalTexture(KEYRING_ART)
+		btn:SetPushedTexture(KEYRING_ART .. "-Down")
+		btn:SetHighlightTexture(KEYRING_ART .. "-Highlight", "ADD")
+		for _, t in ipairs({ btn:GetNormalTexture(), btn:GetPushedTexture(), btn:GetHighlightTexture() }) do
+			t:SetTexCoord(0, 0.5625, 0, 0.609375)
+		end
+		normal:Hide()
+	else
+		btn.icon = normal
+		normal:SetAllPoints()
+		normal:SetTexture(KEYRING_ICON)
+		normal:SetTexCoord(0.3, 0.7, 0.07, 0.93)
+		btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+		btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+		ns:IconFrame(btn)
 	end
 	btn:SetScript("OnLeave", onLeave)
 	btn:SetScript("OnClick", toggleKeyRing)

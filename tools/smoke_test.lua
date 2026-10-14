@@ -76,6 +76,7 @@ function methods:GetTop() return 100 end
 function methods:GetBottom() return 10 end
 function methods:GetLeft() return 20 end
 function methods:SetFrameStrata(s) self._strata = s end
+function methods:GetFrameStrata() return self._strata or "MEDIUM" end
 function methods:SetBlendMode() end
 function methods:HookScript(k, fn) self._hooks = self._hooks or {}; self._hooks[k] = fn end
 function methods:SetShown(v) self._shown = not not v end
@@ -217,6 +218,8 @@ Settings = { GetSetting = function(name)
 	if settingValues[name] == nil then return nil end
 	return { GetValue = function() return settingValues[name] end, SetValue = function(_, v) settingValues[name] = v end }
 end }
+Settings.RegisterCanvasLayoutCategory = function(panel, name) return { panel = panel, name = name } end
+Settings.RegisterAddOnCategory = function() end
 -- Dividers between buttons: per button, and from a pool on the main bar that
 -- Blizzard's UpdateDividers refills.
 ActionButton7.RightDivider = new("texture", nil, ActionButton7)
@@ -1004,6 +1007,14 @@ assert(ActionButton1._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
 -- The options menu.
 local config = ns.modules.config
+-- In the game's options it sits inside the AddOns page, and leaves with it.
+assert(config.settingsPanel, "options page registered")
+config.settingsPanel:Show()
+config.settingsPanel:GetScript("OnShow")(config.settingsPanel)
+assert(ReforgedUIConfig:IsShown() and ReforgedUIConfig:GetParent() == config.settingsPanel, "menu shown inside the options page")
+config.settingsPanel:Hide()
+config.settingsPanel:GetScript("OnHide")(config.settingsPanel)
+assert(not ReforgedUIConfig:IsShown() and ReforgedUIConfig:GetParent() == UIParent, "menu leaves with the options page")
 SlashCmdList.REFORGEDUI("config")
 assert(ReforgedUIConfig:IsShown(), "/rui config opens the menu")
 for _, eb in ipairs(config.edits) do

@@ -107,7 +107,11 @@ function Config:Build()
 	f:SetMovable(true)
 	f:SetClampedToScreen(true)
 	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStart", function(frame)
+		if not self.embedded then
+			frame:StartMoving()
+		end
+	end)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetScript("OnShow", function() self:Refresh() end)
 	f:Hide()
@@ -117,6 +121,7 @@ function Config:Build()
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
+	self.closeButton = close
 	label(f, "Reforged UI", 20, -18, "GameFontNormalLarge")
 
 	-- Themes.
@@ -250,6 +255,9 @@ function Config:Refresh()
 end
 
 function Config:Toggle()
+	if self.embedded then
+		self:Unembed()
+	end
 	self.frame:SetShown(not self.frame:IsShown())
 end
 
@@ -283,30 +291,52 @@ function Config:OnLayout(L)
 	end
 end
 
--- A page in the game's options (AddOns tab) that opens the menu.
+-- A page in the game's options (AddOns tab) that shows the menu inside it.
+-- The menu moves into the page while the page is shown and back out when it
+-- closes, so closing the game's options never leaves it behind or takes it
+-- away. Nothing here calls the game's panel manager (Show/HideUIPanel):
+-- doing that from addon code taints it, and Edit Mode, which the panel
+-- manager opens and closes, then errors.
+function Config:EmbedIn(panel)
+	local f = self.frame
+	self.embedded = panel
+	f:SetParent(panel)
+	f:SetFrameStrata(panel:GetFrameStrata())
+	f:SetFrameLevel(panel:GetFrameLevel() + 1)
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+	local width = panel:GetWidth()
+	f:SetScale(width and width > 0 and math.min(1, width / W) or 1)
+	f:SetMovable(false)
+	self.closeButton:Hide()
+	f:Show()
+end
+
+function Config:Unembed()
+	local f = self.frame
+	self.embedded = nil
+	f:Hide()
+	f:SetParent(UIParent)
+	f:SetFrameStrata("DIALOG")
+	f:SetScale(1)
+	f:ClearAllPoints()
+	f:SetPoint("LEFT", 200, 0)
+	f:SetMovable(true)
+	self.closeButton:Show()
+end
+
 function Config:RegisterSettings()
 	if not (Settings and Settings.RegisterCanvasLayoutCategory) then
 		return
 	end
 	local panel = CreateFrame("Frame")
-	label(panel, "Reforged UI", 16, -16, "GameFontNormalLarge")
-	label(panel, "The Warcraft III console, with Reforged UI's top bar.", 16, -44, "GameFontHighlight")
-	-- Our menu is a window of its own: close the game's options first, so
-	-- closing them later (or Escape) doesn't take the menu with it.
-	button(panel, "Open the console menu", 200, 16, -72, function()
-		if SettingsPanel and SettingsPanel:IsShown() then
-			if HideUIPanel then
-				HideUIPanel(SettingsPanel)
-			else
-				SettingsPanel:Hide()
-			end
-		end
-		C_Timer.After(0, function() self.frame:Show() end)
-	end)
+	panel:SetScript("OnShow", function(p) self:EmbedIn(p) end)
+	panel:SetScript("OnHide", function() self:Unembed() end)
 	pcall(function()
 		local category = Settings.RegisterCanvasLayoutCategory(panel, "Reforged UI")
 		Settings.RegisterAddOnCategory(category)
 	end)
+	self.settingsPanel = panel
 end
 
 function Config:OnEnable()

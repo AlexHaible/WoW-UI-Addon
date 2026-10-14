@@ -47,6 +47,8 @@ local DEFAULTS = {
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
 		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
+		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
+		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
 	},
 }
 
@@ -641,6 +643,57 @@ function ns:PlaceTargetAuras(layout)
 	return changed
 end
 
+-- With "Let Edit Mode place the action bars", bars 1-3 keep their buttons
+-- and are only pre-placed (once) in our layout, over the console's grid
+-- rows at about the grid's button size. After that they are the player's to
+-- move, resize and reflow in Edit Mode.
+local ACTION_BARS = {
+	{ index = "MainBar", row = "main", frame = { "MainActionBar", "MainMenuBar" } },
+	{ index = "Bar2", row = "bar2", frame = { "MultiBarBottomLeft" } },
+	{ index = "Bar3", row = "bar3", frame = { "MultiBarBottomRight" } },
+}
+local BUTTON_SIZE = 45 -- an action button at 100% icon size
+
+function ns:PlaceActionBars(layout)
+	local o, L = self.db.consoleOpts, self.layout
+	local sys, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
+	local settings = Enum.EditModeActionBarSetting
+	if not (o.editModeBars and not o.barsPlaced and sys and sys.ActionBar and indices and L and L.bars) then
+		return false
+	end
+	local changed = false
+	for _, spec in ipairs(ACTION_BARS) do
+		local entry = indices[spec.index] and findSystem(layout, sys.ActionBar, indices[spec.index])
+		local row = L.bars[spec.row]
+		local frame
+		for _, name in ipairs(spec.frame) do
+			frame = frame or _G[name]
+		end
+		if entry and row and row.xs and row.xs[1] then
+			local u = frame and self:UnitsFor(frame) or UIParent:GetHeight() / 768
+			entry.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+				offsetX = math.floor(row.xs[1] * u + 0.5), offsetY = math.floor(row.y * u + 0.5) }
+			entry.anchorInfo2 = nil
+			entry.isInDefaultPosition = false
+			-- Icon size in 10% steps, near the grid's cells. Layouts store it
+			-- either as the percentage or as the step index from 50%.
+			local size = settings and settings.IconSize
+			if size then
+				local pct = math.max(50, math.min(200, math.floor(row.size * u / BUTTON_SIZE * 10 + 0.5) * 10))
+				local stored
+				for _, s in ipairs(entry.settings or {}) do
+					if s.setting == size then
+						stored = s.value
+					end
+				end
+				setSetting(entry, size, (stored == nil or stored > 15) and pct or (pct - 50) / 10)
+			end
+			changed = true
+		end
+	end
+	return changed
+end
+
 function ns:SetupEditMode()
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
@@ -698,6 +751,8 @@ function ns:SetupEditMode()
 	end
 
 	local placed = index and self:PlaceTargetAuras(info.layouts[index])
+	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
+	placed = placed or barsPlaced
 
 	local raised = 0
 	for _, layout in ipairs(info.layouts) do
@@ -707,6 +762,9 @@ function ns:SetupEditMode()
 	end
 	if (made or placed or raised > 0) and not pcall(C_EditMode.SaveLayouts, info) then
 		return
+	end
+	if barsPlaced then
+		self.db.consoleOpts.barsPlaced = true
 	end
 	if made then
 		for name, value in pairs(RAID_CVARS) do
@@ -723,6 +781,9 @@ function ns:SetupEditMode()
 			.. " frames). Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
 	elseif raised > 0 then
 		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
+	elseif barsPlaced then
+		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
+			.. " them there as you like."):format(ns.EDIT_LAYOUT))
 	elseif made or placed then
 		self:AskReload("updated the target frame's place in the Edit Mode layout.")
 	end

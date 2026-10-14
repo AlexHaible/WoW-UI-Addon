@@ -80,5 +80,5 @@ function Console:OnLayout(L)
 	place(self.extBg, L.extBg)
 	self.extBg:SetShown(L.extBg.w > 0)
 	-- "Hide actionbar grid texture".
-	self.frames.grid:SetShown(not ns.db.consoleOpts.hideGrid)
+	self.frames.grid:SetShown(not (ns.db.consoleOpts.hideGrid or ns.db.consoleOpts.editModeBars))
 end

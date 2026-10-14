@@ -180,8 +180,11 @@ end
 
 function ActionBars:OnEnable()
 	self.buttons = {}
+	-- "Let Edit Mode place the action bars": bars 1-3 keep their buttons and
+	-- Blizzard's look, and Edit Mode places them (see ns:PlaceActionBars).
+	local own = ns.db.consoleOpts.editModeBars
 	for _, spec in ipairs(BARS) do
-		self.buttons[spec.key] = collect(spec.prefix, 12)
+		self.buttons[spec.key] = own and {} or collect(spec.prefix, 12)
 	end
 	self.extra = collect(EXTRA_PREFIX, 12)
 	-- Stance and pet buttons keep Blizzard's own look: they sit on the
@@ -207,7 +210,8 @@ function ActionBars:OnEnable()
 	-- The bars' own frames stay where Edit Mode put them (now empty, at the
 	-- bottom of the screen); stop them catching clicks meant for the console.
 	ns:RunOutOfCombat("actionbar-frames", function()
-		for _, name in ipairs(BAR_FRAMES) do
+		for _, name in ipairs(own and { "MultiBar7", "StanceBar", "StanceBarFrame", "ShapeshiftBarFrame",
+			"PetActionBar", "PetActionBarFrame" } or BAR_FRAMES) do
 			local bar = _G[name]
 			if bar and not ns.IsForbidden(bar) and bar.EnableMouse then
 				bar:EnableMouse(false)
@@ -215,9 +219,12 @@ function ActionBars:OnEnable()
 		end
 	end)
 
-	for _, name in ipairs({ "MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar7" }) do
-		hideDividers(_G[name])
+	if not own then
+		for _, name in ipairs({ "MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight" }) do
+			hideDividers(_G[name])
+		end
 	end
+	hideDividers(_G.MultiBar7)
 
 	local first = self.buttons.main[1]
 	local bar = _G.MainActionBar or _G.MainMenuBar

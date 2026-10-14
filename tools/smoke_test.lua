@@ -366,6 +366,8 @@ Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
 Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
+Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3 }
+Enum.EditModeActionBarSetting = { IconSize = 3 }
 Enum.EditModeLayoutType = { Account = 1 }
 local cvars = { raidFramesDisplayClassColor = "0", raidFramesDisplayPowerBars = "0" }
 C_CVar = { GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end }
@@ -378,11 +380,13 @@ C_EditMode = {
 		return { activeLayout = 3, layouts = { { layoutName = "Mine", systems = {
 			{ system = 12, anchorInfo = { point = "TOPRIGHT", relativeTo = "ReforgedUIConsole", relativePoint = "BOTTOMLEFT",
 				offsetX = 1000, offsetY = 600 }, isInDefaultPosition = false },
-			{ system = 0, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM" } },
+			{ system = 0, systemIndex = 1, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM" },
+				settings = { { setting = 3, value = 5 } } },
 			{ system = 1, anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetY = 120 },
 				isInDefaultPosition = true },
 			{ system = 3, systemIndex = 2, settings = { { setting = 4, value = 0 } } },
 			{ system = 3, systemIndex = 1, isInDefaultPosition = true, settings = { { setting = 2, value = 0 } } },
+			{ system = 0, systemIndex = 2, settings = { { setting = 3, value = 100 } } },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 		} } } }
@@ -551,6 +555,28 @@ do
 	local offered = #popups
 	ns:SetupEditMode()
 	assert(#popups == offered, "no reload offered when nothing changed")
+	-- "Let Edit Mode place action bars 1-3": the bars are placed in our
+	-- layout once over the grid rows, at a grid-like icon size in whichever
+	-- form the layout stores it, and then left to the player.
+	ns.db.consoleOpts.editModeBars, ns.db.consoleOpts.barsPlaced = true, false
+	ns:SetupEditMode()
+	local main, bar2
+	for _, sys in ipairs(savedLayouts.layouts[3].systems) do
+		if sys.system == 0 then
+			if sys.systemIndex == 1 then main = sys elseif sys.systemIndex == 2 then bar2 = sys end
+		end
+	end
+	local function size(sys) return sys.settings[1].value end
+	assert(main and not main.isInDefaultPosition and main.anchorInfo.point == "BOTTOMLEFT"
+		and main.anchorInfo.relativeTo == "UIParent" and bar2.anchorInfo.offsetY > main.anchorInfo.offsetY,
+		"bars placed over the grid rows")
+	assert(size(main) >= 0 and size(main) <= 15 and size(bar2) >= 50 and (size(bar2) - 50) / 10 == size(main),
+		"icon size set in the layout's own form")
+	assert(ns.db.consoleOpts.barsPlaced and popups[#popups].text:find("action bars"), "placed once, reload offered")
+	main.anchorInfo.offsetX = 7
+	ns:SetupEditMode()
+	assert(main.anchorInfo.offsetX == 7, "the player's own placement is kept")
+	ns.db.consoleOpts.editModeBars = false
 	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
 		"the layout is set up once")
 end

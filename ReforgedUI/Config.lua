@@ -161,6 +161,16 @@ function Config:Build()
 		self.targetButtons[i] = b
 	end
 
+	-- Bars 1-3 on their own Edit Mode bars instead of in the grid.
+	self:Check("Let Edit Mode place action bars 1-3", "editModeBars", x, -336, function(on)
+		ns.db.consoleOpts.barsPlaced = false
+		if on then
+			ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
+		end
+		ns:AskReload(on and "action bars 1-3 now stay on their Edit Mode bars (grid art hidden)."
+			or "action bars 1-3 go back into the console's grid.")
+	end)
+
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)

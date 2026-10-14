@@ -120,6 +120,12 @@ zone text position, chat input above the
 chat, health and power as percentages, and hiding the grid texture and chat
 icons. (The micro buttons always live in the top bar now.)
 
+**Let Edit Mode place action bars 1-3** (off by default) leaves bars 1-3 on
+their own Edit Mode bars instead of in the grid: they are placed once over
+the grid rows in the "Reforged UI" layout, at about the grid's icon size, and
+from then on you can move, resize and reflow them (more rows, fewer icons) in
+Edit Mode like any bar. The grid art is hidden while it is on.
+
 | 21:9 Night Elf | 32:9 Orc |
 | --- | --- |
 | ![21:9](docs/previews/21x9-nightelf.png) | ![32:9](docs/previews/32x9-orc.png) |

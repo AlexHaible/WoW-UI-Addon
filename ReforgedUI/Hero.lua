@@ -26,10 +26,10 @@ local EMPTY_SLOT = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
 local MENU_HINT = "\n|cff808080Right-click to choose what this icon shows.|r"
 
 -- Stat icon choices (the original addon's ChangeWeaponIcon).
-Hero.ICON_KINDS = { "main", "offhand", "ranged", "ammo", "spell", "heal", "none" }
+Hero.ICON_KINDS = { "main", "offhand", "ranged", "ammo", "spell", "heal", "armor", "none" }
 Hero.ICON_LABELS = {
 	main = "Main hand", offhand = "Offhand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", none = "None",
+	spell = "Spell power", heal = "Healing", armor = "Armor", none = "None",
 }
 local SLOT = { main = 16, offhand = 17, ranged = 18, ammo = 0 }
 local SCHOOLS = { "holy", "fire", "nature", "frost", "shadow", "arcane" }
@@ -441,6 +441,18 @@ local function dmgText(lo, hi)
 	return text
 end
 
+local function armourText()
+	local _, effective = UnitArmor("player")
+	local level = UnitLevel("player")
+	local dr
+	if PaperDollFrame_GetArmorReduction then
+		dr = PaperDollFrame_GetArmorReduction(effective, level)
+	else
+		dr = effective / (effective + 400 + 85 * level) * 100
+	end
+	return ("%.1f%%"):format(dr)
+end
+
 -- Label, value and icon for a stat icon of kind `kind`.
 local function statValues(kind)
 	if kind == "main" then
@@ -477,6 +489,8 @@ local function statValues(kind)
 		return "Spell:", tostring((spellPower())), "Interface\\Icons\\INV_Staff_07"
 	elseif kind == "heal" then
 		return "Healing:", tostring(healing()), "Interface\\Icons\\Spell_Holy_Heal"
+	elseif kind == "armor" then
+		return "Armor:", armourText(), GetInventoryItemTexture("player", 5) or CAPE
 	end
 end
 
@@ -504,7 +518,10 @@ local function attackInfo()
 end
 
 local function statInfo(kind)
-	if kind == "heal" then
+	if kind == "armor" then
+		local base, effective = UnitArmor("player")
+		return ("%sArmor:|r %d (%d base)\n%sDamage reduction:|r %s"):format(GOLD, effective, base, GOLD, armourText())
+	elseif kind == "heal" then
 		local sp, hp = spellPower(), healing()
 		return ("%sHealing power:|r %d\n%sSpell power:|r %d\n"):format(GOLD, hp, GOLD, sp)
 	elseif kind == "spell" then
@@ -516,18 +533,6 @@ local function statInfo(kind)
 		return text
 	end
 	return attackInfo()
-end
-
-local function armourText()
-	local _, effective = UnitArmor("player")
-	local level = UnitLevel("player")
-	local dr
-	if PaperDollFrame_GetArmorReduction then
-		dr = PaperDollFrame_GetArmorReduction(effective, level)
-	else
-		dr = effective / (effective + 400 + 85 * level) * 100
-	end
-	return ("%.1f%%"):format(dr)
 end
 
 function Hero:CreateStatIcon(holder, index)
@@ -550,38 +555,30 @@ function Hero:CreateStatIcon(holder, index)
 	f.value:SetJustifyH("LEFT")
 	f.value:SetJustifyV("TOP")
 	f:SetScript("OnEnter", function(frame)
-		if frame.index == 4 then
-			showInfo(self.xp.hover, function()
-				local base, effective = UnitArmor("player")
-				return ("%sArmor:|r %d (%d base)\n%sDamage reduction:|r %s\n|cff808080Always shows armour.|r")
-					:format(GOLD, effective, base, GOLD, armourText())
-			end, 50)
-		elseif frame.kind == "none" then
+		if frame.kind == "none" then
 			showInfo(self.xp.hover, function() return GOLD .. "Empty icon|r" .. MENU_HINT end, 50)
 		elseif frame.kind then
 			showInfo(self.xp.hover, function() return statInfo(frame.kind):gsub("\n+$", "") .. MENU_HINT end, 50)
 		end
 	end)
 	f:SetScript("OnLeave", hideInfo)
-	if index <= 3 then
-		f:SetScript("OnMouseUp", function(frame, button)
-			if button == "RightButton" then
-				self:OpenIconMenu(frame.index)
-			end
-		end)
-	end
+	f:SetScript("OnMouseUp", function(frame, button)
+		if button == "RightButton" then
+			self:OpenIconMenu(frame.index)
+		end
+	end)
 	return f
 end
 
 local ICON_NAMES = {
 	main = "Main hand", offhand = "Off hand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", none = "None",
+	spell = "Spell power", heal = "Healing", armor = "Armor", none = "None",
 }
-local ICON_TITLES = { "Top left weapon icon", "Top right weapon icon", "Bottom right weapon icon" }
+local ICON_TITLES = { "Top left stat icon", "Top right stat icon", "Bottom right stat icon", "Bottom left stat icon" }
 
 Hero.ICON_NAMES, Hero.ICON_TITLES = ICON_NAMES, ICON_TITLES
 
--- Right-click menu of a weapon icon (or its button in the options menu,
+-- Right-click menu of a stat icon (or its button in the options menu,
 -- `owner`): what it shows. Without the menu API a click steps to the next
 -- choice.
 function Hero:OpenIconMenu(index, owner)
@@ -610,6 +607,8 @@ function Hero:IconChoices()
 	local icons = ns.db.consoleOpts.icons
 	class = class or "UNKNOWN"
 	icons[class] = icons[class] or { "main", "none", "none" }
+	-- The fourth icon was always armour before it could be changed.
+	icons[class][4] = icons[class][4] or "armor"
 	return icons[class]
 end
 
@@ -637,8 +636,7 @@ function Hero:UpdateStats()
 	end
 	local choices = self:IconChoices()
 	local form = formIcons()
-	for i = 1, 3 do
-		local f = self.stats[i]
+	for i, f in ipairs(self.stats) do
 		f.kind = choices[i] or "none"
 		-- An empty icon stays as a bare socket, so it can still be right-clicked.
 		local shown = f.kind ~= "none"
@@ -654,17 +652,14 @@ function Hero:UpdateStats()
 			end
 			if form and SLOT[f.kind] == 16 then
 				icon = form[1]
+			elseif form and f.kind == "armor" then
+				icon = form[2] or icon
 			end
 			f.label:SetText(GOLD .. (label or "") .. "|r")
 			f.value:SetText(value or "")
 			f.icon:SetTexture(icon or ns:ArtPath(FIST))
 		end
 	end
-	local armour = self.stats[4]
-	armour.label:SetText(GOLD .. "Armor:|r")
-	local ok, text = pcall(armourText)
-	armour.value:SetText(ok and text or "")
-	armour.icon:SetTexture((form and form[2]) or GetInventoryItemTexture("player", 5) or CAPE)
 end
 
 -- Show `unit` ("player" or "target") on the hero screen. Touches no secure

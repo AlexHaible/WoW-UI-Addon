@@ -31,9 +31,9 @@ screen stays free on either side).
   threshold.
 - **Hero screen**: name, level and class, the experience bar with rested
   experience (hover for the numbers, right-click for its colour: purple,
-  blue or none) and four stat icons. Armour is fixed; the
-  other three show main hand, off hand (block chance and value with a shield),
-  ranged, ammo (yellow under 400, red under 200), spell power, healing or
+  blue or none) and four stat icons. Each shows main hand, off hand (block
+  chance and value with a shield), ranged, ammo (yellow under 400, red under
+  200), spell power, healing, armour (the default for the fourth) or
   nothing (an empty socket), chosen per class from each icon's right-click menu
   or the options menu. Druid forms and Ghost Wolf swap
   the icons like the original addon.

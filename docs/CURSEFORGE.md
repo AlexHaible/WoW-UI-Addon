@@ -38,7 +38,7 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 - Animated 3D portrait with health and power bars.
 - Rest, combat, leader and PvP icons. The portrait pulses red when your health is low.
 - Name, level and class, plus an experience bar showing rested XP. Right-click the bar to choose its colour.
-- Four stat icons: armour, plus main hand, off hand, ranged, ammo, spell power or healing, chosen from each icon's right-click menu or the options menu.
+- Four stat icons showing main hand, off hand, ranged, ammo, spell power, healing or armour, chosen from each icon's right-click menu or the options menu.
 
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.

@@ -181,18 +181,18 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 126)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 168)
 
-	-- The three weapon icons on the hero screen (this class's choice); the
+	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
-	label(f, "Weapon icons (this class)", x, -318)
+	label(f, "Stat icons (this class)", x, -318)
 	self.iconButtons = {}
-	for i = 1, 3 do
-		local b = button(f, "", 92, x + (i - 1) * 94, -336, nil)
+	for i = 1, 4 do
+		local b = button(f, "", 72, x + (i - 1) * 73, -336, nil)
 		b:SetScript("OnClick", function(owner) ns.modules.hero:OpenIconMenu(i, owner) end)
 		b.index = i
 		self.iconButtons[i] = b
 	end
 
-	label(f, "Right-click a weapon icon on the console to change it too, or the experience bar for its rested colour.",
+	label(f, "Right-click a stat icon on the console to change it too, or the experience bar for its rested colour.",
 		20, -388, "GameFontNormalSmall")
 
 	button(f, "Apply", 120, 20, -420, function() self:Apply() end)

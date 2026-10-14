@@ -419,6 +419,8 @@ local LEVEL_PLATE_W = 2 * 0.05924 * 0.375 + 1.70 * 0.375
 
 -- Top of the portrait block's wall above the stats panel, per faction art.
 local HERO_WALL = { human = 0.543, orc = 0.53, undead = 0.578, nightelf = 0.56, troll = 0.5176, tauren = 0.570 }
+-- The target's aura icons stand on the highest of those walls on every theme.
+local AURA_WALL = 0.578
 
 local function buildTarget(L, s, t, MT, xp)
 	-- Swap mode (Warcraft III): the hero screen shows the target. Its name and
@@ -505,14 +507,19 @@ local function buildTarget(L, s, t, MT, xp)
 
 	-- The target's buffs and debuffs: rows of small icons standing on the
 	-- wall between the target of target and the stance row (above the plate
-	-- in plate mode), debuffs nearest the wall.
+	-- in plate mode), debuffs nearest the wall. They are Blizzard's own,
+	-- placed through the Edit Mode layout that all characters share, so the
+	-- spot is the same on every theme (else each login on another race moves
+	-- it and asks for a reload): on the highest wall (Undead and Forsaken),
+	-- a few units above the lower ones.
 	do
 		local size, gap = 0.085 * s, 0.01 * s
 		local x0, x1 = right(L.tot.frame) + 4, L.stance.x - 4
+		local y = AURA_WALL * s + 6
 		L.targetAuras = {
 			size = size, gap = gap,
-			swap = { x0 = x0, x1 = x1, y = wall + 6 }, -- level with the target of target
-			plate = { x0 = x0, x1 = x1, y = L.targetPlate.top + 4 },
+			swap = { x0 = x0, x1 = x1, y = y }, -- level with the target of target
+			plate = { x0 = x0, x1 = x1, y = L.targetPlate.top + 4 + (y - wall - 6) },
 		}
 	end
 end

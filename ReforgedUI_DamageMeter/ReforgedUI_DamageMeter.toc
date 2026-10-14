@@ -8,7 +8,7 @@
 ## X-Category: Interface Enhancements
 ## Dependencies: ReforgedUI
 ## OptionalDeps: Blizzard_DamageMeter
-## IconTexture: Interface\Icons\INV_BannerPVP_02
+## IconTexture: Interface\AddOns\ReforgedUI\Media\Common\icon
 ## Group: ReforgedUI
 
 ## Category-enUS: User Interface

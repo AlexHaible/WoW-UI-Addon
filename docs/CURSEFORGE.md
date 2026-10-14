@@ -22,7 +22,7 @@ The theme follows your character's race automatically, and you can pick any them
 - **Troll**: Darkspear poles bound in crimson rope, tiki masks, tusks and straw cones
 - **Skyborne**: wind-swept teal and rose foliage, pale Highborne stone and floating wind-pylons, in two variants: **High Order** (silver and violet) and **Windshapers** (gold and cyan)
 
-Each theme has its own top bar, clock frame, target plate and end caps.
+Each theme has its own top bar, clock frame, target plate, end caps and damage meter frame.
 
 ---
 
@@ -64,6 +64,11 @@ Each theme has its own top bar, clock frame, target plate and end caps.
 - The **day/night clock** in the middle, with Blizzard's menu buttons either side of it.
 - **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold and the total. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons.
 
+**Damage meter**
+- The game's built-in damage meter wears your theme: the top bar's trim around each window, a dark inset, the theme's rail under the header and every bar, and Warcraft III's bar texture and font. The breakdown window that opens on click matches.
+- It follows your theme as you switch, and you still move and size the meter in Edit Mode.
+- It comes as a separate addon in the same download, **Reforged UI: Damage Meter**. Untick it in the addon list if you'd rather keep Blizzard's look or use another meter.
+
 ---
 
 ## Edit Mode
@@ -76,8 +81,6 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
 
 Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
-
-**Damage meter:** the game's built-in damage meter wears your theme's frame, rails, bar texture and font. This comes as a separate addon in the same download, **Reforged UI: Damage Meter**. Untick it in the addon list if you'd rather keep Blizzard's look or use another meter.
 
 ---
 

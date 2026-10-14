@@ -45,6 +45,7 @@ local DEFAULTS = {
 		hideChatIcons = false,
 		chatInputAbove = false,
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
+		addonDrawerOpen = false, -- the minimap's addon compartment
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate

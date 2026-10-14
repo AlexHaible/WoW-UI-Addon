@@ -188,6 +188,10 @@ forbiddenFrame._forbidden = true
 function forbiddenFrame:GetName() error("Attempt to access forbidden object") end
 local strayButton = new("button", "ForeverMinimapThing", Minimap)
 strayButton._w, strayButton._h = 24, 24
+-- Another addon's minimap button (LibDBIcon): it goes in the drawer.
+local addonButton = new("button", "LibDBIcon10_SomeAddon", Minimap)
+addonButton._w, addonButton._h = 31, 31
+function issecurevariable(name) return not name:find("^LibDBIcon") end
 IssueReporterButton = new("button", "IssueReporterButton", UIParent)
 IssueReporterButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 10, 10)
 function IssueReporterButton:GetBottom() local _, _, _, _, y = self:GetPoint(1); return y end
@@ -600,7 +604,7 @@ end
 local function checkAnchors()
 	for _, f in ipairs(allFrames) do
 		local name = rawget(f, "_name")
-		if name and not name:find("^ReforgedUI") then
+		if name and not name:find("^ReforgedUI") and issecurevariable(name) then
 			for _, p in ipairs(f._points) do
 				local rel = p[2]
 				local relName = type(rel) == "table" and rawget(rel, "_name")
@@ -670,6 +674,19 @@ at(Minimap, L.minimap.x, L.minimap.y, "minimap")
 assert(strayButton._points[1][2] == UIParent and strayButton:GetParent() == Minimap,
 	"stray minimap buttons should line up along the map")
 assert(MinimapCluster.Tracking._points[1][1] == "CENTER", "tracking button should sit in its slot")
+do
+	local mm = ns.modules.minimap
+	assert(addonButton:GetParent() == mm.drawer and addonButton._points[1][2] == UIParent,
+		"addon buttons go in the compartment's drawer")
+	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
+	mm.toggle:GetScript("OnClick")(mm.toggle)
+	assert(mm.drawer:IsShown() and ReforgedUIDB.consoleOpts.addonDrawerOpen, "clicking opens the drawer")
+	mm.toggle:GetScript("OnClick")(mm.toggle)
+	assert(not mm.drawer:IsShown(), "and closes it")
+	for _, b in ipairs(mm.buttons) do
+		assert(b ~= addonButton, "addon buttons leave the row")
+	end
+end
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")
 -- Blizzard's micro buttons live in the top bar, either side of the clock:

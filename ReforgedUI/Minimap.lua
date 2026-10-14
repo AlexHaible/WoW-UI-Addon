@@ -1,8 +1,10 @@
 -- The original addon's minimap: a square map in the bottom-left block, the tracking
 -- button in the round slot under it, the mail slot beside it (a grey letter
 -- when there is no mail), the zone name on the bottom (or top) edge of the
--- map and zooming with the mouse wheel. The other minimap buttons (addon
--- buttons, ...) line up along the top edge of the map. The day/night (or
+-- map and zooming with the mouse wheel. Blizzard's other minimap buttons
+-- line up along the top edge of the map, after the addon compartment's
+-- button: other addons' minimap buttons are gathered in its drawer, which
+-- opens over the map. The day/night (or
 -- calendar) indicator is made invisible: the top bar has its own clock.
 --
 -- The map stays a child of its cluster (an Edit Mode frame we never move or
@@ -40,20 +42,32 @@ local function find(...)
 	end
 end
 
+-- An addon's own button (named by addon code): it may go in the drawer.
+-- Blizzard's buttons are never reparented, so they stay in the row.
+local function isAddonButton(f)
+	local ok, name = pcall(f.GetName, f)
+	if not ok or type(name) ~= "string" then
+		return false
+	end
+	return issecurevariable ~= nil and not issecurevariable(name)
+end
+
 -- Buttons that normally sit around the round minimap, other than the ones
--- with a place of their own: the known ones first, then any other small
--- button on the minimap or its cluster (other addons' and client-specific
--- ones), so nothing is left stranded on the map.
-local function collectButtons(skip)
-	local list, seen = {}, {}
-	local function add(f)
+-- with a place of their own: Blizzard's known ones (for the row on the map),
+-- and any other small button on the minimap or its cluster (other addons'
+-- and client-specific ones, for the drawer), so nothing is left stranded on
+-- the map. `drawer` finds buttons already moved into the drawer too.
+local function collectButtons(skip, drawer)
+	local row, list, seen = {}, {}, {}
+	local function add(f, into)
 		if f and not seen[f] and not skip[f] and not ns.IsForbidden(f) then
 			seen[f] = true
-			list[#list + 1] = f
+			into = into or list
+			into[#into + 1] = f
 		end
 	end
-	add(AddonCompartmentFrame)
-	add(find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton))
+	add(AddonCompartmentFrame, row)
+	add(find(ExpansionLandingPageMinimapButton, GarrisonLandingPageMinimapButton), row)
 	local function sweep(parent, depth)
 		if not parent or not parent.GetChildren then
 			return
@@ -63,7 +77,7 @@ local function collectButtons(skip)
 				local w, h = child:GetSize()
 				if child:GetObjectType() == "Button" and child:IsShown() and w and w >= 12 and w <= 64
 					and h and h >= 12 and h <= 64 then
-					add(child)
+					add(child, not isAddonButton(child) and row or nil)
 				elseif depth > 0 and child ~= Minimap then
 					sweep(child, depth - 1)
 				end
@@ -72,7 +86,14 @@ local function collectButtons(skip)
 	end
 	sweep(MinimapCluster, 2)
 	sweep(Minimap, 0)
-	return list
+	if drawer then
+		for _, child in ipairs({ drawer:GetChildren() }) do
+			if child ~= drawer.bg then
+				add(child)
+			end
+		end
+	end
+	return row, list
 end
 
 function MinimapModule:OnEnable()
@@ -144,7 +165,57 @@ function MinimapModule:OnEnable()
 	for _, f in ipairs(self.timeFrames) do
 		skip[f] = true
 	end
-	self.buttons = collectButtons(skip)
+	self.skip = skip
+	self:CreateCompartment()
+	self.buttons, self.addonButtons = collectButtons(skip)
+end
+
+----------------------------------------------------------------------------
+-- The addon compartment: a button at the start of the row on the map that
+-- opens a drawer of the other addons' minimap buttons.
+
+local BAG_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
+
+function MinimapModule:CreateCompartment()
+	local toggle = CreateFrame("Button", "ReforgedUIAddonCompartment", self.holder)
+	toggle:SetFrameLevel(self.holder:GetFrameLevel() + 5)
+	toggle:SetSize(32, 32)
+	local icon = toggle:CreateTexture(nil, "ARTWORK")
+	icon:SetAllPoints()
+	icon:SetTexture(BAG_ICON)
+	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	toggle:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	toggle:SetScript("OnClick", function() self:ToggleDrawer() end)
+	toggle:SetScript("OnEnter", function(b)
+		GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Addon buttons", 1, 1, 1)
+		GameTooltip:AddLine(("%d minimap buttons. Click to %s."):format(#(self.addonButtons or {}),
+			self.drawer:IsShown() and "close" or "open"), 0.8, 0.8, 0.8)
+		GameTooltip:Show()
+	end)
+	toggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	self.toggle = toggle
+
+	local drawer = CreateFrame("Frame", "ReforgedUIAddonDrawer", self.holder)
+	drawer:SetFrameLevel(self.holder:GetFrameLevel() + 10)
+	drawer.bg = drawer:CreateTexture(nil, "BACKGROUND")
+	drawer.bg:SetAllPoints()
+	drawer.bg:SetColorTexture(0, 0, 0, 0.75)
+	drawer:SetShown(ns.db.consoleOpts.addonDrawerOpen and true or false)
+	self.drawer = drawer
+end
+
+function MinimapModule:ToggleDrawer()
+	local open = not self.drawer:IsShown()
+	ns.db.consoleOpts.addonDrawerOpen = open
+	if open then
+		-- Pick up buttons that addons made since the last look.
+		self.buttons, self.addonButtons = collectButtons(self.skip, self.drawer)
+		if self.layout then
+			self:OnLayout(self.layout)
+		end
+	end
+	self.drawer:SetShown(open)
 end
 
 -- The minimap cluster's day/night indicator (Forever's DielFrame, or
@@ -254,16 +325,50 @@ function MinimapModule:OnLayout(L)
 		end)
 	end
 
-	-- The other buttons in a row along the top edge of the map, shrinking
-	-- to fit them all.
+	-- The compartment and Blizzard's other buttons in a row along the top
+	-- edge of the map, shrinking to fit them all.
+	self.layout = L
 	local row = L.minimapButtons
-	local n = #self.buttons
+	local hasAddons = #self.addonButtons > 0
+	self.toggle:SetShown(hasAddons)
+	local first = {}
+	if hasAddons then
+		first[1] = self.toggle
+	end
+	for _, btn in ipairs(self.buttons) do
+		first[#first + 1] = btn
+	end
+	local n = #first
 	local size = math.min(row.size, (row.maxW - (n - 1) * 2) / math.max(n, 1))
-	for i, btn in ipairs(self.buttons) do
+	for i, btn in ipairs(first) do
 		local x = row.x + (i - 1) * (size + 2)
+		if btn == self.toggle then
+			ns:PlaceRect(btn, { x = x, y = row.y - size, w = size, h = size })
+		else
+			ns:Lock(btn, function(b)
+				fit(b, size)
+				ns:Anchor(b, "TOPLEFT", x, row.y)
+			end, { "SetScale" })
+		end
+	end
+
+	-- The drawer: under the row, as many buttons a line as fit the map.
+	size = row.size
+	local cols = math.max(1, math.floor((row.maxW - 2) / (size + 2)))
+	local count = #self.addonButtons
+	local lines = math.max(1, math.ceil(count / cols))
+	local top = row.y - size - 2
+	local w = math.min(count, cols) * (size + 2) + 2
+	ns:PlaceRect(self.drawer, { x = row.x - 2, y = top - lines * (size + 2) - 2, w = w, h = lines * (size + 2) + 2 })
+	for i, btn in ipairs(self.addonButtons) do
+		local col, line = (i - 1) % cols, math.floor((i - 1) / cols)
+		local x, y = row.x + col * (size + 2), top - 2 - line * (size + 2)
+		if btn:GetParent() ~= self.drawer then
+			btn:SetParent(self.drawer)
+		end
 		ns:Lock(btn, function(b)
 			fit(b, size)
-			ns:Anchor(b, "TOPLEFT", x, row.y)
+			ns:Anchor(b, "TOPLEFT", x, y)
 		end, { "SetScale" })
 	end
 end

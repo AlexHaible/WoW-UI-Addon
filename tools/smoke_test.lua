@@ -367,7 +367,8 @@ Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
 Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
 Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3 }
-Enum.EditModeActionBarSetting = { IconSize = 3 }
+Enum.EditModeActionBarSetting = { IconSize = 3, IconPadding = 4, HideBarArt = 6, HideBarScrolling = 7,
+	AlwaysShowButtons = 8 }
 Enum.EditModeLayoutType = { Account = 1 }
 local cvars = { raidFramesDisplayClassColor = "0", raidFramesDisplayPowerBars = "0" }
 C_CVar = { GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end }
@@ -572,6 +573,13 @@ do
 		"bars placed over the grid rows")
 	assert(size(main) >= 0 and size(main) <= 15 and size(bar2) >= 50 and (size(bar2) - 50) / 10 == size(main),
 		"icon size set in the layout's own form")
+	local function setting(sys, id)
+		for _, entry in ipairs(sys.settings) do
+			if entry.setting == id then return entry.value end
+		end
+	end
+	assert(setting(main, 4) == 6 and setting(bar2, 4) == 8 and setting(main, 6) == 1 and setting(bar2, 7) == 1
+		and setting(main, 8) == 1, "padding 8, bar art and scrolling hidden, all slots shown")
 	assert(ns.db.consoleOpts.barsPlaced and popups[#popups].text:find("action bars"), "placed once, reload offered")
 	main.anchorInfo.offsetX = 7
 	ns:SetupEditMode()

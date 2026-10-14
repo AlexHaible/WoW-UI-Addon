@@ -653,6 +653,7 @@ local ACTION_BARS = {
 	{ index = "Bar3", row = "bar3", frame = { "MultiBarBottomRight" } },
 }
 local BUTTON_SIZE = 45 -- an action button at 100% icon size
+local BAR_PADDING = 8
 
 function ns:PlaceActionBars(layout)
 	local o, L = self.db.consoleOpts, self.layout
@@ -675,18 +676,26 @@ function ns:PlaceActionBars(layout)
 				offsetX = math.floor(row.xs[1] * u + 0.5), offsetY = math.floor(row.y * u + 0.5) }
 			entry.anchorInfo2 = nil
 			entry.isInDefaultPosition = false
-			-- Icon size in 10% steps, near the grid's cells. Layouts store it
-			-- either as the percentage or as the step index from 50%.
-			local size = settings and settings.IconSize
-			if size then
-				local pct = math.max(50, math.min(200, math.floor(row.size * u / BUTTON_SIZE * 10 + 0.5) * 10))
+			-- Icon size in 10% steps, near the grid's cells; padding 8 with
+			-- the bar art and scrolling hidden and every slot shown (as a
+			-- tester found fits). Layouts store sliders either as the value
+			-- or as the step index from the minimum: the icon size tells which.
+			if settings and settings.IconSize then
 				local stored
 				for _, s in ipairs(entry.settings or {}) do
-					if s.setting == size then
+					if s.setting == settings.IconSize then
 						stored = s.value
 					end
 				end
-				setSetting(entry, size, (stored == nil or stored > 15) and pct or (pct - 50) / 10)
+				local indexed = stored ~= nil and stored <= 15
+				local pct = math.max(50, math.min(200, math.floor(row.size * u / BUTTON_SIZE * 10 + 0.5) * 10))
+				setSetting(entry, settings.IconSize, indexed and (pct - 50) / 10 or pct)
+				setSetting(entry, settings.IconPadding, indexed and BAR_PADDING - 2 or BAR_PADDING)
+			end
+			if settings then
+				setSetting(entry, settings.HideBarArt, 1)
+				setSetting(entry, settings.HideBarScrolling, 1)
+				setSetting(entry, settings.AlwaysShowButtons, 1)
 			end
 			changed = true
 		end

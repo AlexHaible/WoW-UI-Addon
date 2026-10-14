@@ -105,6 +105,9 @@ tank and assist, health as a percentage. Everything lives in the layout and
 the game's options, so you can change any of it, or pick another layout, in
 Edit Mode. In your other layouts a cast bar still in its default place is
 moved above the console too.
+After any such change the addon offers a reload: Blizzard applies layout
+changes made by an addon as addon code, and its party frames would otherwise
+error later (for example when Edit Mode closes).
 
 ## Options
 

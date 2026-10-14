@@ -352,6 +352,11 @@ function GetRealmName() return "Forever" end
 UISpecialFrames = {}
 tinsert = table.insert
 function ReloadUI() end
+StaticPopupDialogs = {}
+local popups = {}
+function StaticPopup_Show(which, text)
+	popups[#popups + 1] = { which = which, text = text }
+end
 function tContains(t, v) for _, x in ipairs(t) do if x == v then return true end end return false end
 FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
@@ -510,6 +515,11 @@ do
 	local ours = L[3]
 	assert(#L == 3 and ours.layoutName == ns.EDIT_LAYOUT and ours.layoutType == 1, "Edit Mode layout made")
 	assert(activeLayout == 2 + 3, "switched to the Reforged UI layout")
+	-- Blizzard applies layout changes made from addon code as tainted code,
+	-- so a reload is offered after them.
+	local last = popups[#popups]
+	assert(last and StaticPopupDialogs[last.which].OnAccept and last.text:find("switched"),
+		"a reload is offered after setting up Edit Mode")
 	local top = ns.layout.consoleTop * UIParent:GetHeight() / 768
 	for _, layout in ipairs({ L[1], ours }) do
 		local cast = layout.systems[3]
@@ -538,7 +548,9 @@ do
 		and cvars.raidFramesHealthText == nil, "raid frame options on (only those the client has)")
 	-- Once: a second login neither copies again nor switches back.
 	activeLayout, cvars.raidFramesDisplayClassColor = nil, "0"
+	local offered = #popups
 	ns:SetupEditMode()
+	assert(#popups == offered, "no reload offered when nothing changed")
 	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
 		"the layout is set up once")
 end

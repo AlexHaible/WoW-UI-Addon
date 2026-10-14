@@ -469,6 +469,31 @@ end
 ----------------------------------------------------------------------------
 -- Edit Mode repair
 
+-- When addon code saves or switches Edit Mode layouts or sets the raid frame
+-- options, Blizzard applies them in code that then counts as ours (tainted).
+-- Its party and raid frames keep that until a reload and later fail on
+-- secret values, e.g. when Edit Mode closes. So after any such change the
+-- player is asked to reload.
+local RELOAD_POPUP = "REFORGEDUI_RELOAD"
+function ns:AskReload(why)
+	local dialogs, show = _G.StaticPopupDialogs, _G.StaticPopup_Show
+	if not (dialogs and show) then
+		self:Print(why .. " /reload to finish.")
+		return
+	end
+	dialogs[RELOAD_POPUP] = dialogs[RELOAD_POPUP] or {
+		text = "Reforged UI: %s\n\nReload now so Blizzard's frames pick it up cleanly?",
+		button1 = _G.RELOADUI or "Reload UI",
+		button2 = _G.LATER or "Later",
+		OnAccept = function() ReloadUI() end,
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	self:RunOutOfCombat(RELOAD_POPUP, function() show(RELOAD_POPUP, why) end)
+end
+
 -- Earlier versions anchored Blizzard frames to our console, and Edit Mode
 -- saved those anchors into the player's layouts (stored by the game, so the
 -- warning stayed even with the addon off). Put any such frame back in its
@@ -496,7 +521,7 @@ local function repairEditModeLayouts()
 		end
 	end
 	if fixed > 0 and pcall(C_EditMode.SaveLayouts, info) then
-		ns:Print(("reset %d Edit Mode position(s) left over from an older version."):format(fixed))
+		ns:AskReload(("reset %d Edit Mode position(s) left over from an older version."):format(fixed))
 	end
 end
 
@@ -694,10 +719,12 @@ function ns:SetupEditMode()
 	if index and not switched[key] and C_EditMode.SetActiveLayout
 		and pcall(C_EditMode.SetActiveLayout, presets + index) then
 		switched[key] = true
-		self:Print(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party frames);"
-			.. " /reload if it hasn't taken. Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
+		self:AskReload(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party"
+			.. " frames). Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
 	elseif raised > 0 then
-		self:Print(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
+		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
+	elseif made or placed then
+		self:AskReload("updated the target frame's place in the Edit Mode layout.")
 	end
 end
 

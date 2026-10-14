@@ -9,5 +9,6 @@ ignore:
   - README.md
   - ReforgedUI.png
   - docs
+  - screenshots
   - tools
   - .luacheckrc

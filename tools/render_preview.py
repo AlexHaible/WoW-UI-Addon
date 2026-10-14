@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render mockups of the console from the real layout code and art.
 
-Runs ReforgedUI/Layout.lua through lua5.1 (tools/dump_layout.lua) and stacks
+Runs ReforgedUI/Layout.lua through lua5.1 or lupa (tools/dump_layout.lua) and stacks
 the original art the way Console.lua does (frame, draw layer, sublevel). Icons,
 portrait, minimap terrain and chat lines are placeholders, so this shows
 placement and art, not the game.
@@ -13,6 +13,7 @@ import json
 import math
 import os
 import random
+import shutil
 import subprocess
 import sys
 
@@ -127,10 +128,21 @@ def icon(seed):
     return img
 
 
+def lua51(script, *args):
+    """Run a Lua 5.1 script and return what it prints: lua5.1 if installed, else lupa's bundled Lua 5.1."""
+    if shutil.which("lua5.1"):
+        return subprocess.check_output(["lua5.1", script, *args])
+    from lupa.lua51 import LuaRuntime
+    lua, out = LuaRuntime(), []
+    lua.globals().arg = lua.table_from({i: a for i, a in enumerate((script,) + args)})
+    lua.globals().print = lambda *a: out.append("\t".join(str(x) for x in a))
+    lua.execute(open(script, encoding="utf-8").read())
+    return "\n".join(out)
+
+
 def dump(w, theme, s, m):
     folder = TOPBAR.get(theme, TOPBAR["human"])[0]
-    out = subprocess.check_output(["lua5.1", os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m), folder])
-    return json.loads(out)
+    return json.loads(lua51(os.path.join(HERE, "dump_layout.lua"), str(w), theme, str(s), str(m), folder))
 
 
 def panel(c, folder, r):

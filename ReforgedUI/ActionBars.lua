@@ -92,12 +92,14 @@ local function SkinButton(btn)
 	end
 end
 
--- The original addon zooms each icon a little, relative to the button size.
-local function zoomIcon(btn, s, size)
+-- Trim only the dark border baked into the icon art, so the whole picture
+-- shows. (The original addon zoomed in by up to a fifth on each side,
+-- which crops most icons.)
+local ICON_CROP = 0.07
+local function trimIcon(btn)
 	local icon = btn.icon or _G[btn:GetName() .. "Icon"]
 	if icon then
-		local z = math.min(0.2, 0.01851 * s / size)
-		icon:SetTexCoord(z, 1 - z, z, 1 - z)
+		icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
 	end
 end
 
@@ -355,24 +357,24 @@ local function placeButton(btn, x, y, size)
 	ns:Anchor(btn, "BOTTOMLEFT", x, y)
 end
 
-local function lockButton(btn, r, s)
+local function lockButton(btn, r)
 	ns:Lock(btn, function(b)
 		placeButton(b, r.x, r.y, r.w)
 	end, { "SetScale" })
-	zoomIcon(btn, s, r.w)
+	trimIcon(btn)
 end
 
 function ActionBars:OnLayout(L)
 	for _, spec in ipairs(BARS) do
 		local row = L.bars[spec.key]
 		for i, btn in pairs(self.buttons[spec.key]) do
-			lockButton(btn, { x = row.xs[i], y = row.y, w = row.size }, L.s)
+			lockButton(btn, { x = row.xs[i], y = row.y, w = row.size })
 		end
 	end
 	-- Action Bar 8: 1-3 beside the minimap; the rest are parked below the
 	-- screen (the original addon has no other place for them).
 	for i, btn in pairs(self.extra) do
-		lockButton(btn, L.minimapSlots[i] or { x = 0, y = -200, w = 30 }, L.s)
+		lockButton(btn, L.minimapSlots[i] or { x = 0, y = -200, w = 30 })
 	end
 	for i, socket in ipairs(self.sockets) do
 		ns.modules.console.Place(socket, L.minimapSlots[i])

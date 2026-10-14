@@ -971,7 +971,8 @@ end
 assert(L.bagSlots[1] == L.inventory[6] and L.bagSlots[6] == L.inventory[2], "backpack top-left, reagent bag bottom-right")
 assert(not inv.buttons[6]:IsShown(), "no reagent bag slot on this client")
 assert(inv.holder:IsShown() and inv.holder._alpha == nil, "bags always show")
-assert(L.keyRing.x + L.keyRing.w <= L.inventory[1].x, "the key ring stands left of the inventory")
+assert(L.keyRing.x >= L.inventory[2].x + L.inventory[2].w and L.keyRing.x + L.keyRing.w <= L.chat.x,
+	"the key ring stands between the inventory and the chat area")
 inv.buttons[1]._scripts.OnClick(inv.buttons[1])
 inv.buttons[3]._scripts.OnClick(inv.buttons[3])
 assert(MainMenuBarBackpackButton._clicks == 1 and CharacterBag1Slot._clicks == 1, "bag clicks go to Blizzard's buttons")

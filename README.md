@@ -115,9 +115,9 @@ error later (for example when Edit Mode closes).
 **Damage meter.** The game's own damage meter is dressed in the theme by a
 second addon, *Reforged UI: Damage Meter* (`ReforgedUI_DamageMeter`), which
 ships with Reforged UI and shows as its own entry in the addon list, so it can
-be left unloaded. Each meter window and its breakdown get the theme's target
-plate frame (beam, posts and base), a dark inset, the theme's rail under the
-header and every bar, and Warcraft III's bar texture and font. It only changes
+be left unloaded. Each meter window and its breakdown get the theme's top bar
+trim around them (beam, posts and corners), a dark inset, the theme's rail
+under the header and every bar, and Warcraft III's bar texture and font. It only changes
 art: the meter's numbers, its settings and its place (Edit Mode) are left to
 Blizzard.
 
@@ -282,9 +282,10 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   Human's until its own exist.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
-- `python3 tools/make_damage_meter.py [theme ...]` cuts the damage meter
-  skin's art (`ReforgedUI_DamageMeter/art/<theme>`) from each theme's target
-  plate; `--margins` prints the `FRAMES` table for `DamageMeter.lua`.
+- `python3 tools/make_damage_meter.py [theme ...]` makes the damage meter
+  skin's own art (`ReforgedUI_DamageMeter/art/<theme>`): the rail from each
+  theme's target plate, and side posts for themes whose top bar has none
+  (Skyborne). The border itself is the top bar's trim from `Media/`.
   `python3 tools/render_damage_meter.py out.png` mocks the skin up for every
   theme.
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

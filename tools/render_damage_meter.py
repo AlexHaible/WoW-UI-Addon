@@ -26,6 +26,11 @@ BARS = [("Thrall", (0.0, 0.44, 0.87), 1.0), ("Jaina", (0.25, 0.78, 0.92), 0.86),
         ("Sylvanas", (0.67, 0.83, 0.45), 0.55), ("Rexxar", (0.78, 0.61, 0.43), 0.40)]
 
 
+FOLDERS = {"human": "Human", "orc": "Orc", "undead": "Undead", "nightelf": "NightElf", "dwarf": "Dwarf",
+           "gnome": "Gnome", "tauren": "Tauren", "troll": "Troll", "highorder": "HighOrder",
+           "windshapers": "Windshapers", "forsaken": "Forsaken"}
+
+
 def lua_table(src, name):
     body = src[src.index("local %s = {" % name):]
     return {m.group(1): {k: int(v) for k, v in re.findall(r"(\w+) = (\d+)", m.group(2))}
@@ -64,9 +69,54 @@ def tiled(img, w, h, u1, v1, axis):
     return out
 
 
+def kit(theme, name):
+    folder = FOLDERS[theme]
+    own = os.path.join(DM, "art", theme, name + ".tga")
+    if os.path.exists(own):
+        return Image.open(own).convert("RGBA")
+    return Image.open(os.path.join(REPO, "ReforgedUI", "Media", folder, name + ".tga")).convert("RGBA")
+
+
+def repeat(img, w, h, period, axis):
+    """img scaled so one repeat is `period` px along `axis`, tiled to w x h."""
+    if axis == 0:
+        piece = img.resize((period, h), Image.LANCZOS)
+    else:
+        piece = img.resize((w, period), Image.LANCZOS)
+    out = Image.new("RGBA", (w, h))
+    step = period
+    for i in range(0, w if axis == 0 else h, step):
+        out.alpha_composite(piece, (i, 0) if axis == 0 else (0, i))
+    return out.crop((0, 0, w, h))
+
+
+def border(img, theme, ox, oy, w, h):
+    E, C, OUT, INSET = (round(v * PX) for v in (EDGE, CORNER, CORNER_OUT, INSET_U))
+    x0, y0 = ox - E + INSET, oy - E + INSET
+    x1, y1 = ox + w + E - INSET, oy + h + E - INSET
+    canvas = Image.new("RGBA", (img.width + 2 * C, img.height + 2 * C))
+    canvas.alpha_composite(img, (C, C))
+    x0, y0, x1, y1 = x0 + C, y0 + C, x1 + C, y1 + C
+    edge, edgev, corner = kit(theme, "edge"), kit(theme, "edgev"), kit(theme, "corner")
+    ep = round(edge.width * E / edge.height)
+    vp = round(edgev.height * E / edgev.width)
+    top = repeat(edge, x1 - x0, E, ep, 0)
+    canvas.alpha_composite(top, (x0, y0))
+    canvas.alpha_composite(top.transpose(Image.FLIP_TOP_BOTTOM), (x0, y1 - E))
+    side = repeat(edgev, E, y1 - y0 - 2 * E + 4, vp, 1)
+    canvas.alpha_composite(side.transpose(Image.FLIP_LEFT_RIGHT), (x1 - E, y0 + E - 2))
+    canvas.alpha_composite(side, (x0, y0 + E - 2))
+    c = corner.resize((C, C), Image.LANCZOS)
+    canvas.alpha_composite(c, (x1 - C + OUT, y0 - OUT))
+    canvas.alpha_composite(c.transpose(Image.FLIP_LEFT_RIGHT), (x0 - OUT, y0 - OUT))
+    cb = c.transpose(Image.FLIP_TOP_BOTTOM)
+    canvas.alpha_composite(cb, (x1 - C + OUT, y1 - C + OUT))
+    canvas.alpha_composite(cb.transpose(Image.FLIP_LEFT_RIGHT), (x0 - OUT, y1 - C + OUT))
+    return canvas
+
+
 def render(theme, m, inset, scale, W, H):
-    k = scale * PX
-    l, r, t, b = (round(m[x] * k) for x in "lrtb")
+    l = r = t = b = round((EDGE - INSET_U) * PX)
     w, h = W * PX, H * PX
     img = Image.new("RGBA", (w + l + r, h + t + b))
     ox, oy = l, t
@@ -97,26 +147,10 @@ def render(theme, m, inset, scale, W, H):
         d.text((ox + w - 8 * PX - d.textlength(val, font=font), y + 5 * PX), val, font=font,
                fill=(255, 255, 255), stroke_width=1, stroke_fill=(0, 0, 0))
         y += bh + gap
-    # Border, as PaintBorder lays it out.
-    frame = tex(theme, "frame")
-
-    def corner(x0, y0, cw, ch, dx, dy):
-        piece = frame.crop((x0, y0, x0 + cw, y0 + ch)).resize((max(1, round(cw * k)), max(1, round(ch * k))), Image.LANCZOS)
-        img.alpha_composite(piece, (dx, dy))
-    top = tex(theme, "top")
-    img.alpha_composite(tiled(top, w, t, w / (m["top"] * k), m["t"] / top.height, 0), (ox, 0))
-    bottom = tex(theme, "bottom")
-    if b:
-        img.alpha_composite(tiled(bottom, w, b, w / (m["bottom"] * k), m["b"] / bottom.height, 0), (ox, oy + h))
-    side = tex(theme, "side")
-    right = tiled(side, r, h, m["r"] / side.width, h / (m["side"] * k), 1)
-    img.alpha_composite(right, (ox + w, oy))
-    img.alpha_composite(right.transpose(Image.FLIP_LEFT_RIGHT), (0, oy))
-    corner(0, 0, m["l"], m["t"], 0, 0)
-    corner(m["w"] - m["r"], 0, m["r"], m["t"], ox + w, 0)
-    if b:
-        corner(0, m["h"] - m["b"], m["l"], m["b"], 0, oy + h)
-        corner(m["w"] - m["r"], m["h"] - m["b"], m["r"], m["b"], ox + w, oy + h)
+    # Border, as PaintBorder lays it out: the theme's top bar trim (edge,
+    # edgev, corner from ReforgedUI/Media) around the outside of the window,
+    # overlapping it by INSET.
+    img = border(img, theme, ox, oy, w, h)
     return img
 
 
@@ -124,8 +158,11 @@ def main(args):
     out = args[0] if args else "damage-meter.png"
     W, H = (int(args[1]), int(args[2])) if len(args) > 2 else (400, 200)
     src = open(os.path.join(DM, "DamageMeter.lua"), encoding="utf-8").read()
-    frames = lua_table(src, "FRAMES")
-    scale = float(re.search(r"local SCALE = ([\d.]+)", src).group(1))
+    global EDGE, CORNER, CORNER_OUT, INSET_U
+    num = lambda n: float(re.search(r"local %s = ([\d.]+)" % n, src).group(1))
+    EDGE, CORNER, CORNER_OUT, INSET_U = num("EDGE"), num("CORNER"), num("CORNER_OUT"), num("INSET")
+    frames = {t: None for t in FOLDERS}
+    scale = 1
     names = insets()
     order = ["human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
              "highorder", "windshapers", "forsaken"]

@@ -1702,13 +1702,16 @@ do
 			assert(found, "every bar has the " .. key .. " rail")
 		end
 		assert(w.Header._color and c.Background._color and c.SourceWindow.Background._color, "insets are coloured")
-		local frames = 0
+		local corners = 0
+		local corner = "ReforgedUI\\Media\\" .. ns.Themes[key].folder .. "\\corner"
 		for _, f in ipairs(allFrames) do
-			if f._kind == "texture" and type(f._tex) == "string" and f._tex:find("ReforgedUI_DamageMeter\\art\\" .. key .. "\\frame", 1, true) then
-				frames = frames + 1
+			local under = rawget(f, "_parent")
+			while under and under ~= w do under = rawget(under, "_parent") end
+			if under and f._kind == "texture" and type(f._tex) == "string" and f._tex:sub(-#corner) == corner then
+				corners = corners + 1
 			end
 		end
-		assert(frames == 8, "four corners around the window and four around its breakdown, got " .. frames)
+		assert(corners == 8, "four corners around the window and four around its breakdown, got " .. corners)
 	end
 	checkSkin(ns.themeKey)
 	-- Bars made later carry the hooked mixin: styling one skins it.
@@ -1726,10 +1729,8 @@ do
 
 	-- Every theme has its meter art.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		for _, file in ipairs({ "frame", "top", "bottom", "side", "rail" }) do
-			local path = DM_ADDON .. "art/" .. key .. "/" .. file .. ".tga"
-			assert(exists(path), "missing " .. path)
-		end
+		local path = DM_ADDON .. "art/" .. key .. "/rail.tga"
+		assert(exists(path), "missing " .. path)
 	end
 end
 print("smoke test passed")

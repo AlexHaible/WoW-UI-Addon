@@ -1,9 +1,10 @@
 -- Reforged UI: Damage Meter. Dresses the game's own damage meter
 -- (Blizzard_DamageMeter) in the current Reforged UI theme: each meter window
--- and its breakdown window get the theme's target plate frame around them
--- (art/<theme>/, cut by tools/make_damage_meter.py), a dark inset inside,
--- the theme's rail under the header and under every bar, Warcraft III bar
--- texture and the original addon's font.
+-- and its breakdown window get the theme's top bar trim around them (beam,
+-- posts and corners, as on the top bar), a dark inset inside, the theme's
+-- rail under the header and under every bar (art/<theme>/, cut by
+-- tools/make_damage_meter.py), Warcraft III bar texture and the original
+-- addon's font.
 --
 -- The meter's numbers can be "secret" in combat, and Blizzard's code does
 -- arithmetic on them that fails once addon code is on the call stack. So this
@@ -14,28 +15,22 @@
 
 local ADDON = ...
 local ART = "Interface\\AddOns\\" .. ADDON .. "\\art\\"
+local MEDIA = "Interface\\AddOns\\ReforgedUI\\Media\\"
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
-local FRAME_W, FRAME_H = 512, 256 -- frame.tga
-local TILE = 256 -- top/bottom.tga width and side.tga height
-local SCALE = 0.5 -- window units per plate pixel
 local RAIL_H = 3
+-- The border is the top bar's trim (Art.lua): edge.tga (256x32) along the
+-- top and, flipped, the bottom; edgev.tga (32x128, outer side on the left)
+-- down the sides; corner.tga (64x64, drawn for the top-right) at each corner.
+-- In window units:
+local EDGE = 14 -- trim thickness
+local CORNER = 24 -- corner size
+local CORNER_OUT = 10 -- how far a corner sticks out past the trim (it reaches INSET into the window, as the trim does)
+local INSET = 4 -- how far the trim overlaps the window's edge
 
--- Each theme's window, in plate pixels: its size (w, h), border widths
--- (l, r, t, b) and the length of one repeat of the top, bottom and side
--- tiles. Printed by `python3 tools/make_damage_meter.py --margins`.
-local FRAMES = {
-	human = { w = 349, h = 235, l = 30, r = 30, t = 33, b = 7, top = 75, bottom = 75, side = 46 },
-	gnome = { w = 359, h = 234, l = 32, r = 32, t = 28, b = 8, top = 76, bottom = 76, side = 48 },
-	orc = { w = 347, h = 214, l = 50, r = 50, t = 22, b = 5, top = 62, bottom = 62, side = 44 },
-	troll = { w = 317, h = 211, l = 35, r = 35, t = 31, b = 7, top = 62, bottom = 62, side = 40 },
-	tauren = { w = 346, h = 226, l = 46, r = 46, t = 44, b = 4, top = 64, bottom = 64, side = 41 },
-	undead = { w = 346, h = 255, l = 35, r = 35, t = 52, b = 7, top = 70, bottom = 70, side = 47 },
-	nightelf = { w = 367, h = 251, l = 44, r = 44, t = 38, b = 9, top = 72, bottom = 72, side = 49 },
-	highorder = { w = 367, h = 251, l = 44, r = 44, t = 42, b = 9, top = 72, bottom = 72, side = 48 },
-	windshapers = { w = 367, h = 251, l = 44, r = 44, t = 42, b = 9, top = 72, bottom = 72, side = 48 },
-	forsaken = { w = 344, h = 237, l = 65, r = 65, t = 53, b = 8, top = 52, bottom = 52, side = 40 },
-	dwarf = { w = 351, h = 237, l = 30, r = 30, t = 32, b = 9, top = 76, bottom = 76, side = 47 },
-}
+-- Themes whose top bar has no side posts of their own (Skyborne's are
+-- empty) get a post from make_damage_meter.py: their edge, upright. The
+-- value is that file's height (its width is 32).
+local OWN_EDGEV = { highorder = 256, windshapers = 256 }
 
 local themeKey, theme
 
@@ -45,90 +40,89 @@ local borders = setmetatable({}, { __mode = "k" }) -- window -> border frame
 local entries = setmetatable({}, { __mode = "k" }) -- entry -> { rail, size }
 local hooked = setmetatable({}, { __mode = "k" })
 
-local function pow2(n)
-	local p = 1
-	while p < n do
-		p = p * 2
-	end
-	return p
-end
-
 local function forbidden(frame)
 	return not frame or (frame.IsForbidden and frame:IsForbidden())
 end
 
 ----------------------------------------------------------------------------
--- Window border: the plate's corners, with its beam, base and posts tiled
--- between them. It sits outside the window, so nothing of Blizzard's is
--- covered; `box` is the rect it goes around.
+-- Window border: the theme's trim around the outside of the window,
+-- overlapping it by INSET. Nothing of Blizzard's moves; `box` is the rect it
+-- goes around.
 
 local function CreateBorder(window)
 	local f = CreateFrame("Frame", nil, window)
 	f:SetFrameLevel(window:GetFrameLevel() + 20)
 	f.box = CreateFrame("Frame", nil, f)
 	f.pieces = {}
-	for _, key in ipairs({ "tl", "tr", "bl", "br", "top", "bottom", "left", "right" }) do
+	-- Corners above the trim, so they cover its ends.
+	for _, key in ipairs({ "top", "bottom", "left", "right" }) do
 		f.pieces[key] = f:CreateTexture(nil, "ARTWORK")
 	end
-	f.header = f:CreateTexture(nil, "ARTWORK", nil, 1)
+	for _, key in ipairs({ "tl", "tr", "bl", "br" }) do
+		f.pieces[key] = f:CreateTexture(nil, "ARTWORK", nil, 1)
+		f.pieces[key]:SetSize(CORNER, CORNER)
+	end
+	f.header = f:CreateTexture(nil, "ARTWORK", nil, 2)
 	f.header:SetHeight(RAIL_H)
 	return f
 end
 
 -- Lays the border out around `box` for the current theme.
 local function PaintBorder(f)
-	local m = FRAMES[themeKey]
-	f:SetShown(m ~= nil)
-	if not m then
+	if not theme then
 		return
 	end
-	local dir = ART .. themeKey .. "\\"
 	local p, box = f.pieces, f.box
-	local l, r, t, b = m.l * SCALE, m.r * SCALE, m.t * SCALE, m.b * SCALE
+	local media = MEDIA .. theme.folder .. "\\"
+	local out = EDGE - INSET -- how far the trim reaches past the window
+	local W, H = box:GetWidth() + 2 * out, box:GetHeight() + 2 * out
 
-	local function corner(tex, point, rel, x0, y0, w, h)
-		tex:SetTexture(dir .. "frame")
-		tex:ClearAllPoints()
-		tex:SetPoint(point, box, rel)
-		tex:SetSize(w * SCALE, h * SCALE)
-		tex:SetTexCoord(x0 / FRAME_W, (x0 + w) / FRAME_W, y0 / FRAME_H, (y0 + h) / FRAME_H)
-	end
-	corner(p.tl, "BOTTOMRIGHT", "TOPLEFT", 0, 0, m.l, m.t)
-	corner(p.tr, "BOTTOMLEFT", "TOPRIGHT", m.w - m.r, 0, m.r, m.t)
-	corner(p.bl, "TOPRIGHT", "BOTTOMLEFT", 0, m.h - m.b, m.l, m.b)
-	corner(p.br, "TOPLEFT", "BOTTOMRIGHT", m.w - m.r, m.h - m.b, m.r, m.b)
-
-	local W, H = box:GetWidth(), box:GetHeight()
-	-- Beam and base repeat along the top and bottom.
-	p.top:SetTexture(dir .. "top", "REPEAT", "CLAMP")
+	-- edge.tga repeats every 256 / 32 * EDGE units.
+	local u = W / (8 * EDGE)
+	p.top:SetTexture(media .. "edge", "REPEAT", "CLAMP")
 	p.top:ClearAllPoints()
-	p.top:SetPoint("BOTTOMLEFT", box, "TOPLEFT")
-	p.top:SetPoint("BOTTOMRIGHT", box, "TOPRIGHT")
-	p.top:SetHeight(t)
-	p.top:SetTexCoord(0, W / (m.top * SCALE), 0, m.t / pow2(m.t))
-	p.bottom:SetTexture(dir .. "bottom", "REPEAT", "CLAMP")
+	p.top:SetPoint("TOPLEFT", box, "TOPLEFT", -out, out)
+	p.top:SetPoint("TOPRIGHT", box, "TOPRIGHT", out, out)
+	p.top:SetHeight(EDGE)
+	p.top:SetTexCoord(0, u, 0, 1)
+	p.bottom:SetTexture(media .. "edge", "REPEAT", "CLAMP")
 	p.bottom:ClearAllPoints()
-	p.bottom:SetPoint("TOPLEFT", box, "BOTTOMLEFT")
-	p.bottom:SetPoint("TOPRIGHT", box, "BOTTOMRIGHT")
-	p.bottom:SetHeight(b)
-	p.bottom:SetTexCoord(0, W / (m.bottom * SCALE), 0, m.b / pow2(m.b))
-	-- side.tga is the right-hand post; the left one is its mirror image.
-	local v = H / (m.side * SCALE)
-	local u = m.r / pow2(m.r)
-	p.right:SetTexture(dir .. "side", "CLAMP", "REPEAT")
-	p.right:ClearAllPoints()
-	p.right:SetPoint("TOPLEFT", box, "TOPRIGHT")
-	p.right:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT")
-	p.right:SetWidth(r)
-	p.right:SetTexCoord(0, u, 0, v)
-	p.left:SetTexture(dir .. "side", "CLAMP", "REPEAT")
-	p.left:ClearAllPoints()
-	p.left:SetPoint("TOPRIGHT", box, "TOPLEFT")
-	p.left:SetPoint("BOTTOMRIGHT", box, "BOTTOMLEFT")
-	p.left:SetWidth(l)
-	p.left:SetTexCoord(u, 0, 0, v)
+	p.bottom:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", -out, -out)
+	p.bottom:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", out, -out)
+	p.bottom:SetHeight(EDGE)
+	p.bottom:SetTexCoord(0, u, 1, 0)
 
-	f.header:SetTexture(dir .. "rail")
+	-- The posts run between the top and bottom trim, under their ends.
+	local own = OWN_EDGEV[themeKey]
+	local post = own and (ART .. themeKey .. "\\edgev") or (media .. "edgev")
+	local v = (H - 2 * EDGE + 4) / ((own or 128) / 32 * EDGE)
+	p.left:SetTexture(post, "CLAMP", "REPEAT")
+	p.left:ClearAllPoints()
+	p.left:SetPoint("TOPLEFT", box, "TOPLEFT", -out, out - EDGE + 2)
+	p.left:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", -out, -out + EDGE - 2)
+	p.left:SetWidth(EDGE)
+	p.left:SetTexCoord(0, 1, 0, v)
+	p.right:SetTexture(post, "CLAMP", "REPEAT")
+	p.right:ClearAllPoints()
+	p.right:SetPoint("TOPRIGHT", box, "TOPRIGHT", out, out - EDGE + 2)
+	p.right:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", out, -out + EDGE - 2)
+	p.right:SetWidth(EDGE)
+	p.right:SetTexCoord(1, 0, 0, v)
+
+	-- corner.tga is drawn for the top-right corner; mirrored for the rest.
+	local c = out + CORNER_OUT
+	for key, spec in pairs({
+		tr = { "TOPRIGHT", c, c, 0, 1, 0, 1 }, tl = { "TOPLEFT", -c, c, 1, 0, 0, 1 },
+		br = { "BOTTOMRIGHT", c, -c, 0, 1, 1, 0 }, bl = { "BOTTOMLEFT", -c, -c, 1, 0, 1, 0 },
+	}) do
+		local tex = p[key]
+		tex:SetTexture(media .. "corner")
+		tex:ClearAllPoints()
+		tex:SetPoint(spec[1], box, spec[1], spec[2], spec[3])
+		tex:SetTexCoord(spec[4], spec[5], spec[6], spec[7])
+	end
+
+	f.header:SetTexture(ART .. themeKey .. "\\rail")
 end
 
 ----------------------------------------------------------------------------

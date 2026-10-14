@@ -176,6 +176,16 @@ function Config:Build()
 			or "action bars 1-3 go back into the console's grid.")
 	end)
 
+	-- The chat window: held in the chat area, or free to move and resize.
+	self:Check("Let me move and resize the chat window", "freeChat", x, -362, function(on)
+		ns.db.consoleOpts.chatPlaced = false
+		relayout()
+		if not on then
+			return
+		end
+		ns:Print("the chat window is yours to move and resize: unlock it from its tab's menu, or use Edit Mode.")
+	end)
+
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)

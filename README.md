@@ -129,6 +129,11 @@ the grid rows in the "Reforged UI" layout, at about the grid's icon size, and
 from then on you can move, resize and reflow them (more rows, fewer icons) in
 Edit Mode like any bar. The grid art is hidden while it is on.
 
+**Let me move and resize the chat window** (off by default) puts the chat
+window in the chat area once and then leaves it alone: unlock it from its
+tab's menu (or use Edit Mode) to drag it anywhere and resize it. Its input box
+follows it. Turning the option off puts it back in the chat area.
+
 | 21:9 Night Elf | 32:9 Orc |
 | --- | --- |
 | ![21:9](docs/previews/21x9-nightelf.png) | ![32:9](docs/previews/32x9-orc.png) |

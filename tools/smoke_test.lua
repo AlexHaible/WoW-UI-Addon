@@ -114,6 +114,8 @@ function methods:CreateTexture() return new("texture", nil, self) end
 function methods:CreateFontString() return new("fontstring", nil, self) end
 function methods:GetNormalTexture() return new("texture", nil, self) end
 function methods:SetNormalTexture(t) self._normal = t end
+function methods:SetChecked(v) self._checked = v end
+function methods:GetChecked() return self._checked end
 methods.GetPushedTexture = methods.GetNormalTexture
 methods.GetHighlightTexture = methods.GetNormalTexture
 function methods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
@@ -1054,6 +1056,25 @@ assert(ActionButton1._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
 -- The options menu.
 local config = ns.modules.config
+-- "Let me move and resize the chat window" lets go of the chat window and
+-- puts the input box back on it; turning it off holds it again.
+do
+	local check
+	for _, cb in ipairs(config.checks) do
+		if cb.key == "freeChat" then check = cb end
+	end
+	assert(check, "chat window option")
+	check:SetChecked(true)
+	check:GetScript("OnClick")(check)
+	ChatFrame1:ClearAllPoints()
+	ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 123, 45)
+	assert(ChatFrame1._points[1][4] == 123, "a free chat window stays where it is moved")
+	assert(ChatFrame1EditBox._points[1][2] == ChatFrame1, "the input box follows its window")
+	check:SetChecked(false)
+	check:GetScript("OnClick")(check)
+	assert(ChatFrame1._points[1][2] == UIParent and ChatFrame1._points[1][1] == "BOTTOMLEFT", "the chat window is held again")
+	assert(not ReforgedUIDB.consoleOpts.freeChat, "option off")
+end
 -- In the game's options it sits inside the AddOns page, and leaves with it.
 assert(config.settingsPanel, "options page registered")
 config.settingsPanel:Show()

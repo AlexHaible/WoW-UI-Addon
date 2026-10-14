@@ -90,6 +90,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - low-health warning threshold
 - zone text position
 - health and power as percentages
+- moving and resizing the chat window yourself
 - and a few more.
 
 ## Commands

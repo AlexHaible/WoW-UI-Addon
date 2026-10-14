@@ -1,6 +1,7 @@
 -- The original addon's chat area: the main chat window fills the black area at the
 -- right end of the console, with its input box under (or above) it. The chat
--- buttons beside the window can be hidden ("Hide chat icons").
+-- buttons beside the window can be hidden ("Hide chat icons"), and the window
+-- can be let go so the player can move and resize it.
 
 local _, ns = ...
 local Chat = ns:RegisterModule("chat", {})
@@ -37,6 +38,37 @@ end
 function Chat:OnLayout(L)
 	local cf = self.frame
 	if not cf then
+		return
+	end
+	-- "Let me move and resize the chat window": placed in the chat area
+	-- once, then left where the player (or Edit Mode) puts it; the input
+	-- boxes follow their windows as Blizzard anchors them.
+	if ns.db.consoleOpts.freeChat then
+		ns:Unlock(cf)
+		local above = ns.db.consoleOpts.chatInputAbove
+		for _, eb in ipairs(self.editBoxes) do
+			ns:Unlock(eb)
+			-- Back on its own window, under it (or above), as Blizzard has it.
+			local owner = eb.chatFrame or _G[(eb:GetName() or ""):gsub("EditBox$", "")]
+			if owner then
+				eb:ClearAllPoints()
+				if above then
+					eb:SetPoint("BOTTOMLEFT", owner, "TOPLEFT", -5, 2)
+					eb:SetPoint("BOTTOMRIGHT", owner, "TOPRIGHT", 5, 2)
+				else
+					eb:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", -5, -2)
+					eb:SetPoint("TOPRIGHT", owner, "BOTTOMRIGHT", 5, -2)
+				end
+			end
+		end
+		if not ns.db.consoleOpts.chatPlaced then
+			ns.db.consoleOpts.chatPlaced = true
+			ns:PlaceRect(cf, L.chat)
+		end
+		if cf.SetMovable then
+			cf:SetMovable(true)
+			cf:SetResizable(true)
+		end
 		return
 	end
 	ns:Lock(cf, function(f)

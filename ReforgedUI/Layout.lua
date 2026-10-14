@@ -799,12 +799,12 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 		for bag, cell in ipairs(BAG_CELLS) do
 			L.bagSlots[bag] = L.inventory[cell]
 		end
-		local right, mid = L.inventory[2], L.inventory[4]
+		local outer, mid = L.inventory[2], L.inventory[4]
 		-- On the wall between the inventory and the chat area, in the 18x39
 		-- shape of Blizzard's key ring button.
 		local kw = 0.07 * s
 		local kh = kw * 39 / 18
-		L.keyRing = rect(right.x + right.w + 0.0625 * s - kw / 2, mid.y + mid.h / 2 - kh / 2, kw, kh)
+		L.keyRing = rect(outer.x + outer.w + 0.0625 * s - kw / 2, mid.y + mid.h / 2 - kh / 2, kw, kh)
 	end
 
 	-- Everything we put on the screen stays below this height (bag windows

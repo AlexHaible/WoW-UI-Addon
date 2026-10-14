@@ -34,7 +34,8 @@ screen stays free on either side).
   blue or none) and four stat icons. Armour is fixed; the
   other three show main hand, off hand (block chance and value with a shield),
   ranged, ammo (yellow under 400, red under 200), spell power, healing or
-  nothing, chosen per class from each icon's right-click menu. Druid forms and Ghost Wolf swap
+  nothing (an empty socket), chosen per class from each icon's right-click menu
+  or the options menu. Druid forms and Ghost Wolf swap
   the icons like the original addon.
 - **Target**: by default the hero screen switches to your target, as
   selecting a unit in Warcraft III: its portrait, name (coloured by reaction

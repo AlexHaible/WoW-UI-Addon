@@ -22,6 +22,8 @@ local GOLD = "|cffffd100"
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
 local FIST = "other\\fist"
 local CAPE = "Interface\\Icons\\INV_Misc_Cape_10"
+local EMPTY_SLOT = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
+local MENU_HINT = "\n|cff808080Right-click to choose what this icon shows.|r"
 
 -- Stat icon choices (the original addon's ChangeWeaponIcon).
 Hero.ICON_KINDS = { "main", "offhand", "ranged", "ammo", "spell", "heal", "none" }
@@ -551,10 +553,13 @@ function Hero:CreateStatIcon(holder, index)
 		if frame.index == 4 then
 			showInfo(self.xp.hover, function()
 				local base, effective = UnitArmor("player")
-				return ("%sArmor:|r %d (%d base)\n%sDamage reduction:|r %s"):format(GOLD, effective, base, GOLD, armourText())
+				return ("%sArmor:|r %d (%d base)\n%sDamage reduction:|r %s\n|cff808080Always shows armour.|r")
+					:format(GOLD, effective, base, GOLD, armourText())
 			end, 50)
-		elseif frame.kind and frame.kind ~= "none" then
-			showInfo(self.xp.hover, function() return statInfo(frame.kind) end, 50)
+		elseif frame.kind == "none" then
+			showInfo(self.xp.hover, function() return GOLD .. "Empty icon|r" .. MENU_HINT end, 50)
+		elseif frame.kind then
+			showInfo(self.xp.hover, function() return statInfo(frame.kind):gsub("\n+$", "") .. MENU_HINT end, 50)
 		end
 	end)
 	f:SetScript("OnLeave", hideInfo)
@@ -574,9 +579,12 @@ local ICON_NAMES = {
 }
 local ICON_TITLES = { "Top left weapon icon", "Top right weapon icon", "Bottom right weapon icon" }
 
--- Right-click menu of a weapon icon: what it shows. Without the menu API a
--- right-click steps to the next choice.
-function Hero:OpenIconMenu(index)
+Hero.ICON_NAMES, Hero.ICON_TITLES = ICON_NAMES, ICON_TITLES
+
+-- Right-click menu of a weapon icon (or its button in the options menu,
+-- `owner`): what it shows. Without the menu API a click steps to the next
+-- choice.
+function Hero:OpenIconMenu(index, owner)
 	local current = self:IconChoices()[index]
 	local items = {}
 	for _, kind in ipairs(Hero.ICON_KINDS) do
@@ -585,7 +593,7 @@ function Hero:OpenIconMenu(index)
 			func = function() self:SetIconChoice(index, kind) end,
 		}
 	end
-	if not ns:ShowMenu(self.stats[index], ICON_TITLES[index], items) then
+	if not ns:ShowMenu(owner or self.stats[index], ICON_TITLES[index], items) then
 		local kinds = Hero.ICON_KINDS
 		for i, kind in ipairs(kinds) do
 			if kind == current then
@@ -632,11 +640,14 @@ function Hero:UpdateStats()
 	for i = 1, 3 do
 		local f = self.stats[i]
 		f.kind = choices[i] or "none"
+		-- An empty icon stays as a bare socket, so it can still be right-clicked.
 		local shown = f.kind ~= "none"
-		f:SetShown(shown)
 		f.label:SetShown(shown)
 		f.value:SetShown(shown)
-		if shown then
+		f.icon:SetAlpha(shown and 1 or 0.6)
+		if not shown then
+			f.icon:SetTexture(EMPTY_SLOT)
+		else
 			local ok, label, value, icon = pcall(statValues, f.kind)
 			if not ok then
 				label, value = "", ""
@@ -672,6 +683,10 @@ end
 function Hero:SetIconChoice(index, kind)
 	self:IconChoices()[index] = kind
 	self:UpdateStats()
+	local config = ns.modules.config
+	if config and config.frame and config.frame:IsShown() then
+		config:Refresh()
+	end
 end
 
 ----------------------------------------------------------------------------

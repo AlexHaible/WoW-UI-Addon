@@ -841,7 +841,8 @@ end
 assert(math.abs(hero.xp.bar._w - L.xp.bar.w / 4) < 0.01, "XP bar at 25%")
 assert(math.abs(hero.xp.rested._w - L.xp.bar.w * 1500 / 4000) < 0.01, "rested XP")
 assert(hero.stats[1].value._text == "10 - 16", "main hand damage")
-assert(not hero.stats[2]:IsShown(), "second stat icon is off by default")
+assert(hero.stats[2]:IsShown() and not hero.stats[2].value:IsShown(), "second stat icon is an empty socket by default")
+assert(hero.stats[2]:GetScript("OnMouseUp"), "an empty icon can still be right-clicked")
 assert(hero.stats[4].value._text:find("%%"), "armour reduction")
 hero:SetIconChoice(2, "offhand")
 assert(hero.stats[2].value._text == "13.4%\n (10)", "a shield shows block chance and value")
@@ -886,6 +887,19 @@ ns.ShowMenu = function() return false end
 hero.xp.hover:GetScript("OnMouseUp")(hero.xp.hover, "RightButton")
 assert(ReforgedUIDB.consoleOpts.restedColor[3] == 1, "without menus a right-click steps to the next colour")
 hero:SetRestedColor({ 0, 0, 1, 0.5 })
+ns.ShowMenu = oldMenu
+-- The options menu has a button per weapon icon that opens the same menu.
+local config = ns.modules.config
+config:Refresh()
+assert(config.iconButtons[1]._text == "Ranged" and config.iconButtons[2]._text == "Off hand", "icon buttons name the choice")
+ns.ShowMenu = function(_, owner, title, items)
+	menuOpened = { owner = owner, title = title, items = items }
+	return true
+end
+config.iconButtons[3]:GetScript("OnClick")(config.iconButtons[3])
+assert(menuOpened.owner == config.iconButtons[3], "options button opens the icon menu")
+menuOpened.items[#menuOpened.items].func()
+assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "none", "options menu sets the icon")
 ns.ShowMenu = oldMenu
 hero:SetIconChoice(1, "main")
 assert(not hero.stats[4]:GetScript("OnMouseUp"), "armour has no menu")

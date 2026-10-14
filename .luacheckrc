@@ -36,7 +36,7 @@ read_globals = {
 	-- Console port (hero screen, action bars, options menu)
 	"ClearCursor", "ColorPickerFrame", "ContainerFrame1", "CurveConstants", "GetCursorInfo", "GetRealmName",
 	"GetShapeshiftFormID", "HasAction", "HasNewMail", "IsResting", "MiniMapMailBorder", "MiniMapTrackingFrame",
-	"PaperDollFrame_GetArmorReduction", "PlaceAction", "ReloadUI", "Settings", "UISpecialFrames", "UnitAffectingCombat",
+	"PaperDollFrame_GetArmorReduction", "PlaceAction", "ReloadUI", "Settings", "SettingsPanel", "HideUIPanel", "UISpecialFrames", "UnitAffectingCombat",
 	"UnitAttackSpeed", "UnitHealthPercent", "UnitIsGroupLeader", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitPowerPercent",
 	"issecretvalue", "tinsert",
 	-- target display

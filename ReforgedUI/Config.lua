@@ -181,9 +181,19 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 126)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 168)
 
-	-- Stat icons and the rested colour: chosen from right-click menus on the console.
-	label(f, "Right-click a weapon icon to choose what it shows, or the experience bar for its rested colour.", 20, -388,
-		"GameFontNormalSmall")
+	-- The three weapon icons on the hero screen (this class's choice); the
+	-- same menu opens when they are right-clicked on the console.
+	label(f, "Weapon icons (this class)", x, -318)
+	self.iconButtons = {}
+	for i = 1, 3 do
+		local b = button(f, "", 92, x + (i - 1) * 94, -336, nil)
+		b:SetScript("OnClick", function(owner) ns.modules.hero:OpenIconMenu(i, owner) end)
+		b.index = i
+		self.iconButtons[i] = b
+	end
+
+	label(f, "Right-click a weapon icon on the console to change it too, or the experience bar for its rested colour.",
+		20, -388, "GameFontNormalSmall")
 
 	button(f, "Apply", 120, 20, -420, function() self:Apply() end)
 	button(f, "Reload UI", 120, 150, -420, ReloadUI)
@@ -232,6 +242,11 @@ function Config:Refresh()
 		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
+	local hero = ns.modules.hero
+	local choices = hero:IconChoices()
+	for i, b in ipairs(self.iconButtons) do
+		b:SetText(hero.ICON_NAMES[choices[i] or "none"] or "None")
+	end
 end
 
 function Config:Toggle()
@@ -276,8 +291,17 @@ function Config:RegisterSettings()
 	local panel = CreateFrame("Frame")
 	label(panel, "Reforged UI", 16, -16, "GameFontNormalLarge")
 	label(panel, "The Warcraft III console, with Reforged UI's top bar.", 16, -44, "GameFontHighlight")
+	-- Our menu is a window of its own: close the game's options first, so
+	-- closing them later (or Escape) doesn't take the menu with it.
 	button(panel, "Open the console menu", 200, 16, -72, function()
-		self.frame:Show()
+		if SettingsPanel and SettingsPanel:IsShown() then
+			if HideUIPanel then
+				HideUIPanel(SettingsPanel)
+			else
+				SettingsPanel:Hide()
+			end
+		end
+		C_Timer.After(0, function() self.frame:Show() end)
 	end)
 	pcall(function()
 		local category = Settings.RegisterCanvasLayoutCategory(panel, "Reforged UI")

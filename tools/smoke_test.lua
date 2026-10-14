@@ -892,11 +892,18 @@ assert(MainMenuBarBackpackButton._clicks == 1 and CharacterBag1Slot._clicks == 1
 
 -- Top bar: clock, and our own data feeds in the first slots.
 local tb = ns.modules.topbar
+do
+	-- Money reads as coins, without empty leading units.
+	local function plain(text) return (text:gsub("|T.-|t", "")) end
+	assert(plain(tb.FormatMoney(222)) == "2 22" and select(2, tb.FormatMoney(222):gsub("|T", "")) == 2, "2s 22c")
+	assert(plain(tb.FormatMoney(1234567)) == "123 45 67" and plain(tb.FormatMoney(0)) == "0", "gold, silver, copper")
+	assert(tb.FormatMoney(222):find("SilverIcon") and not tb.FormatMoney(222):find("GoldIcon"), "no 0g")
+end
 assert(math.abs(tb.dial._rotation + math.pi) < 1e-6, "midnight should turn the moon to the window")
 gameHour = 12
 tb:UpdateClock()
 assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
-assert(tb.slots[1].text._text == "123", "slot 1 should show gold")
+assert(tb.slots[1].text._text == tb.FormatMoney(1234567), "slot 1 should show the money")
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
 assert(tb.slots[3].text._text:find("20%%"), "slot 3 should show durability")
 assert(tb.slots[4].text._text == "", "slot 4 should start empty")

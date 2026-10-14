@@ -39,17 +39,40 @@ local function durability()
 	return lowest
 end
 
+-- Money as gold, silver and copper with coin icons, leaving out empty
+-- leading units (2s 22c, not 0g 2s 22c). Done here because the client's
+-- GetCoinTextureString may be missing.
+local COINS = {
+	{ 10000, "Interface\\MoneyFrame\\UI-GoldIcon" },
+	{ 100, "Interface\\MoneyFrame\\UI-SilverIcon" },
+	{ 1, "Interface\\MoneyFrame\\UI-CopperIcon" },
+}
+local function formatMoney(copper)
+	copper = math.max(0, math.floor(copper or 0))
+	local parts = {}
+	for i, coin in ipairs(COINS) do
+		local n = math.floor(copper / coin[1])
+		copper = copper - n * coin[1]
+		if n > 0 or (#parts > 0) or i == #COINS then
+			local text = i == 1 and BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n)
+			parts[#parts + 1] = ("%s|T%s:0:0:2:0|t"):format(text, coin[2])
+		end
+	end
+	return table.concat(parts, " ")
+end
+TopBar.FormatMoney = formatMoney
+
 function TopBar:CreateFeeds()
 	if not LDB then
 		return
 	end
 	self.feeds = {
 		gold = LDB:NewDataObject(FEED_GOLD, {
-			type = "data source", label = "Gold", text = "0",
+			type = "data source", label = "Gold", text = formatMoney(0),
 			icon = "Interface\\MoneyFrame\\UI-GoldIcon",
 			OnTooltipShow = function(tip)
 				tip:AddLine("Gold", 1, 1, 1)
-				tip:AddLine(GetCoinTextureString and GetCoinTextureString(GetMoney()) or tostring(GetMoney()))
+				tip:AddLine(formatMoney(GetMoney()), 1, 1, 1)
 			end,
 		}),
 		bags = LDB:NewDataObject(FEED_BAGS, {
@@ -81,8 +104,7 @@ function TopBar:UpdateFeeds()
 	if not feeds then
 		return
 	end
-	local gold = math.floor(GetMoney() / 10000)
-	feeds.gold.text = BreakUpLargeNumbers and BreakUpLargeNumbers(gold) or tostring(gold)
+	feeds.gold.text = formatMoney(GetMoney())
 
 	local free, total = 0, 0
 	if numSlots and numFreeSlots then

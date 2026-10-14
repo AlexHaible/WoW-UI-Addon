@@ -849,6 +849,11 @@ assert(hero.stats[2]:GetScript("OnMouseUp"), "an empty icon can still be right-c
 assert(hero.stats[4].value._text:find("%%"), "armour reduction")
 hero:SetIconChoice(2, "offhand")
 assert(hero.stats[2].value._text == "13.4%\n (10)", "a shield shows block chance and value")
+hero.stats[2]:GetScript("OnEnter")(hero.stats[2])
+assert(hero.infoBox.text._text:find("Block chance") and not hero.infoBox.text._text:find("Main Hand"),
+	"the block icon's tooltip is about blocking")
+hero.stats[1]:GetScript("OnEnter")(hero.stats[1])
+assert(hero.infoBox.text._text:find("Main Hand Damage"), "the main hand tooltip")
 hero:SetIconChoice(3, "ammo")
 assert(hero.stats[3].value._text:find("No ammo"), "no ammo equipped")
 local oldTexture = GetInventoryItemTexture

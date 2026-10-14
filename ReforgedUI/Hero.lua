@@ -494,27 +494,46 @@ local function statValues(kind)
 	end
 end
 
-local function attackInfo()
-	local lo, hi, offLo, offHi = UnitDamage("player")
-	local speed, offSpeed = UnitAttackSpeed("player")
-	local text = ("%sMain Hand Damage:|r %d - %d\n%sAttack Speed:|r %.2f\n%sDamage per second:|r %.2f\n"):format(
-		GOLD, floor(lo), ceil(hi), GOLD, speed, GOLD, (floor(lo) + ceil(hi)) / 2 / speed)
-	if offSpeed and offLo then
-		text = text .. ("\n%sOffhand damage:|r %d - %d\n%sAttack Speed:|r %.2f\n%sDamage per second:|r %.2f\n"):format(
-			GOLD, floor(offLo), ceil(offHi), GOLD, offSpeed, GOLD, (floor(offLo) + ceil(offHi)) / 2 / offSpeed)
+-- Damage, speed and DPS lines for one weapon.
+local function weaponLines(title, lo, hi, speed)
+	if not (lo and speed and speed > 0) then
+		return GOLD .. title .. ":|r N/A"
 	end
-	if GetInventoryItemTexture("player", 18) then
-		local rSpeed, rLo, rHi = UnitRangedDamage("player")
-		if rSpeed and rSpeed > 0 then
-			text = text .. ("\n%sRanged damage:|r %d - %d\n%sAttack Speed:|r %.2f\n%sDamage per second:|r %.2f\n"):format(
-				GOLD, floor(rLo), ceil(rHi), GOLD, rSpeed, GOLD, (floor(rLo) + ceil(rHi)) / 2 / rSpeed)
-			local _, count = rangedOrAmmo()
-			if count > 0 then
-				text = text .. GOLD .. "Ammo left:|r " .. count .. "\n"
+	return ("%s%s:|r %d - %d\n%sAttack Speed:|r %.2f\n%sDamage per second:|r %.2f"):format(
+		GOLD, title, floor(lo), ceil(hi), GOLD, speed, GOLD, (floor(lo) + ceil(hi)) / 2 / speed)
+end
+
+-- The tooltip of a main hand, off hand, ranged or ammo icon: about that
+-- slot only.
+local function attackInfo(kind)
+	if kind == "offhand" then
+		local isShield = C_PaperDollInfo and C_PaperDollInfo.OffhandHasShield and C_PaperDollInfo.OffhandHasShield()
+		if isShield and GetBlockChance then
+			local text = ("%sBlock chance:|r %.1f%%"):format(GOLD, GetBlockChance())
+			local block = GetShieldBlock and GetShieldBlock()
+			if block then
+				text = text .. ("\n%sBlock value:|r %d"):format(GOLD, block)
 			end
+			return text
 		end
+		local _, offSpeed = UnitAttackSpeed("player")
+		local _, _, offLo, offHi = UnitDamage("player")
+		return weaponLines("Off Hand Damage", offLo, offHi, offSpeed)
+	elseif kind == "ranged" or kind == "ammo" then
+		local text = ""
+		if GetInventoryItemTexture("player", 18) then
+			local rSpeed, rLo, rHi = UnitRangedDamage("player")
+			text = weaponLines("Ranged Damage", rLo, rHi, rSpeed)
+		end
+		if kind == "ammo" then
+			local _, count = rangedOrAmmo()
+			text = text .. (text ~= "" and "\n" or "") .. GOLD .. "Ammo left:|r " .. count
+		end
+		return text ~= "" and text or (GOLD .. "Ranged Damage:|r N/A")
 	end
-	return text
+	local lo, hi = UnitDamage("player")
+	local speed = UnitAttackSpeed("player")
+	return weaponLines("Main Hand Damage", lo, hi, speed)
 end
 
 local function statInfo(kind)
@@ -532,7 +551,7 @@ local function statInfo(kind)
 		end
 		return text
 	end
-	return attackInfo()
+	return attackInfo(kind)
 end
 
 function Hero:CreateStatIcon(holder, index)

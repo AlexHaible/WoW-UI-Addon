@@ -1,0 +1,26 @@
+## Interface: 16001
+
+## Title: Reforged UI: Damage Meter
+## Author: AlexHaible
+## Notes: Dresses the game's built-in damage meter in Reforged UI's race themes. Turn it off here to leave the meter as Blizzard made it.
+## Version: @project-version@
+## X-Date: @project-date-iso@
+## X-Category: Interface Enhancements
+## Dependencies: ReforgedUI
+## OptionalDeps: Blizzard_DamageMeter
+## IconTexture: Interface\Icons\INV_BannerPVP_02
+## Group: ReforgedUI
+
+## Category-enUS: User Interface
+## Category-deDE: Benutzeroberfläche
+## Category-esES: Interfaz de usuario
+## Category-esMX: Interfaz de usuario
+## Category-frFR: Interface utilisateur
+## Category-itIT: Interfaccia utente
+## Category-koKR: 사용자 인터페이스
+## Category-ptBR: Interface do usuário
+## Category-ruRU: Интерфейс
+## Category-zhCN: 用户界面
+## Category-zhTW: 使用者介面
+
+DamageMeter.lua

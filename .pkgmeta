@@ -1,9 +1,12 @@
 package-as: ReforgedUI
 enable-nolib-creation: no
 
-# The addon lives in its own folder; only that folder is packaged.
+# Each addon lives in its own folder; only those folders are packaged. The
+# damage meter skin is a separate addon so it can be turned off in the
+# addon list, but it ships in the same zip and with the same version.
 move-folders:
   ReforgedUI/ReforgedUI: ReforgedUI
+  ReforgedUI/ReforgedUI_DamageMeter: ReforgedUI_DamageMeter
 
 ignore:
   - README.md

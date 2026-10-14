@@ -489,6 +489,64 @@ for _, file in ipairs(files) do
 	assert(loadfile(ADDON .. file))("ReforgedUI", ns)
 end
 
+-- The game's damage meter (Blizzard_DamageMeter), as far as Reforged UI:
+-- Damage Meter touches it: one window with a bar in its list, its own bar for
+-- the player and a breakdown window with a bar.
+local function newEntry(parent)
+	local e = new("button", nil, parent)
+	e.StatusBar = new("statusbar", nil, e)
+	local barTex = new("texture", nil, e.StatusBar)
+	e.StatusBar.GetStatusBarTexture = function() return barTex end
+	e.StatusBar.Name = new("fontstring", nil, e.StatusBar)
+	e.StatusBar.Value = new("fontstring", nil, e.StatusBar)
+	e.StatusBar.Background = new("texture", nil, e.StatusBar)
+	e.StatusBar.BackgroundEdge = new("texture", nil, e.StatusBar)
+	for k, v in pairs(DamageMeterEntryMixin) do e[k] = v end
+	return e
+end
+local function newList(parent)
+	local list = new("frame", nil, parent)
+	list._frames = { newEntry(list) }
+	list.GetFrames = function(self) return self._frames end
+	return list
+end
+DamageMeterEntryMixin = { UpdateStyle = function(self) self._styled = (self._styled or 0) + 1 end }
+local dmEarlyEntry = newEntry(UIParent) -- made before the skin loads
+DamageMeter = new("frame", "DamageMeter", UIParent)
+function DamageMeter:SetupSessionWindow() end
+do
+	local w = new("frame", "DamageMeterSessionWindow1", DamageMeter)
+	w.Header = new("texture", nil, w)
+	w.SetMinimized = function(self, m) self.isMinimized = m; self.MinimizeContainer:SetShown(not m) end
+	local c = new("frame", nil, w)
+	w.MinimizeContainer = c
+	c.Background = new("texture", nil, c)
+	c.ScrollBox = newList(c)
+	c.ScrollBox._frames[2] = dmEarlyEntry
+	c.LocalPlayerEntry = newEntry(c)
+	local s = new("frame", nil, c)
+	c.SourceWindow = s
+	s.Background = new("texture", nil, s)
+	s.ScrollBox = newList(s)
+end
+function methods:SetColorTexture(r, g, b, a) assert(r and g and b, "colour needs rgb"); self._color = { r, g, b, a }; self._tex = nil end
+
+-- Reforged UI: Damage Meter, a separate addon that needs Reforged UI.
+local DM_ADDON = ADDON .. "../ReforgedUI_DamageMeter/"
+do
+	local dmFiles = {}
+	for line in io.lines(DM_ADDON .. "ReforgedUI_DamageMeter.toc") do
+		if line:match("^## Dependencies:") then
+			assert(line:find("ReforgedUI", 1, true), "the damage meter skin needs Reforged UI")
+		end
+		if line:match("^[%w_\\%.%-]+%.lua$") then dmFiles[#dmFiles + 1] = (line:gsub("\\", "/")) end
+	end
+	assert(#dmFiles >= 1, "the damage meter skin's TOC lists no files")
+	for _, file in ipairs(dmFiles) do
+		assert(loadfile(DM_ADDON .. file))("ReforgedUI_DamageMeter", {})
+	end
+end
+
 local function fire(event, ...)
 	for _, f in ipairs(eventFrames) do
 		local ev = f._events
@@ -1626,6 +1684,53 @@ assert(hasTalent, "the classic talent button is in the bar")
 for _, b in ipairs(ns.microButtons) do
 	assert(b ~= HousingMicroButton, "Housing is not in the bar")
 	assert(b._alpha ~= 0, b:GetName() .. " stays visible")
+end
+-- The damage meter skin: every window, bar and breakdown is dressed in the
+-- theme, and follows a change of theme.
+do
+	local w = DamageMeterSessionWindow1
+	local c = w.MinimizeContainer
+	local function checkSkin(key)
+		local rail = "ReforgedUI_DamageMeter\\art\\" .. key .. "\\rail"
+		for _, e in ipairs({ c.ScrollBox._frames[1], dmEarlyEntry, c.LocalPlayerEntry, c.SourceWindow.ScrollBox._frames[1] }) do
+			assert(e.StatusBar:GetStatusBarTexture()._tex == "Interface\\TargetingFrame\\UI-StatusBar", "bar texture")
+			assert(e.StatusBar.Name._font == ReforgedUI.FONT, "bar font")
+			local found
+			for _, f in ipairs(allFrames) do
+				if rawget(f, "_parent") == e and f._tex and f._tex:find(rail, 1, true) then found = true end
+			end
+			assert(found, "every bar has the " .. key .. " rail")
+		end
+		assert(w.Header._color and c.Background._color and c.SourceWindow.Background._color, "insets are coloured")
+		local frames = 0
+		for _, f in ipairs(allFrames) do
+			if f._kind == "texture" and type(f._tex) == "string" and f._tex:find("ReforgedUI_DamageMeter\\art\\" .. key .. "\\frame", 1, true) then
+				frames = frames + 1
+			end
+		end
+		assert(frames == 8, "four corners around the window and four around its breakdown, got " .. frames)
+	end
+	checkSkin(ns.themeKey)
+	-- Bars made later carry the hooked mixin: styling one skins it.
+	local late = newEntry(c.ScrollBox)
+	late:UpdateStyle()
+	assert(late.StatusBar.Name._font == ReforgedUI.FONT, "bars made later are skinned when styled")
+	assert(dmEarlyEntry._styled == nil, "the skin only post-hooks")
+	dmEarlyEntry:UpdateStyle()
+	assert(dmEarlyEntry._styled == 1, "Blizzard's own UpdateStyle still runs once")
+	slash("theme troll")
+	checkSkin("troll")
+	w:SetMinimized(true)
+	slash("theme auto")
+	checkSkin(ns.themeKey)
+
+	-- Every theme has its meter art.
+	for _, key in ipairs(ns.THEME_ORDER) do
+		for _, file in ipairs({ "frame", "top", "bottom", "side", "rail" }) do
+			local path = DM_ADDON .. "art/" .. key .. "/" .. file .. ".tga"
+			assert(exists(path), "missing " .. path)
+		end
+	end
 end
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

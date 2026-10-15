@@ -108,29 +108,30 @@ ns.Themes = {
 		xp = { 0.55, 0.30, 0.65 },
 		health = { 0.40, 1.0, 0.40 },
 	},
-	-- Skyborne, one theme per faction: powder-blue elven stone and twilight
-	-- navy for both; High Order (Alliance) has silver trim and an arcane
-	-- violet accent, Windshapers (Horde) gold trim and storm teal.
+	-- Skyborne, one theme per faction, coloured by the faction's class
+	-- (tools/regrade_skyborne.py): High Order (Alliance, mages) arcane violet
+	-- leaves, frost-white blossoms and silver stone; Windshapers (Horde,
+	-- shamans) storm-blue leaves, ember-gold blossoms and slate stone.
 	highorder = {
 		name = "Skyborne (High Order)",
 		folder = "HighOrder",
 		font = "Fonts\\MORPHEUS.TTF",
-		title = { 0.90, 0.93, 0.97 },
-		accent = { 0.55, 0.48, 0.88 },
-		inset = { 0.06, 0.09, 0.16, 0.88 },
-		insetLine = { 0.80, 0.85, 0.90, 0.9 },
-		xp = { 0.55, 0.48, 0.88 },
+		title = { 0.88, 0.84, 1.0 },
+		accent = { 0.66, 0.48, 1.0 },
+		inset = { 0.08, 0.05, 0.16, 0.88 },
+		insetLine = { 0.78, 0.74, 0.92, 0.9 },
+		xp = { 0.66, 0.48, 1.0 },
 		health = { 0.40, 1.0, 0.55 },
 	},
 	windshapers = {
 		name = "Skyborne (Windshapers)",
 		folder = "Windshapers",
 		font = "Fonts\\MORPHEUS.TTF",
-		title = { 0.88, 0.80, 0.54 },
-		accent = { 0.18, 0.77, 0.70 },
-		inset = { 0.06, 0.09, 0.16, 0.88 },
-		insetLine = { 0.85, 0.78, 0.54, 0.9 },
-		xp = { 0.18, 0.77, 0.70 },
+		title = { 1.0, 0.80, 0.42 },
+		accent = { 0.20, 0.70, 0.90 },
+		inset = { 0.03, 0.08, 0.11, 0.88 },
+		insetLine = { 0.88, 0.70, 0.36, 0.9 },
+		xp = { 0.20, 0.70, 0.90 },
 		health = { 0.40, 1.0, 0.55 },
 	},
 }

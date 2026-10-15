@@ -35,8 +35,8 @@ TOPBAR = {  # mirrors Themes.lua
     "gnome": ("Gnome", (191, 242, 255), (10, 15, 20, 224), (184, 107, 59)),
     "tauren": ("Tauren", (255, 219, 158), (23, 15, 8, 224), (201, 163, 122)),
     "troll": ("Troll", (230, 219, 184), (13, 15, 13, 224), (217, 204, 176)),
-    "highorder": ("HighOrder", (230, 237, 247), (15, 23, 41, 224), (204, 217, 230)),
-    "windshapers": ("Windshapers", (224, 204, 138), (15, 23, 41, 224), (217, 199, 138)),
+    "highorder": ("HighOrder", (224, 214, 255), (20, 13, 41, 224), (199, 189, 235)),
+    "windshapers": ("Windshapers", (255, 204, 107), (8, 20, 28, 224), (224, 179, 92)),
     "forsaken": ("Forsaken", (209, 235, 179), (13, 8, 18, 230), (140, 115, 173)),
 }
 RACE_THEMES = ("dwarf", "gnome", "tauren", "troll", "highorder", "windshapers", "forsaken")

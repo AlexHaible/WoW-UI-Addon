@@ -165,8 +165,8 @@ icons, portrait, minimap and chat.
 | Gnome | `gnome` | Human art recoloured: brushed steel, copper trim, teal and pink accents |
 | Tauren | `tauren` | Orc art recoloured: tanned wood and hide, ochre-red bands, totem turquoise |
 | Troll | `troll` | Orc art recoloured: bamboo and bone, teal patina, voodoo purple |
-| Skyborne (High Order) | `highorder` | Night Elf art recoloured: powder-blue stone, silver, arcane violet, twilight navy |
-| Skyborne (Windshapers) | `windshapers` | Night Elf art recoloured: powder-blue stone, gold, storm teal, twilight navy |
+| Skyborne (High Order) | `highorder` | Mage colours: arcane violet leaves, frost-white blossoms, silver stone |
+| Skyborne (Windshapers) | `windshapers` | Shaman colours: storm-blue leaves, ember-gold blossoms, slate stone |
 
 | Dwarf | Gnome |
 | --- | --- |

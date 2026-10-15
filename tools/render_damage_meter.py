@@ -3,7 +3,7 @@
 
     python3 tools/render_damage_meter.py out.png [width height]
 
-Lays the border out the way DamageMeter.lua does (its FRAMES table, read from
+Lays the border out the way ReforgedUI/Trim.lua does (its sizes read from
 the file) around a window of the given size in window units (default
 400x200, Blizzard's default), with placeholder bars in class colours. Shows
 the art and its fit, not the game: Blizzard's dropdowns and icons are left
@@ -17,7 +17,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, ".."))
-DM = os.path.join(REPO, "ReforgedUI_DamageMeter")
+TRIM = os.path.join(REPO, "ReforgedUI", "Media", "Trim")
+TRIM_LUA = os.path.join(REPO, "ReforgedUI", "Trim.lua")
 THEMES_LUA = os.path.join(REPO, "ReforgedUI", "Themes.lua")
 FONT = os.path.join(REPO, "ReforgedUI", "art", "other", "fonts", "blq55.TTF")
 PX = 2  # output pixels per window unit
@@ -46,7 +47,7 @@ def insets():
 
 
 def tex(theme, name):
-    return Image.open(os.path.join(DM, "art", theme, name + ".tga")).convert("RGBA")
+    return Image.open(os.path.join(TRIM, theme, name + ".tga")).convert("RGBA")
 
 
 def tiled(img, w, h, u1, v1, axis):
@@ -71,7 +72,7 @@ def tiled(img, w, h, u1, v1, axis):
 
 def kit(theme, name):
     folder = FOLDERS[theme]
-    own = os.path.join(DM, "art", theme, name + ".tga")
+    own = os.path.join(TRIM, theme, name + ".tga")
     if os.path.exists(own):
         return Image.open(own).convert("RGBA")
     return Image.open(os.path.join(REPO, "ReforgedUI", "Media", folder, name + ".tga")).convert("RGBA")
@@ -175,16 +176,18 @@ def render(theme, m, inset, scale, W, H):
     return back
 
 
+def trim_sizes():
+    """EDGE and INSET from Trim.lua, as globals of this module."""
+    global EDGE, INSET_U
+    src = open(TRIM_LUA, encoding="utf-8").read()
+    num = lambda n: int(re.search(r"local %s = (\d+)" % n, src).group(1))
+    EDGE, INSET_U = num("EDGE"), num("INSET")
+
+
 def main(args):
     out = args[0] if args else "damage-meter.png"
     W, H = (int(args[1]), int(args[2])) if len(args) > 2 else (400, 200)
-    src = open(os.path.join(DM, "DamageMeter.lua"), encoding="utf-8").read()
-    global EDGE, INSET_U
-    def num(n, env={}):
-        expr = re.search(r"local %s = ([^-\n]+?)\s*(--|\n)" % n, src).group(1)
-        env[n] = eval(expr, {}, dict(env))
-        return env[n]
-    EDGE, INSET_U = num("EDGE"), num("INSET")
+    trim_sizes()
     frames = {t: None for t in FOLDERS}
     scale = 1
     names = insets()

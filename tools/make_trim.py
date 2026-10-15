@@ -1,28 +1,30 @@
 #!/usr/bin/env python3
-"""Make the damage meter skin's own art (ReforgedUI_DamageMeter/art/<theme>/).
+"""Make the theme frame's own art (ReforgedUI/Media/Trim/<theme>/), which
+Trim.lua puts around the windows the companion addons skin (damage meter,
+bags).
 
-    python3 tools/make_damage_meter.py            # every theme
-    python3 tools/make_damage_meter.py orc troll
+    python3 tools/make_trim.py            # every theme
+    python3 tools/make_trim.py orc troll
 
-The skin's border is the theme's top bar trim (ReforgedUI/Media/<Folder>:
-edge, edgev, corner), which is made to repeat. This script makes the rest:
+The frame is the theme's top bar trim (ReforgedUI/Media/<Folder>: edge,
+edgev, corner), which is made to repeat. This script makes the rest:
 
 * rail.tga (128x8): the rail between the theme's target plate's health and
   power slots (gold for Human, wood for Orc, iron for Undead, ...), cut from
   art/<theme>/targetplate.tga at the slots in Layout.TARGET_ART and stretched
-  along its length. It goes under the meter's header and under every bar.
+  along its length. It goes under window headers and the meter's bars.
 * edge.tga (256x32), only for the themes in THICK, whose top bar edge is
   a thin beam with clear rows on its inner side (Scourge's bone, which the
   top bar's panel fills behind): the beam's rows stretched to the full 32,
   so it meets the window. Their posts are this edge stood upright too
   (Scourge's own edgev is wood and iron, not bone), so the frame is one
-  piece all round. DamageMeter.lua's OWN_EDGE lists them.
+  piece all round. Trim.lua's OWN_EDGE lists them.
 * edgev.tga (32x256), only for themes whose top bar has no side posts of
   their own (Skyborne's edgev is empty): their edge stood upright, its top
-  turned outwards. DamageMeter.lua's OWN_EDGEV lists them.
+  turned outwards. Trim.lua's OWN_EDGEV lists them.
 * join.tga (32x32): the top-left corner, where the beam (the first 32 px of
   edge.tga) and the post (the first 32 px of edgev.tga) meet in a mitre along
-  the diagonal, as on a picture frame. DamageMeter.lua mirrors it for the
+  the diagonal, as on a picture frame. Trim.lua mirrors it for the
   other corners and runs each side out from it.
 
 The output is deterministic.
@@ -38,7 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ADDON = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI"))
 ART = os.path.join(ADDON, "art")
 MEDIA = os.path.join(ADDON, "Media")
-OUT = os.path.normpath(os.path.join(HERE, "..", "ReforgedUI_DamageMeter", "art"))
+OUT = os.path.join(MEDIA, "Trim")
 RAIL_W, RAIL_H = 128, 8
 THICK = {"undead"}
 FOLDERS = {"human": "Human", "orc": "Orc", "undead": "Undead", "nightelf": "NightElf", "dwarf": "Dwarf",

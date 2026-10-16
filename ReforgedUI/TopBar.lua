@@ -97,6 +97,8 @@ function TopBar:CreateFeeds()
 end
 
 -- Remember this character's money, so every character's gold can be listed.
+-- Saved under the character's name; `name` is the full one to show (with the
+-- surname on Forever, see ns:FullName).
 function TopBar:SaveMoney()
 	local name, realm = UnitName("player"), GetRealmName and GetRealmName()
 	if not (name and realm) then
@@ -105,53 +107,95 @@ function TopBar:SaveMoney()
 	local _, class = UnitClass("player")
 	local byRealm = ns.db.money[realm] or {}
 	ns.db.money[realm] = byRealm
-	byRealm[name] = { money = GetMoney(), class = class }
+	byRealm[name] = { money = GetMoney(), class = class, name = ns:FullName("player"),
+		faction = UnitFactionGroup and UnitFactionGroup("player") }
 end
 
--- The gold feed's tooltip: every character's gold, richest first, grouped by
--- realm (this realm first), and the total.
+-- Gold can't be mailed across factions, so each gets its own list and total.
+-- This character's faction comes first. Characters saved before factions
+-- were (until they log in again) and Pandaren who haven't chosen one yet go
+-- last, on their own.
+local FACTIONS = {
+	{ key = "Horde", label = _G.FACTION_HORDE or "Horde", color = { 0.9, 0.25, 0.2 } },
+	{ key = "Alliance", label = _G.FACTION_ALLIANCE or "Alliance", color = { 0.3, 0.55, 1 } },
+	{ key = "Neutral", label = _G.FACTION_NEUTRAL or "Neutral", color = { 0.8, 0.8, 0.8 } },
+	{ key = "?", label = "Faction not known yet (log that character in)", color = { 0.6, 0.6, 0.6 } },
+}
+
+-- The gold feed's tooltip: a section per faction with every character's
+-- gold, richest first, grouped by realm (this realm first), and the
+-- faction's total.
 function TopBar:GoldTooltip(tip)
 	self:SaveMoney()
 	tip:AddLine("Gold", 1, 1, 1)
 	local here = GetRealmName and GetRealmName()
-	local realms = {}
-	for realm in pairs(ns.db.money) do
-		realms[#realms + 1] = realm
+	local mine = UnitFactionGroup and UnitFactionGroup("player")
+	local known = {}
+	for _, f in ipairs(FACTIONS) do
+		known[f.key] = true
 	end
-	table.sort(realms, function(a, b)
-		if (a == here) ~= (b == here) then
-			return a == here
+
+	-- faction -> realm -> characters
+	local byFaction, realmCount = {}, 0
+	for realm, chars in pairs(ns.db.money) do
+		realmCount = realmCount + 1
+		for key, info in pairs(chars) do
+			local faction = known[info.faction] and info.faction or "?"
+			byFaction[faction] = byFaction[faction] or {}
+			local list = byFaction[faction][realm] or {}
+			byFaction[faction][realm] = list
+			list[#list + 1] = { name = info.name or key, money = info.money or 0, class = info.class }
 		end
-		return a < b
-	end)
-	local total = 0
-	for _, realm in ipairs(realms) do
-		local chars = {}
-		for name, info in pairs(ns.db.money[realm]) do
-			chars[#chars + 1] = { name = name, money = info.money or 0, class = info.class }
+	end
+
+	local order = {}
+	for _, f in ipairs(FACTIONS) do
+		if f.key == mine then
+			table.insert(order, 1, f)
+		else
+			order[#order + 1] = f
 		end
-		table.sort(chars, function(a, b)
-			if a.money ~= b.money then
-				return a.money > b.money
+	end
+	for _, f in ipairs(order) do
+		local realms = byFaction[f.key]
+		if realms then
+			local names = {}
+			for realm in pairs(realms) do
+				names[#names + 1] = realm
 			end
-			return a.name < b.name
-		end)
-		if #realms > 1 then
+			table.sort(names, function(a, b)
+				if (a == here) ~= (b == here) then
+					return a == here
+				end
+				return a < b
+			end)
 			tip:AddLine(" ")
-			tip:AddLine(realm, 1, 0.82, 0)
-		end
-		for _, c in ipairs(chars) do
-			local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
-			local r, g, b = 1, 1, 1
-			if color and color.r then
-				r, g, b = color.r, color.g, color.b
+			tip:AddLine(f.label, f.color[1], f.color[2], f.color[3])
+			local total = 0
+			for _, realm in ipairs(names) do
+				local chars = realms[realm]
+				table.sort(chars, function(a, b)
+					if a.money ~= b.money then
+						return a.money > b.money
+					end
+					return a.name < b.name
+				end)
+				if realmCount > 1 then
+					tip:AddLine(realm, 1, 0.82, 0)
+				end
+				for _, c in ipairs(chars) do
+					local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
+					local r, g, b = 1, 1, 1
+					if color and color.r then
+						r, g, b = color.r, color.g, color.b
+					end
+					tip:AddDoubleLine(c.name, formatMoney(c.money), r, g, b, 1, 1, 1)
+					total = total + c.money
+				end
 			end
-			tip:AddDoubleLine(c.name, formatMoney(c.money), r, g, b, 1, 1, 1)
-			total = total + c.money
+			tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
 		end
 	end
-	tip:AddLine(" ")
-	tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
 end
 
 function TopBar:UpdateFeeds()

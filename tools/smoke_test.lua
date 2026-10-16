@@ -1123,10 +1123,16 @@ gameHour = 12
 tb:UpdateClock()
 assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the window")
 assert(tb.slots[1].text._text == tb.FormatMoney(1234567), "slot 1 should show the money")
--- The gold tooltip lists every character's saved gold, richest first, and the total.
+-- The gold tooltip lists every character's saved gold, richest first, under
+-- its faction (this one first), with a total per faction and none across them.
 assert(ReforgedUIDB.money.Forever.Thrall.money == 1234567, "this character's money is saved")
-ReforgedUIDB.money.Forever.Jaina = { money = 5000000, class = "MAGE" }
-ReforgedUIDB.money.Elsewhere = { Rexxar = { money = 100, class = "HUNTER" } }
+assert(ReforgedUIDB.money.Forever.Thrall.name == "Thrall Son of Durotan", "with the full name")
+assert(ReforgedUIDB.money.Forever.Thrall.faction == "Horde", "and the faction")
+ReforgedUIDB.money.Forever.Garrosh = { money = 5000000, class = "WARRIOR", faction = "Horde" }
+ReforgedUIDB.money.Forever.Jaina = { money = 7000000, class = "MAGE", faction = "Alliance", name = "Jaina Proudmoore" }
+ReforgedUIDB.money.Forever.Anduin = { money = 300, class = "PRIEST", faction = "Alliance" }
+ReforgedUIDB.money.Elsewhere = { Rexxar = { money = 100, class = "HUNTER", faction = "Horde" } }
+ReforgedUIDB.money.Forever.Old = { money = 42, class = "ROGUE" } -- saved before factions were
 do
 	local lines = {}
 	local fake = {
@@ -1135,9 +1141,15 @@ do
 	}
 	tb.feeds.gold.OnTooltipShow(fake)
 	local text = table.concat(lines, "\n")
-	assert(text:find("Jaina=", 1, true) < text:find("Thrall=", 1, true), "richest first")
-	assert(text:find("Thrall=", 1, true) < text:find("Elsewhere", 1, true), "this realm first")
-	assert(text:find("Total=" .. tb.FormatMoney(5000000 + 1234567 + 100), 1, true), "total of all characters")
+	local function at(s) return assert(text:find(s, 1, true), s .. " missing from the gold tooltip") end
+	assert(at("Horde") < at("Garrosh=") and at("Garrosh=") < at("Thrall Son of Durotan="), "richest first")
+	assert(at("Thrall Son of Durotan=") < at("Elsewhere") and at("Elsewhere") < at("Rexxar="), "this realm first")
+	assert(at("Rexxar=") < at("Alliance") and at("Alliance") < at("Jaina Proudmoore="), "this faction first")
+	assert(at("Jaina Proudmoore=") < at("Anduin="), "Alliance richest first")
+	assert(at("Total=" .. tb.FormatMoney(5000000 + 1234567 + 100)) < at("Alliance"), "Horde total")
+	assert(text:find("Total=" .. tb.FormatMoney(7000000 + 300), 1, true), "Alliance total")
+	assert(at("Anduin=") < at("not known") and at("not known") < at("Old="), "unknown faction last")
+	assert(not text:find(tb.FormatMoney(5000000 + 1234567 + 100 + 7000000 + 300), 1, true), "no total across factions")
 end
 ReforgedUIDB.money = { Forever = { Thrall = ReforgedUIDB.money.Forever.Thrall } }
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")

@@ -113,12 +113,10 @@ end
 
 -- Gold can't be mailed across factions, so each gets its own list and total.
 -- This character's faction comes first. Characters saved before factions
--- were (until they log in again) and Pandaren who haven't chosen one yet go
--- last, on their own.
+-- were go last, on their own, until they log in again.
 local FACTIONS = {
 	{ key = "Horde", label = _G.FACTION_HORDE or "Horde", color = { 0.9, 0.25, 0.2 } },
 	{ key = "Alliance", label = _G.FACTION_ALLIANCE or "Alliance", color = { 0.3, 0.55, 1 } },
-	{ key = "Neutral", label = _G.FACTION_NEUTRAL or "Neutral", color = { 0.8, 0.8, 0.8 } },
 	{ key = "?", label = "Faction not known yet (log that character in)", color = { 0.6, 0.6, 0.6 } },
 }
 

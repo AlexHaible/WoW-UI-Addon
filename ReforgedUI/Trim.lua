@@ -24,10 +24,11 @@ local INSET = 4 -- how far the trim overlaps the window's edge
 -- Themes whose top bar has no side posts of their own (Skyborne's are
 -- empty) get a post from make_trim.py: their edge, upright. The value is
 -- that file's height (its width is 32).
-local OWN_EDGEV = { highorder = 256, windshapers = 256, undead = 256 }
+local OWN_EDGEV = { highorder = 256, windshapers = 256, undead = 256, gnome = 256 }
 -- Themes whose top bar edge is a thin beam with nothing under it (Scourge's
--- bone) get a thicker one from make_trim.py, and its posts too.
-local OWN_EDGE = { undead = true }
+-- bone) get a thicker one from make_trim.py, and its posts too, as do themes
+-- whose edge is one plain run (Gnome's pipes get valves, lamps and a gauge).
+local OWN_EDGE = { undead = true, gnome = true }
 
 local PIECES = { "topL", "topR", "bottomL", "bottomR", "leftT", "leftB", "rightT", "rightB", "tl", "tr", "bl", "br" }
 

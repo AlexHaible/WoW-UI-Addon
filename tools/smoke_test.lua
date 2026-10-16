@@ -551,6 +551,61 @@ do
 	end
 end
 
+-- The game's bag windows, as far as Reforged UI: Bags touches them.
+local function newBagWindow(name, bagID)
+	local w = _G[name] or new("frame", name, UIParent)
+	w.NineSlice = new("frame", nil, w)
+	w.Bg = new("frame", nil, w)
+	w.PortraitContainer = new("frame", nil, w)
+	w.PortraitContainer.portrait = new("texture", nil, w.PortraitContainer)
+	w.TitleContainer = new("frame", nil, w)
+	w.TitleContainer.TitleText = new("fontstring", nil, w.TitleContainer)
+	w.GetBagID = function() return bagID end
+	w.UpdateMiscellaneousFrames = function(self) self._misc = (self._misc or 0) + 1 end
+	return w
+end
+newBagWindow("ContainerFrame1", 0)
+newBagWindow("ContainerFrame2", 1)
+newBagWindow("ContainerFrameCombinedBags", 0)
+
+-- Reforged UI: Bags, a separate addon that needs Reforged UI. BetterBags.lua
+-- is loaded first without BetterBags (it must do nothing), then with a
+-- stand-in for BetterBags' theme module.
+local BAGS_ADDON = ADDON .. "../ReforgedUI_Bags/"
+local bagFiles = {}
+for line in io.lines(BAGS_ADDON .. "ReforgedUI_Bags.toc") do
+	if line:match("^## Dependencies:") then
+		assert(line:find("ReforgedUI", 1, true), "the bags skin needs Reforged UI")
+	end
+	if line:match("^## OptionalDeps:") then
+		assert(line:find("BetterBags", 1, true), "BetterBags loads before the bags skin")
+	end
+	if line:match("^[%w_\\%.%-]+%.lua$") then bagFiles[#bagFiles + 1] = (line:gsub("\\", "/")) end
+end
+assert(#bagFiles >= 2, "the bags skin's TOC lists its files")
+for _, file in ipairs(bagFiles) do
+	assert(loadfile(BAGS_ADDON .. file))("ReforgedUI_Bags", {})
+end
+assert(not LibStub("AceAddon-3.0", true), "no AceAddon without BetterBags")
+function CreateFont(name) return new("font", name) end
+local bbThemes = { themes = {}, titles = {} }
+function bbThemes:RegisterTheme(key, t) t.key = key; self.themes[key] = t end
+function bbThemes.SetupBagButton(_, parent)
+	local b = new("button", nil, parent)
+	b.portrait = new("texture", nil, b)
+	b.highlightTex = new("texture", nil, b)
+	return b
+end
+local bbSearch = { CreateBox = function(_, _, parent) return { frame = new("frame", nil, parent), SetShown = methods.SetShown } end }
+do
+	local ace = LibStub:NewLibrary("AceAddon-3.0", 1)
+	local bb = { SetScript = function(obj, script, fn) obj:SetScript(script, fn) end }
+	function bb:GetModule(name) return ({ Themes = bbThemes, SearchBox = bbSearch })[name] end
+	function ace:GetAddon(name) return name == "BetterBags" and bb or nil end
+	assert(loadfile(BAGS_ADDON .. "BetterBags.lua"))("ReforgedUI_Bags", {})
+end
+assert(bbThemes.themes.ReforgedUI, "the BetterBags theme is registered")
+
 local function fire(event, ...)
 	for _, f in ipairs(eventFrames) do
 		local ev = f._events
@@ -1713,7 +1768,7 @@ do
 	local w = DamageMeterSessionWindow1
 	local c = w.MinimizeContainer
 	local function checkSkin(key)
-		local rail = "ReforgedUI_DamageMeter\\art\\" .. key .. "\\rail"
+		local rail = "ReforgedUI\\Media\\Trim\\" .. key .. "\\rail"
 		for _, e in ipairs({ c.ScrollBox._frames[1], dmEarlyEntry, c.LocalPlayerEntry, c.SourceWindow.ScrollBox._frames[1] }) do
 			assert(e.StatusBar:GetStatusBarTexture()._tex == "Interface\\TargetingFrame\\UI-StatusBar", "bar texture")
 			assert(e.StatusBar.Name._font == ReforgedUI.FONT, "bar font")
@@ -1725,7 +1780,7 @@ do
 		end
 		assert(w.Header._color and c.Background._color and c.SourceWindow.Background._color, "insets are coloured")
 		local corners = 0
-		local corner = "ReforgedUI_DamageMeter\\art\\" .. key .. "\\join"
+		local corner = "ReforgedUI\\Media\\Trim\\" .. key .. "\\join"
 		for _, f in ipairs(allFrames) do
 			local under = rawget(f, "_parent")
 			while under and under ~= w do under = rawget(under, "_parent") end
@@ -1749,13 +1804,89 @@ do
 	slash("theme auto")
 	checkSkin(ns.themeKey)
 
-	-- Every theme has its meter art.
+	-- Every theme has its frame art.
 	for _, key in ipairs(ns.THEME_ORDER) do
 		for _, file in ipairs({ "rail", "join" }) do
-			local path = DM_ADDON .. "art/" .. key .. "/" .. file .. ".tga"
+			local path = ADDON .. "Media/Trim/" .. key .. "/" .. file .. ".tga"
 			assert(exists(path), "missing " .. path)
 		end
 	end
+end
+-- The bags skin: Blizzard's bag windows and the BetterBags theme wear the
+-- theme's frame and follow a change of theme.
+do
+	local function corners(root, key)
+		local n, corner = 0, "ReforgedUI\\Media\\Trim\\" .. key .. "\\join"
+		for _, f in ipairs(allFrames) do
+			local under = rawget(f, "_parent")
+			while under and under ~= root do under = rawget(under, "_parent") end
+			if under and f._kind == "texture" and type(f._tex) == "string" and f._tex:sub(-#corner) == corner then
+				n = n + 1
+			end
+		end
+		return n
+	end
+	local function hasRail(root, key)
+		local rail = "ReforgedUI\\Media\\Trim\\" .. key .. "\\rail"
+		for _, f in ipairs(allFrames) do
+			if rawget(f, "_parent") == root and type(f._tex) == "string" and f._tex:sub(-#rail) == rail then return true end
+		end
+	end
+	local function checkBags(key)
+		for _, w in ipairs({ ContainerFrame1, ContainerFrame2, ContainerFrameCombinedBags }) do
+			assert(w.NineSlice._alpha == 0 and w.Bg._alpha == 0, "Blizzard's border and background are invisible")
+			assert(w.PortraitContainer.portrait._alpha == 0, "the round portrait gives way")
+			assert(corners(w, key) == 4, "four " .. key .. " corners around " .. w:GetName())
+			assert(hasRail(w, key), "the " .. key .. " rail under the title")
+			assert(w.TitleContainer.TitleText._font == ReforgedUI.FONT, "title font")
+		end
+	end
+	checkBags(ns.themeKey)
+	-- The bag's own icon, square, from its inventory slot.
+	local oldTexture = GetInventoryItemTexture
+	GetInventoryItemTexture = function(_, slot) if slot == 20 then return "Interface\\Icons\\INV_Misc_Bag_10" end end
+	ContainerFrame2:UpdateMiscellaneousFrames()
+	assert(ContainerFrame2._misc == 1, "Blizzard's own update still runs once")
+	local found
+	for _, f in ipairs(allFrames) do
+		if rawget(f, "_parent") == ContainerFrame2.PortraitContainer and f._tex == "Interface\\Icons\\INV_Misc_Bag_10" then found = true end
+	end
+	assert(found, "bag 1 shows its own icon")
+	GetInventoryItemTexture = oldTexture
+
+	-- BetterBags: a bag window, an option window and a flat one.
+	local t = bbThemes.themes.ReforgedUI
+	local bag = new("frame", "BetterBagsBagBackpack", UIParent)
+	bag.Owner = { kind = 0, Hide = function(self) self._hidden = true end }
+	local opts = new("frame", "BetterBagsOptions", UIParent)
+	local flat = new("frame", "BetterBagsSlots", UIParent)
+	bbThemes.titles.BetterBagsBagBackpack = "Backpack"
+	t.Portrait(bag)
+	t.Simple(opts)
+	t.Flat(flat)
+	t.Opacity(bag, 50)
+	t.ToggleSearch(bag, false)
+	t.SetTitle(bag, "Bags")
+	local d = _G.BetterBagsBagBackpackThemeReforgedUI
+	assert(d and d._parent == bag, "the decoration is the window's own")
+	assert(d.title._text == "Bags", "titles follow BetterBags")
+	assert(d.bg._alpha == 0.5, "opacity reaches the inset")
+	local function checkBB(key)
+		for _, f in ipairs({ bag, opts, flat }) do
+			assert(corners(f, key) == 4, "four " .. key .. " corners around " .. f:GetName())
+		end
+		assert(hasRail(d, key), "the " .. key .. " rail under BetterBags' title")
+	end
+	checkBB(ns.themeKey)
+	slash("theme nightelf")
+	checkBags("nightelf")
+	checkBB("nightelf")
+	t.Reset()
+	assert(not d:IsShown(), "Reset hides the decoration")
+	t.Portrait(bag)
+	assert(d:IsShown() and corners(bag, "nightelf") == 4, "the decoration comes back, not a second one")
+	slash("theme auto")
+	checkBags(ns.themeKey)
 end
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

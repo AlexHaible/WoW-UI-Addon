@@ -33,6 +33,7 @@ Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Layout.lua
 Themes.lua
 Core.lua
+Trim.lua
 Art.lua
 Console.lua
 TopBar.lua

@@ -121,6 +121,17 @@ under the header and every bar, and Warcraft III's bar texture and font. It only
 art: the meter's numbers, its settings and its place (Edit Mode) are left to
 Blizzard.
 
+**Bags.** A third addon, *Reforged UI: Bags* (`ReforgedUI_Bags`), dresses the
+game's bag windows (each bag on its own, the combined backpack and the key
+ring) the same way: the theme's trim around each window, a dark inset, the
+theme's rail under the title and the bag's icon in Warcraft III's steel
+button frame on the top-left corner, where Blizzard's round portrait was (its
+menu still opens there). The items, money, search box and sorting are
+Blizzard's. If you use **BetterBags**, the addon also adds a **Reforged UI**
+theme to BetterBags' theme list (bag, bank and option windows, following
+your Reforged UI theme as it changes); pick it in BetterBags' settings.
+BetterBags is optional: without it that part does nothing.
+
 ## Options
 
 Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI). The
@@ -194,8 +205,9 @@ of your faction. Saved themes from earlier versions keep working.
 
 ## Setting up
 
-1. Copy the `ReforgedUI` folder (and `ReforgedUI_DamageMeter`, for the damage
-   meter skin) into the AddOns folder of your Forever install.
+1. Copy the `ReforgedUI` folder (and `ReforgedUI_DamageMeter` and
+   `ReforgedUI_Bags`, for the damage meter and bags skins) into the AddOns
+   folder of your Forever install.
    **Restart the game client completely** (not just `/reload`): the addon has
    new files, which the game only picks up on a full restart.
 2. Action Bars 2, 3 and 8 are turned on for you the first time each character
@@ -282,11 +294,13 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   Human's until its own exist.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
-- `python3 tools/make_damage_meter.py [theme ...]` makes the damage meter
-  skin's own art (`ReforgedUI_DamageMeter/art/<theme>`): the rail from each
+- `Trim.lua` is the theme frame the damage meter and bags skins put around
+  Blizzard's windows (`ReforgedUI.CreateTrim`). `python3 tools/make_trim.py
+  [theme ...]` makes its own art (`Media/Trim/<theme>`): the rail from each
   theme's target plate, the mitred corner where the top bar's beam and post
   meet, and side posts for themes whose top bar has none (Skyborne). The
   border itself is the top bar's trim from `Media/`.
-  `python3 tools/render_damage_meter.py out.png` mocks the skin up for every
+  `python3 tools/render_damage_meter.py out.png` and
+  `python3 tools/render_bags.py out.png` mock the two skins up for every
   theme.
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

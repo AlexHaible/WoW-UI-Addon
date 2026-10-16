@@ -1,0 +1,27 @@
+## Interface: 16001
+
+## Title: Reforged UI: Bags
+## Author: AlexHaible
+## Notes: Dresses the game's bags, and BetterBags if you use it, in Reforged UI's race themes. Turn it off here to leave the bags as they were.
+## Version: @project-version@
+## X-Date: @project-date-iso@
+## X-Category: Bags & Inventory
+## Dependencies: ReforgedUI
+## OptionalDeps: BetterBags
+## IconTexture: Interface\AddOns\ReforgedUI\Media\Common\icon
+## Group: ReforgedUI
+
+## Category-enUS: User Interface
+## Category-deDE: Benutzeroberfläche
+## Category-esES: Interfaz de usuario
+## Category-esMX: Interfaz de usuario
+## Category-frFR: Interface utilisateur
+## Category-itIT: Interfaccia utente
+## Category-koKR: 사용자 인터페이스
+## Category-ptBR: Interface do usuário
+## Category-ruRU: Интерфейс
+## Category-zhCN: 用户界面
+## Category-zhTW: 使用者介面
+
+Bags.lua
+BetterBags.lua

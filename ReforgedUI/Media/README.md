@@ -36,6 +36,10 @@ this repo private. The dial is built from the scrolling sky strip with its sun
 and moon centred 0.52 × radius from the middle, which matches the clock window
 at `dialR = 52`, `clockW/H = 176x88`.
 
+`Trim/<theme>/` holds the theme frame's own art (Trim.lua): the rail, the
+mitred corner and, for some themes, their own beam or posts. It is keyed by
+theme, not by folder, and made by `tools/make_trim.py`.
+
 `tools/gen_textures.py` makes the original procedural art (it also writes
 files the addon no longer uses). It refuses to overwrite existing files unless
 run with `--force`.

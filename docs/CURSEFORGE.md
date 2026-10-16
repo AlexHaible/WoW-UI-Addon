@@ -22,7 +22,7 @@ The theme follows your character's race automatically, and you can pick any them
 - **Troll**: Darkspear poles bound in crimson rope, tiki masks, tusks and straw cones
 - **Skyborne**: wind-swept teal and rose foliage, pale Highborne stone and floating wind-pylons, in two variants: **High Order** (silver and violet) and **Windshapers** (gold and cyan)
 
-Each theme has its own top bar, clock frame, target plate, end caps and damage meter frame.
+Each theme has its own top bar, clock frame, target plate, end caps, damage meter frame and bag frame.
 
 ---
 
@@ -68,6 +68,11 @@ Each theme has its own top bar, clock frame, target plate, end caps and damage m
 - The game's built-in damage meter wears your theme: the top bar's trim around each window, a dark inset, the theme's rail under the header and every bar, and Warcraft III's bar texture and font. The breakdown window that opens on click matches.
 - It follows your theme as you switch, and you still move and size the meter in Edit Mode.
 - It comes as a separate addon in the same download, **Reforged UI: Damage Meter**. Untick it in the addon list if you'd rather keep Blizzard's look or use another meter.
+
+**Bags**
+- Your bag windows wear your theme too: the top bar's trim around each bag, a dark inset, the theme's rail under the title, and the bag's icon in Warcraft III's steel button frame on the corner. Click the icon for Blizzard's bag menu as before.
+- Using **BetterBags**? Pick the **Reforged UI** theme in BetterBags' settings and its bag, bank and option windows match, following your theme as you switch. Without BetterBags installed, that part simply stays off.
+- It comes as a separate addon in the same download, **Reforged UI: Bags**. Untick it in the addon list to keep your bags as they were.
 
 ---
 

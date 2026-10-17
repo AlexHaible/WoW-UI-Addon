@@ -130,7 +130,8 @@ menu still opens there). The items, money, search box and sorting are
 Blizzard's. If you use **BetterBags**, the addon also adds a **Reforged UI**
 theme to BetterBags' theme list (bag, bank and option windows, following
 your Reforged UI theme as it changes); pick it in BetterBags' settings.
-BetterBags is optional: without it that part does nothing.
+It is a theme for BetterBags' Sonata theme engine (BetterBags 0.5.17 and
+later); with an older BetterBags, or none, that part does nothing.
 
 ## Options
 

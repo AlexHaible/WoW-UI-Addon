@@ -38,7 +38,9 @@ at `dialR = 52`, `clockW/H = 176x88`.
 
 `Trim/<theme>/` holds the theme frame's own art (Trim.lua): the rail, the
 mitred corner and, for some themes, their own beam or posts. It is keyed by
-theme, not by folder, and made by `tools/make_trim.py`.
+theme, not by folder, and made by `tools/make_trim.py`. `frame.tga` is the
+same frame as one nine-sliced texture, for the BetterBags theme, made from
+those by `tools/make_bb_frame.py` (run it after `make_trim.py`).
 
 `tools/gen_textures.py` makes the original procedural art (it also writes
 files the addon no longer uses). It refuses to overwrite existing files unless

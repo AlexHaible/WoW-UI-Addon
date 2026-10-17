@@ -587,24 +587,48 @@ for _, file in ipairs(bagFiles) do
 	assert(loadfile(BAGS_ADDON .. file))("ReforgedUI_Bags", {})
 end
 assert(not LibStub("AceAddon-3.0", true), "no AceAddon without BetterBags")
-function CreateFont(name) return new("font", name) end
-local bbThemes = { themes = {}, titles = {} }
-function bbThemes:RegisterTheme(key, t) t.key = key; self.themes[key] = t end
-function bbThemes.SetupBagButton(_, parent)
-	local b = new("button", nil, parent)
-	b.portrait = new("texture", nil, b)
-	b.highlightTex = new("texture", nil, b)
-	return b
+-- A stand-in for BetterBags' Sonata: it keeps the registered theme, says which
+-- theme is applied, and records each apply.
+local sonata = { themes = {}, applies = {} }
+function sonata:RegisterTheme(t) self.themes[t.Name] = t end
+function sonata:GetCurrentThemeKey() return self.current end
+function sonata:ApplyTheme(ctx, key, save)
+	assert(ctx and ctx.event, "applied with a context")
+	self.applies[#self.applies + 1] = { key = key, save = save }
 end
-local bbSearch = { CreateBox = function(_, _, parent) return { frame = new("frame", nil, parent), SetShown = methods.SetShown } end }
+-- Sonata's resolution of variables: every "$Name" string becomes the
+-- variable's value; a function is called each time the theme is applied.
+local function resolveTheme(t)
+	local vars = {}
+	for k, v in pairs(t.Variables or {}) do
+		if type(v) == "function" then v = v() end
+		assert(v ~= nil, "variable " .. k .. " has a value")
+		vars[k] = v
+	end
+	local function sub(v)
+		if type(v) == "string" and v:match("^%$") then
+			local name = v:sub(2)
+			assert(vars[name] ~= nil, "unknown variable " .. v)
+			return vars[name]
+		elseif type(v) == "table" then
+			local out = {}
+			for k, x in pairs(v) do out[k] = sub(x) end
+			return out
+		end
+		return v
+	end
+	return { Windows = sub(t.Windows), Elements = sub(t.Elements) }
+end
 do
 	local ace = LibStub:NewLibrary("AceAddon-3.0", 1)
-	local bb = { SetScript = function(obj, script, fn) obj:SetScript(script, fn) end }
-	function bb:GetModule(name) return ({ Themes = bbThemes, SearchBox = bbSearch })[name] end
+	local bbContext = { New = function(_, event) return { event = event } end }
+	local bb = {}
+	function bb:GetModule(name) return ({ Sonata = sonata, Context = bbContext })[name] end
 	function ace:GetAddon(name) return name == "BetterBags" and bb or nil end
 	assert(loadfile(BAGS_ADDON .. "BetterBags.lua"))("ReforgedUI_Bags", {})
 end
-assert(bbThemes.themes.ReforgedUI, "the BetterBags theme is registered")
+assert(sonata.themes.ReforgedUI, "the BetterBags theme is registered")
+assert(sonata.themes.ReforgedUI.DisplayName == "Reforged UI", "listed as Reforged UI")
 
 local function fire(event, ...)
 	for _, f in ipairs(eventFrames) do
@@ -1818,7 +1842,7 @@ do
 
 	-- Every theme has its frame art.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		for _, file in ipairs({ "rail", "join" }) do
+		for _, file in ipairs({ "rail", "join", "frame" }) do
 			local path = ADDON .. "Media/Trim/" .. key .. "/" .. file .. ".tga"
 			assert(exists(path), "missing " .. path)
 		end
@@ -1866,37 +1890,46 @@ do
 	assert(found, "bag 1 shows its own icon")
 	GetInventoryItemTexture = oldTexture
 
-	-- BetterBags: a bag window, an option window and a flat one.
-	local t = bbThemes.themes.ReforgedUI
-	local bag = new("frame", "BetterBagsBagBackpack", UIParent)
-	bag.Owner = { kind = 0, Hide = function(self) self._hidden = true end }
-	local opts = new("frame", "BetterBagsOptions", UIParent)
-	local flat = new("frame", "BetterBagsSlots", UIParent)
-	bbThemes.titles.BetterBagsBagBackpack = "Backpack"
-	t.Portrait(bag)
-	t.Simple(opts)
-	t.Flat(flat)
-	t.Opacity(bag, 50)
-	t.ToggleSearch(bag, false)
-	t.SetTitle(bag, "Bags")
-	local d = _G.BetterBagsBagBackpackThemeReforgedUI
-	assert(d and d._parent == bag, "the decoration is the window's own")
-	assert(d.title._text == "Bags", "titles follow BetterBags")
-	assert(d.bg._alpha == 0.5, "opacity reaches the inset")
+	-- BetterBags: every window kind in the theme's trim, its art and colours
+	-- read from the Reforged UI theme each time BetterBags applies it.
 	local function checkBB(key)
-		for _, f in ipairs({ bag, opts, flat }) do
-			assert(corners(f, key) == 4, "four " .. key .. " corners around " .. f:GetName())
+		local r = resolveTheme(sonata.themes.ReforgedUI)
+		local frame = "ReforgedUI\\Media\\Trim\\" .. key .. "\\frame"
+		local rail = "ReforgedUI\\Media\\Trim\\" .. key .. "\\rail"
+		for _, kind in ipairs({ "Bag", "Panel", "Flat", "Dialog", "Slots", "Search" }) do
+			local w = r.Windows[kind]
+			assert(w, "the theme styles " .. kind .. " windows")
+			local trim = w.Textures[1]
+			assert(trim.Texture:sub(-#frame) == frame, kind .. ": the " .. key .. " trim")
+			assert(trim.SliceMode == "Tiled" and trim.SliceMargins.Left == 14, kind .. ": nine-sliced, 14 a side")
+			assert(trim.Inset.Left == -ReforgedUI.TRIM_OUT, kind .. ": the trim reaches past the window")
+			local inset = ns.Themes[key].inset
+			local c = w.Background.Color
+			assert(c[1] == inset[1] and c[2] == inset[2] and c[3] == inset[3], kind .. ": the " .. key .. " inset")
+			if w.Title then
+				assert(w.Title.Font.Path == ReforgedUI.FONT, kind .. ": title font")
+				assert(w.Textures[2].Texture:sub(-#rail) == rail, kind .. ": the " .. key .. " rail under the title")
+			end
 		end
-		assert(hasRail(d, key), "the " .. key .. " rail under BetterBags' title")
+		assert(r.Windows.Bag.CloseButton and r.Windows.Panel.CloseButton, "bags and panels close")
+		assert(not r.Windows.Dialog.CloseButton, "dialogs have no close button")
+		assert(r.Windows.Bag.Textures[3].Above, "the steel frame over the menu button")
+		assert(r.Windows.Bag.Layout.MenuButton.Points[1].X == r.Windows.Bag.Textures[3].Points[1].X, "menu button in the frame")
+		assert(r.Windows.Slots.Layout.Points[1].RelativePoint == "TOPLEFT", "the slots panels sit above their bag")
+		assert(r.Elements.Tab.Background.Color[1] == ns.Themes[key].inset[1], "tabs in the inset colour")
 	end
 	checkBB(ns.themeKey)
+	-- A theme change applies the theme again, unsaved, only while it is the
+	-- applied one.
+	sonata.current = "Default"
+	slash("theme orc")
+	assert(#sonata.applies == 0, "another BetterBags theme is left alone")
+	sonata.current = "ReforgedUI"
 	slash("theme nightelf")
 	checkBags("nightelf")
 	checkBB("nightelf")
-	t.Reset()
-	assert(not d:IsShown(), "Reset hides the decoration")
-	t.Portrait(bag)
-	assert(d:IsShown() and corners(bag, "nightelf") == 4, "the decoration comes back, not a second one")
+	assert(#sonata.applies == 1 and sonata.applies[1].key == "ReforgedUI", "applied again on a theme change")
+	assert(sonata.applies[1].save == false, "without saving")
 	slash("theme auto")
 	checkBags(ns.themeKey)
 end

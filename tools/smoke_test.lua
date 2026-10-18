@@ -850,7 +850,10 @@ do
 	assert(addonButton:GetParent() == mm.drawer and addonButton._points[1][2] == UIParent,
 		"addon buttons go in the compartment's drawer")
 	assert(addonButton:GetFrameLevel() > mm.drawer:GetFrameLevel() and addonButton._fixedLevel,
-		"addon buttons draw above the drawer's background, even when pinned")
+		"addon buttons draw above the drawer, even when pinned")
+	local strata = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4 }
+	assert(strata[mm.drawer.bg:GetFrameStrata()] < strata[addonButton:GetFrameStrata()],
+		"the drawer's background sits a strata below its buttons")
 	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
 	local toggleTop = mm.toggle._points[1][5] * unit(mm.toggle) + L.addonCompartment.h
 	assert(mm.drawer._points[1][5] * unit(mm.drawer) > toggleTop and addonButton._points[1][5] * unit(addonButton) > toggleTop,

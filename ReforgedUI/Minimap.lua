@@ -289,6 +289,29 @@ local function fit(f, size)
 	end
 end
 
+-- Puts a drawer button above the flyout's background, whatever the addon
+-- set. LibDBIcon pins its buttons at MEDIUM, level 8 with fixed strata and
+-- level, which the client keeps through SetFrameStrata/SetFrameLevel, so the
+-- background drew over them; unpin, move, and pin again at the new place.
+local function raise(btn, drawer)
+	local fixedStrata = btn.IsFixedFrameStrata and btn:IsFixedFrameStrata()
+	local fixedLevel = btn.IsFixedFrameLevel and btn:IsFixedFrameLevel()
+	if fixedStrata then
+		btn:SetFixedFrameStrata(false)
+	end
+	if fixedLevel then
+		btn:SetFixedFrameLevel(false)
+	end
+	btn:SetFrameStrata(drawer:GetFrameStrata())
+	btn:SetFrameLevel(drawer:GetFrameLevel() + 2)
+	if fixedStrata then
+		btn:SetFixedFrameStrata(true)
+	end
+	if fixedLevel then
+		btn:SetFixedFrameLevel(true)
+	end
+end
+
 function MinimapModule:OnLayout(L)
 	local m = L.minimap
 	ns:Lock(Minimap, function(map)
@@ -362,9 +385,7 @@ function MinimapModule:OnLayout(L)
 		if btn:GetParent() ~= self.drawer then
 			btn:SetParent(self.drawer)
 		end
-		-- Above the flyout's background, whatever the addon set.
-		btn:SetFrameStrata(self.drawer:GetFrameStrata())
-		btn:SetFrameLevel(self.drawer:GetFrameLevel() + 2)
+		raise(btn, self.drawer)
 		ns:Lock(btn, function(b)
 			fit(b, size)
 			ns:Anchor(b, "BOTTOMLEFT", x, y)

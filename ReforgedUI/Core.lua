@@ -433,18 +433,26 @@ function ns:LayoutOptions()
 	}
 end
 
+-- The console is laid out for a screen 768 units tall (the original addon's
+-- design size) and keeps that share of the screen's height, but never gets
+-- narrower than a 16:9 screen: on narrower ones (16:10, 4:3) it scales down
+-- to fit that width, so the chat area keeps its 16:9 width.
+local CONSOLE_MIN_ASPECT = 16 / 9
+
+-- UIParent units per console unit.
+function ns:ConsoleScale()
+	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / (768 * CONSOLE_MIN_ASPECT))
+end
+
 function ns:Relayout()
 	self:RunOutOfCombat("relayout", function()
-		-- The console is laid out for a screen 768 units tall (the original addon's
-		-- design size); scale it so it keeps that share of the screen at any
-		-- resolution and UI scale.
 		local root = self.root
-		local scale = UIParent:GetHeight() / 768
+		local scale = self:ConsoleScale()
 		root:SetScale(scale)
 		local W = UIParent:GetWidth() / scale
 		root:ClearAllPoints()
 		root:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
-		root:SetSize(W, 768)
+		root:SetSize(W, UIParent:GetHeight() / scale)
 
 		-- The top bar keeps Reforged UI's own scale setting (/rui scale).
 		local topRoot = self.topRoot
@@ -649,7 +657,7 @@ function ns:PlaceTargetAuras(layout)
 	if not (spot and tf) then
 		return false
 	end
-	local k = UIParent:GetHeight() / 768
+	local k = self:ConsoleScale()
 	local scale = TargetFrame and TargetFrame:GetScale() or 1
 	if not scale or scale <= 0 then
 		scale = 1
@@ -713,7 +721,7 @@ function ns:PlaceActionBars(layout)
 			frame = frame or _G[name]
 		end
 		if entry and row and row.xs and row.xs[1] then
-			local u = frame and self:UnitsFor(frame) or UIParent:GetHeight() / 768
+			local u = frame and self:UnitsFor(frame) or self:ConsoleScale()
 			entry.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
 				offsetX = math.floor(row.xs[1] * u + 0.5), offsetY = math.floor(row.y * u + 0.5) }
 			entry.anchorInfo2 = nil
@@ -770,7 +778,7 @@ function ns:SetupEditMode()
 	if not scale or scale <= 0 then
 		scale = 1
 	end
-	local castY = math.floor((self.layout.consoleTop * UIParent:GetHeight() / 768 + CAST_BAR_GAP) / scale + 0.5)
+	local castY = math.floor((self.layout.consoleTop * self:ConsoleScale() + CAST_BAR_GAP) / scale + 0.5)
 
 	local index, made
 	for i, layout in ipairs(info.layouts) do

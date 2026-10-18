@@ -574,7 +574,7 @@ function Target:DescribeAuras()
 	end
 	local spot, L = self:AuraSpot(), self.layout
 	if spot and L then
-		local k = UIParent:GetHeight() / 768
+		local k = ns:ConsoleScale()
 		lines[#lines + 1] = ("wanted: first icon at %s,%s"):format(n(spot.x0 * k), n(spot.y * k))
 	end
 	return lines

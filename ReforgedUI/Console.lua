@@ -81,4 +81,14 @@ function Console:OnLayout(L)
 	self.extBg:SetShown(L.extBg.w > 0)
 	-- "Hide actionbar grid texture".
 	self.frames.grid:SetShown(not (ns.db.consoleOpts.hideGrid or ns.db.consoleOpts.editModeBars))
+	self:ApplyTransparency()
+end
+
+-- "Console transparency": fades the art only. Buttons, icons, text and the
+-- portrait are on frames of their own and stay opaque.
+function Console:ApplyTransparency()
+	local alpha = 1 - math.max(0, math.min(100, ns.db.consoleOpts.transparency or 0)) / 100
+	for _, f in pairs(self.frames) do
+		f:SetAlpha(alpha)
+	end
 end

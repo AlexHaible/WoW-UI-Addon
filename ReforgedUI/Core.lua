@@ -56,6 +56,7 @@ local DEFAULTS = {
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
 		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
+		transparency = 0, -- how see-through the console's art is, 0-100 %
 	},
 }
 

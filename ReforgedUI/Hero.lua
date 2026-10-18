@@ -43,7 +43,8 @@ local PRIMARY = {
 	agi = { index = 2, name = "Agility", art = "other\\attribute_agi" },
 	int = { index = 4, name = "Intellect", art = "other\\attribute_int" },
 }
-local CRIT_ART = "other\\critical_strike"
+-- WoW ships the Blademaster's Critical Strike button as one of its own icons.
+local CRIT_ICON = "Interface\\Icons\\Ability_CriticalStrike"
 
 -- Shapeshift forms that replace the weapon and armour icons, by form ID.
 local FORM_ICONS = {
@@ -500,7 +501,7 @@ local function statIcon(kind)
 	elseif PRIMARY[kind] then
 		return ns:ArtPath(PRIMARY[kind].art)
 	elseif kind == "crit" then
-		return ns:ArtPath(CRIT_ART)
+		return CRIT_ICON
 	end
 end
 

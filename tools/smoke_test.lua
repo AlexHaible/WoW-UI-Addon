@@ -1321,6 +1321,10 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 	assert(ns.topLayout.profile == size[3],
 		("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.topLayout.profile))
 	assert(ns.layout.H == 768, "the console is 768 units tall")
+	-- The target's aura icons are placed through the Edit Mode layout all
+	-- characters share: the same spot on every theme, else each login on
+	-- another race asks for a reload.
+	local auraSpot = {}
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
 		"highorder", "windshapers", "forsaken", "skyborne", "auto" }) do
 		slash("theme " .. theme)
@@ -1333,6 +1337,14 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 			local bg = LL.byKey.chat_bg.rect
 			assert(LL.W < 1365 or bg.x + bg.w <= LL.W + 0.01, "the chat area stays on screen")
 			assert(LL.shift == 0 or math.abs((LL.W - LL.rightPoint) - LL.shift) <= 2, ("the console is centred: W %s s %s shift %s right %s"):format(LL.W, s, LL.shift, LL.rightPoint))
+			for _, mode in ipairs({ "swap", "plate" }) do
+				local spot = LL.targetAuras[mode]
+				local key = s .. mode
+				auraSpot[key] = auraSpot[key] or spot
+				assert(math.abs(spot.x0 - auraSpot[key].x0) < 1e-6 and math.abs(spot.y - auraSpot[key].y) < 1e-6,
+					("the target's auras stay put on every theme: %s %s at W %s s %s (%s,%s, not %s,%s)"):format(
+						theme, mode, LL.W, s, spot.x0, spot.y, auraSpot[key].x0, auraSpot[key].y))
+			end
 		end
 	end
 	checkTopBar()

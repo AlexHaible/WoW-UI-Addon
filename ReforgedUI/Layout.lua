@@ -1056,25 +1056,43 @@ end
 -- width where it fits, else the chat area narrows to make room for the caps
 -- (down to ENDCAP_CHAT_MIN), else (16:9) the chat area reaches the screen
 -- edge as in the original addon and the caps go past the screen edges.
-function Layout.Compute(W, H, o)
+--
+-- Where the console starts (how far it is shifted to be centred) and the
+-- chat area's width, for `o.theme`: each theme's odd pixel corrections and
+-- end caps change its width a little.
+local function placement(W, H, o)
 	local s = o.s
 	local fixed = build(W, H, o, 0).chatBgX -- everything left of the chat area
 	local C = Layout.EndcapArt(o.theme)
 	local room = (C.w - C.overlap) * s -- what each cap adds outside the console
 	local full = 2.2 * s
-	local dx, chatW
 	if W >= fixed + full + 2 * room then
-		chatW = full
-		dx = floor((W - fixed - full) / 2)
+		return floor((W - fixed - full) / 2), full
 	elseif W - 2 * math.ceil(room) - fixed >= Layout.ENDCAP_CHAT_MIN * s then
-		dx = math.ceil(room)
-		chatW = W - 2 * dx - fixed
-	else
-		chatW = max(0, min(full, W - fixed))
-		dx = max(0, floor((W - fixed - chatW) / 2))
+		local dx = math.ceil(room)
+		return dx, W - 2 * dx - fixed
 	end
+	local chatW = max(0, min(full, W - fixed))
+	return max(0, floor((W - fixed - chatW) / 2)), chatW
+end
+
+-- The theme whose console start the target's aura icons follow on every
+-- theme (the one shifted furthest right, so they stay clear of the target of
+-- target). They are placed through the Edit Mode layout all characters
+-- share, so a spot that moved with each theme's shift would make each login
+-- on another race save the layout again and ask for a reload.
+local AURA_THEME = "human"
+
+-- The layout for `o` (see above).
+function Layout.Compute(W, H, o)
+	local dx, chatW = placement(W, H, o)
 	local L = build(W, H, o, dx, chatW)
 	L.shift = dx
+	local ref = o.theme == AURA_THEME and dx or placement(W, H, setmetatable({ theme = AURA_THEME }, { __index = o }))
+	local T = L.targetAuras
+	for _, spot in ipairs({ T.swap, T.plate }) do
+		spot.x0, spot.x1 = spot.x0 + ref - dx, spot.x1 + ref - dx
+	end
 	return L
 end
 

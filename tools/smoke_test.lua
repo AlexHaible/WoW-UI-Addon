@@ -1045,6 +1045,28 @@ hero:SetIconChoice(3, "spell")
 assert(hero.stats[3].value._text == "70", "spell power should be the best school")
 hero:SetIconChoice(3, "heal")
 assert(hero.stats[3].value._text == "207", "healing")
+-- In combat the player's own stats can be secret: the icons keep their
+-- picture and last value instead of blanking to a bare fist.
+do
+	local secretNum = setmetatable({}, { __lt = function() error("compared a secret value") end,
+		__le = function() error("compared a secret value") end })
+	local oldDamage, oldArmor, oldHeal, oldTex = UnitDamage, UnitArmor, GetSpellBonusHealing, GetInventoryItemTexture
+	GetInventoryItemTexture = function(_, slot) if slot == 16 then return "Interface\\Icons\\INV_Hammer_01" end end
+	hero:UpdateStats()
+	UnitDamage = function() return secretNum, secretNum, secretNum, secretNum end
+	UnitArmor = function() return secretNum, secretNum end
+	GetSpellBonusHealing = function() return secretNum end
+	secret = true
+	hero:UpdateStats()
+	secret = false
+	assert(hero.stats[1].value._text == "10 - 16" and hero.stats[1].label._text:find("Damage"),
+		"secret damage keeps the last value")
+	assert(hero.stats[1].icon._tex == "Interface\\Icons\\INV_Hammer_01", "secret damage keeps the weapon icon")
+	assert(hero.stats[4].value._text:find("%%") and hero.stats[4].label._text:find("Armor"), "secret armour keeps the last value")
+	assert(hero.stats[3].value._text == "207" and hero.stats[3].icon._tex:find("Holy_Heal"), "secret healing keeps its icon")
+	UnitDamage, UnitArmor, GetSpellBonusHealing, GetInventoryItemTexture = oldDamage, oldArmor, oldHeal, oldTex
+	hero:UpdateStats()
+end
 assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "heal", "icon choices are kept per class")
 -- A right-click on a weapon icon opens its menu (or steps on without one).
 local menuOpened

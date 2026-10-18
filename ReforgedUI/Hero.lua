@@ -453,46 +453,70 @@ local function armourText()
 	return ("%.1f%%"):format(dr)
 end
 
--- Label, value and icon for a stat icon of kind `kind`.
+-- The picture of a stat icon of kind `kind` (nil for an empty slot).
+local function statIcon(kind)
+	if kind == "ammo" then
+		return GetInventoryItemTexture("player", (rangedOrAmmo()))
+	elseif SLOT[kind] then
+		return GetInventoryItemTexture("player", SLOT[kind])
+	elseif kind == "spell" then
+		return "Interface\\Icons\\INV_Staff_07"
+	elseif kind == "heal" then
+		return "Interface\\Icons\\Spell_Holy_Heal"
+	elseif kind == "armor" then
+		return GetInventoryItemTexture("player", 5) or CAPE
+	end
+end
+
+-- The label a stat icon shows before its value has ever been read.
+local STAT_LABELS = {
+	main = "Damage:", offhand = "Damage:", ranged = "Damage:", ammo = "Ammo:",
+	spell = "Spell:", heal = "Healing:", armor = "Armor:",
+}
+
+-- Label and value for a stat icon of kind `kind`. In combat the client can
+-- hand out the player's own damage, armour and spell power as secret
+-- values; the arithmetic here then errors, and UpdateStats keeps the last
+-- value it could read.
 local function statValues(kind)
 	if kind == "main" then
 		local lo, hi = UnitDamage("player")
-		return "Damage:", dmgText(lo, hi), GetInventoryItemTexture("player", 16)
+		return "Damage:", dmgText(lo, hi)
 	elseif kind == "offhand" then
-		local icon = GetInventoryItemTexture("player", 17)
 		local isShield = C_PaperDollInfo and C_PaperDollInfo.OffhandHasShield and C_PaperDollInfo.OffhandHasShield()
 		if isShield and GetBlockChance then
 			local block = GetShieldBlock and GetShieldBlock()
-			return "Block:", ("%.1f%%"):format(GetBlockChance()) .. (block and ("\n (" .. block .. ")") or ""), icon
+			return "Block:", ("%.1f%%"):format(GetBlockChance()) .. (block and ("\n (" .. block .. ")") or "")
 		end
-		if not icon then
-			return "Damage:", "N/A", nil
+		if not GetInventoryItemTexture("player", 17) then
+			return "Damage:", "N/A"
 		end
 		local _, _, lo, hi = UnitDamage("player")
-		return "Damage:", lo and dmgText(lo, hi) or "N/A", icon
+		return "Damage:", lo and dmgText(lo, hi) or "N/A"
 	elseif kind == "ranged" then
-		local icon = GetInventoryItemTexture("player", 18)
-		if not icon then
-			return "Damage:", "N/A", nil
+		if not GetInventoryItemTexture("player", 18) then
+			return "Damage:", "N/A"
 		end
 		local _, lo, hi = UnitRangedDamage("player")
-		return "Damage:", dmgText(lo, hi), icon
+		return "Damage:", dmgText(lo, hi)
 	elseif kind == "ammo" then
 		local slot, count = rangedOrAmmo()
-		local icon = GetInventoryItemTexture("player", slot)
-		if not icon then
-			return "Ammo:", "|cffff0000No ammo|r", nil
+		if not GetInventoryItemTexture("player", slot) then
+			return "Ammo:", "|cffff0000No ammo|r"
 		end
 		local color = count < 200 and "|cffff0000" or count < 400 and "|cffffff00" or "|cffffffff"
-		return "Ammo:", color .. count .. "|r", icon
+		return "Ammo:", color .. count .. "|r"
 	elseif kind == "spell" then
-		return "Spell:", tostring((spellPower())), "Interface\\Icons\\INV_Staff_07"
+		return "Spell:", tostring((spellPower()))
 	elseif kind == "heal" then
-		return "Healing:", tostring(healing()), "Interface\\Icons\\Spell_Holy_Heal"
+		return "Healing:", tostring(healing())
 	elseif kind == "armor" then
-		return "Armor:", armourText(), GetInventoryItemTexture("player", 5) or CAPE
+		return "Armor:", armourText()
 	end
 end
+
+-- The last label and value each kind of stat icon could read.
+local lastStat = {}
 
 -- Damage, speed and DPS lines for one weapon.
 local function weaponLines(title, lo, hi, speed)
@@ -665,9 +689,16 @@ function Hero:UpdateStats()
 		if not shown then
 			f.icon:SetTexture(EMPTY_SLOT)
 		else
-			local ok, label, value, icon = pcall(statValues, f.kind)
-			if not ok then
-				label, value = "", ""
+			local ok, label, value = pcall(statValues, f.kind)
+			if ok and type(value) == "string" and not isSecret(value) then
+				lastStat[f.kind] = { label, value }
+			else
+				local last = lastStat[f.kind]
+				label, value = last and last[1] or STAT_LABELS[f.kind], last and last[2] or ""
+			end
+			local iconOk, icon = pcall(statIcon, f.kind)
+			if not iconOk then
+				icon = nil
 			end
 			if form and SLOT[f.kind] == 16 then
 				icon = form[1]

@@ -194,6 +194,14 @@ strayButton._w, strayButton._h = 24, 24
 -- Another addon's minimap button (LibDBIcon): it goes in the drawer.
 local addonButton = new("button", "LibDBIcon10_SomeAddon", Minimap)
 addonButton._w, addonButton._h = 31, 31
+-- LibDBIcon pins its buttons at MEDIUM, level 8; a pinned level ignores SetFrameLevel.
+addonButton._level, addonButton._fixedLevel, addonButton._fixedStrata = 8, true, true
+function addonButton:SetFrameLevel(l) if not self._fixedLevel then self._level = l end end
+function addonButton:SetFrameStrata(st) if not self._fixedStrata then self._strata = st end end
+function addonButton:IsFixedFrameLevel() return self._fixedLevel end
+function addonButton:SetFixedFrameLevel(on) self._fixedLevel = on end
+function addonButton:IsFixedFrameStrata() return self._fixedStrata end
+function addonButton:SetFixedFrameStrata(on) self._fixedStrata = on end
 function issecurevariable(name) return not name:find("^LibDBIcon") end
 IssueReporterButton = new("button", "IssueReporterButton", UIParent)
 IssueReporterButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 10, 10)
@@ -841,6 +849,11 @@ do
 	local mm = ns.modules.minimap
 	assert(addonButton:GetParent() == mm.drawer and addonButton._points[1][2] == UIParent,
 		"addon buttons go in the compartment's drawer")
+	assert(addonButton:GetFrameLevel() > mm.drawer:GetFrameLevel() and addonButton._fixedLevel,
+		"addon buttons draw above the drawer, even when pinned")
+	local strata = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4 }
+	assert(strata[mm.drawer.bg:GetFrameStrata()] < strata[addonButton:GetFrameStrata()],
+		"the drawer's background sits a strata below its buttons")
 	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
 	local toggleTop = mm.toggle._points[1][5] * unit(mm.toggle) + L.addonCompartment.h
 	assert(mm.drawer._points[1][5] * unit(mm.drawer) > toggleTop and addonButton._points[1][5] * unit(addonButton) > toggleTop,

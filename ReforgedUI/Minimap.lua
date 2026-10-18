@@ -201,9 +201,15 @@ function MinimapModule:CreateCompartment()
 	-- Over the game world and the console, like a menu.
 	drawer:SetFrameStrata("MEDIUM")
 	drawer:SetFrameLevel(50)
-	drawer.bg = drawer:CreateTexture(nil, "BACKGROUND")
+	-- The background is a frame a strata below the buttons, so it stays under
+	-- them whatever level their addon pins them at.
+	drawer.bg = CreateFrame("Frame", nil, drawer)
+	drawer.bg:SetFrameStrata("LOW")
+	drawer.bg:SetFrameLevel(100)
 	drawer.bg:SetAllPoints()
-	drawer.bg:SetColorTexture(0, 0, 0, 0.75)
+	local shade = drawer.bg:CreateTexture(nil, "BACKGROUND")
+	shade:SetAllPoints()
+	shade:SetColorTexture(0, 0, 0, 0.75)
 	drawer:SetShown(ns.db.consoleOpts.addonDrawerOpen and true or false)
 	self.drawer = drawer
 end
@@ -289,6 +295,29 @@ local function fit(f, size)
 	end
 end
 
+-- Puts a drawer button above the flyout's background, whatever the addon
+-- set. LibDBIcon pins its buttons at MEDIUM, level 8 with fixed strata and
+-- level, which the client keeps through SetFrameStrata/SetFrameLevel; unpin,
+-- move, and pin again at the new place.
+local function raise(btn, drawer)
+	local fixedStrata = btn.SetFixedFrameStrata and (not btn.IsFixedFrameStrata or btn:IsFixedFrameStrata())
+	local fixedLevel = btn.SetFixedFrameLevel and (not btn.IsFixedFrameLevel or btn:IsFixedFrameLevel())
+	if fixedStrata then
+		btn:SetFixedFrameStrata(false)
+	end
+	if fixedLevel then
+		btn:SetFixedFrameLevel(false)
+	end
+	btn:SetFrameStrata(drawer:GetFrameStrata())
+	btn:SetFrameLevel(drawer:GetFrameLevel() + 2)
+	if fixedStrata then
+		btn:SetFixedFrameStrata(true)
+	end
+	if fixedLevel then
+		btn:SetFixedFrameLevel(true)
+	end
+end
+
 function MinimapModule:OnLayout(L)
 	local m = L.minimap
 	ns:Lock(Minimap, function(map)
@@ -362,9 +391,7 @@ function MinimapModule:OnLayout(L)
 		if btn:GetParent() ~= self.drawer then
 			btn:SetParent(self.drawer)
 		end
-		-- Above the flyout's background, whatever the addon set.
-		btn:SetFrameStrata(self.drawer:GetFrameStrata())
-		btn:SetFrameLevel(self.drawer:GetFrameLevel() + 2)
+		raise(btn, self.drawer)
 		ns:Lock(btn, function(b)
 			fit(b, size)
 			ns:Anchor(b, "BOTTOMLEFT", x, y)

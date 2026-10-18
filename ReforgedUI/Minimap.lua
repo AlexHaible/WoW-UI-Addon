@@ -117,6 +117,15 @@ function MinimapModule:OnEnable()
 		map.ZoomIn, map.ZoomOut, map.ZoomHitArea, MinimapZoomIn, MinimapZoomOut,
 		cluster.BorderTop, cluster.ZoneTextButton, MinimapZoneTextButton, MiniMapWorldMapButton,
 		TimeManagerClockButton, MiniMapMailBorder)
+	-- The cluster and its map container stay in the screen's top-right corner
+	-- when the map moves, an invisible mouse-catching box over the world and
+	-- anything else there. Only those two: their children (the map itself,
+	-- tracking, mail) keep their mouse.
+	each(function(f)
+		if f.EnableMouse and not ns.IsForbidden(f) then
+			f:EnableMouse(false)
+		end
+	end, cluster.MinimapContainer, MinimapCluster)
 	self.timeFrames = self:FindTimeFrames()
 	for _, f in ipairs(self.timeFrames) do
 		ns:Conceal(f)

@@ -31,7 +31,7 @@ read_globals = {
 	"GetInventoryItemCount", "GetInventoryItemID", "GetItemInfoInstant", "GetShieldBlock", "GetSpellBonusDamage",
 	"GetSpellBonusHealing", "IsAltKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
-	"UnitArmor", "UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
+	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",
 	-- Console port (hero screen, action bars, options menu)
 	"ClearCursor", "ColorPickerFrame", "ContainerFrame1", "CurveConstants", "GetCursorInfo", "GetRealmName",

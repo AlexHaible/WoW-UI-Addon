@@ -34,8 +34,10 @@ screen stays free on either side).
   experience (hover for the numbers, right-click for its colour: purple,
   blue or none) and four stat icons. Each shows main hand, off hand (block
   chance and value with a shield), ranged, ammo (yellow under 400, red under
-  200), spell power, healing, armour (the default for the fourth) or
-  nothing (an empty socket), chosen per class from each icon's right-click menu
+  200), spell power, healing, armour (the default for the fourth),
+  strength, agility, intellect (with Warcraft III's hero attribute art),
+  crit chance (the best of melee, ranged and spell, with the Blademaster's
+  Critical Strike icon) or nothing (an empty socket), chosen per class from each icon's right-click menu
   or the options menu. Druid forms and Ghost Wolf swap
   the icons like the original addon.
 - **Target**: by default the hero screen switches to your target, as

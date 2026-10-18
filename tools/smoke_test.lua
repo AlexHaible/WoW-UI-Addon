@@ -260,6 +260,8 @@ local targetHealthArt = new("texture", nil, TargetFrame.TargetFrameContent)
 TargetFrame.TargetFrameContent.TargetFrameContentMain = new("frame", nil, TargetFrame.TargetFrameContent)
 local targetRepColor = new("texture", nil, TargetFrame.TargetFrameContent.TargetFrameContentMain)
 TargetFrame.TargetFrameContent.TargetFrameContentMain.ReputationColor = targetRepColor
+local targetName = new("fontstring", nil, TargetFrame.TargetFrameContent.TargetFrameContentMain)
+TargetFrame.TargetFrameContent.TargetFrameContentMain.Name = targetName
 TargetFrameSpellBar = new("frame", "TargetFrameSpellBar", TargetFrame)
 TargetFrameBuff1 = new("button", "TargetFrameBuff1", TargetFrame)
 local targetFrameArt = new("texture", nil, TargetFrame)
@@ -800,9 +802,13 @@ lateAura.Icon, lateAura.Cooldown = {}, {}
 -- The reaction-tinted strip behind the name stays hidden when Blizzard
 -- shows it again, and parts made later are hidden on the next target.
 targetRepColor:Show()
+-- The target's name too, even when its alpha comes back some other way.
+targetName._alpha = 1
+targetName:SetShown(true)
 local lateArt = new("texture", nil, TargetFrame.TargetFrameContent)
 fire("PLAYER_TARGET_CHANGED")
 assert(not targetRepColor:IsShown() and targetRepColor._alpha == 0, "the name strip stays hidden")
+assert(not targetName:IsShown(), "Blizzard's target name stays hidden")
 assert(lateArt._alpha == 0 and lateAura._alpha ~= 0, "later target frame art hides, later auras show")
 do
 	local lines = ns.modules.target:DescribeAuras()

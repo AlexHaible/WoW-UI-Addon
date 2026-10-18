@@ -432,6 +432,9 @@ function ns:LayoutOptions()
 		portraitY = tonumber(o.portraitY) or 100,
 		portraitScale = tonumber(o.portraitScale) or 0,
 		chatInputAbove = o.chatInputAbove,
+		-- With "Chat width" on, the chat area runs to the screen edge rather
+		-- than giving up width to the end caps.
+		capsOffScreen = (tonumber(o.chatWiden) or 0) > 0,
 	}
 end
 

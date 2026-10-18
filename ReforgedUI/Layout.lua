@@ -1056,12 +1056,13 @@ local function build(W, H, o, X0, chatW)
 end
 
 -- o: s (240-270), m (raise the chat area, 0-150), theme, zoneTextPos (1-3), portraitX/Y (100 = default), portraitScale (0-35),
--- chatInputAbove.
+-- chatInputAbove, capsOffScreen (never narrow the chat area for the end caps).
 --
 -- The whole console, end caps included, is centred: with the original addon's chat
 -- width where it fits, else the chat area narrows to make room for the caps
--- (down to ENDCAP_CHAT_MIN), else (16:9) the chat area reaches the screen
--- edge as in the original addon and the caps go past the screen edges.
+-- (down to ENDCAP_CHAT_MIN; not with capsOffScreen), else (16:9) the chat
+-- area reaches the screen edge as in the original addon and the caps go past
+-- the screen edges.
 --
 -- Where the console starts (how far it is shifted to be centred) and the
 -- chat area's width, for `o.theme`: each theme's odd pixel corrections and
@@ -1074,9 +1075,12 @@ local function placement(W, H, o)
 	local full = Layout.CHAT_W * s
 	if W >= fixed + full + 2 * room then
 		return floor((W - fixed - full) / 2), full
-	elseif W - 2 * math.ceil(room) - fixed >= Layout.ENDCAP_CHAT_MIN * s then
+	elseif not o.capsOffScreen and W - 2 * math.ceil(room) - fixed >= Layout.ENDCAP_CHAT_MIN * s then
 		local dx = math.ceil(room)
 		return dx, W - 2 * dx - fixed
+	end
+	if o.capsOffScreen then
+		return 0, max(0, W - fixed)
 	end
 	local chatW = max(0, min(full, W - fixed))
 	return max(0, floor((W - fixed - chatW) / 2)), chatW

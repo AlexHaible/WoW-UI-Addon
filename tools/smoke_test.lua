@@ -1344,6 +1344,8 @@ do
 	local wide = ns.layout.byKey.chat_bg.rect.w
 	assert(wide > narrow + 150 and wide >= ns.Layout.ENDCAP_CHAT_MIN * 240, ("the chat area widens: %s to %s"):format(narrow, wide))
 	assert(ns.layout.byKey.chat_bg.rect.x + wide <= ns.layout.W + 0.01, "and stays on screen")
+	assert(ns.layout.byKey.chat_bg.rect.x + wide >= ns.layout.W - 2,
+		"and reaches the screen edge, the end caps past it")
 	chat._scripts.OnMouseUp(chat)
 	UIParent._w, UIParent._h = 1792, 768
 	ns:Relayout()

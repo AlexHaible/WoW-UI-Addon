@@ -686,7 +686,7 @@ do
 	local last = popups[#popups]
 	assert(last and StaticPopupDialogs[last.which].OnAccept and last.text:find("switched"),
 		"a reload is offered after setting up Edit Mode")
-	local top = ns.layout.consoleTop * UIParent:GetHeight() / 768
+	local top = ns.layout.consoleTop * ns:ConsoleScale()
 	for _, layout in ipairs({ L[1], ours }) do
 		local cast = layout.systems[3]
 		assert(not cast.isInDefaultPosition and cast.anchorInfo.relativeTo == "UIParent"
@@ -698,7 +698,7 @@ do
 	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
 	-- target aura spot: above the plate (the mode at login), then beside the
 	-- target of target once swap mode is picked.
-	local k = UIParent:GetHeight() / 768
+	local k = ns:ConsoleScale()
 	local function auraAt(spot, what)
 		local tf = savedLayouts.layouts[3].systems[5]
 		assert(not tf.isInDefaultPosition and tf.settings[1].value == 1, "target frame placed, buffs on top")
@@ -1355,13 +1355,17 @@ end
 -- area and inventory.
 local slash = SlashCmdList.REFORGEDUI
 for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2730.67, 768, "superwide" },
-	{ 1024, 768, "standard" }, { 1920, 1080, "standard" }, { 4266.67, 1200, "superwide" } }) do
+	{ 1024, 768, "standard" }, { 1920, 1080, "standard" }, { 1920, 1200, "standard" }, { 4266.67, 1200, "superwide" } }) do
 	UIParent._w, UIParent._h = size[1], size[2]
 	slash("layout auto")
 	assert(math.abs(ns.topLayout.H - 768 / ns.db.scale) < 0.01, "the top bar should keep its share of the screen")
 	assert(ns.topLayout.profile == size[3],
 		("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.topLayout.profile))
 	assert(ns.layout.H == 768, "the console is 768 units tall")
+	-- Narrower than 16:9 (16:10, 4:3), the console scales down to a 16:9
+	-- screen's width, so the chat area keeps its 16:9 width.
+	assert(ns.layout.W >= 1365.33 - 0.01, "the console is never narrower than 16:9")
+	assert(math.abs(ns.root._h * ns:ConsoleScale() - size[2]) < 0.01, "the console's root fills the screen's height")
 	-- The target's aura icons are placed through the Edit Mode layout all
 	-- characters share: the same spot on every theme, else each login on
 	-- another race asks for a reload.

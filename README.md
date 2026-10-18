@@ -155,6 +155,12 @@ window in the chat area once and then leaves it alone: unlock it from its
 tab's menu (or use Edit Mode) to drag it anywhere and resize it. Its input box
 follows it. Turning the option off puts it back in the chat area.
 
+**Console transparency** (0% by default) makes the console's art
+see-through, so the world shows through it: around 5-10% leaves silhouettes
+visible without losing the look. Only the art fades; action buttons, icons,
+the portrait, the minimap and the chat stay fully opaque. It is saved for the
+whole account.
+
 | 21:9 Night Elf | 32:9 Orc |
 | --- | --- |
 | ![21:9](docs/previews/21x9-nightelf.png) | ![32:9](docs/previews/32x9-orc.png) |

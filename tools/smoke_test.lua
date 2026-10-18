@@ -154,7 +154,12 @@ function methods:SetColorTexture(r, g, b) assert(r and g and b, "colour needs rg
 function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb") end
 function methods:SetStatusBarColor(r, g, b) assert(r and g and b, "colour needs rgb"); self._color = { r, g, b } end
 function methods:SetMinMaxValues(lo, hi) self._min, self._max = lo, hi end
-function methods:SetValue(v) self._value = v end
+function methods:SetValue(v)
+	local old = self._value
+	self._value = v
+	if old ~= v and self._scripts.OnValueChanged then self._scripts.OnValueChanged(self, v) end
+end
+function methods:GetValue() return self._value end
 function methods:GetStringHeight() return 12 end
 function methods:SetEnabled(v) self._enabled = v end
 function methods:Click() self._clicks = (self._clicks or 0) + 1 end
@@ -1310,6 +1315,20 @@ for _, cb in ipairs(config.checks) do
 	assert(not tContains({ "hideBags", "placeChat", "hideMicro" }, cb.key), "no " .. tostring(cb.key) .. " option")
 	assert(cb.key, "every checkbox is a plain option (no centre mode boxes)")
 end
+-- The transparency slider fades the console's art, saved, and nothing else.
+local slider = config.sliders[1]
+assert(slider and slider.key == "transparency", "transparency slider")
+assert(ReforgedUIDB.consoleOpts.transparency == 0 and ns.modules.console.frames.bg:GetAlpha() == 1, "opaque by default")
+slider:SetValue(10)
+assert(ReforgedUIDB.consoleOpts.transparency == 10, "transparency saved")
+for key, f in pairs(ns.modules.console.frames) do
+	assert(math.abs(f:GetAlpha() - 0.9) < 1e-6, key .. " art faded")
+end
+assert(config.cogwheel:GetAlpha() == 1, "the cogwheel stays opaque")
+ns:Relayout()
+assert(math.abs(ns.modules.console.frames.grid:GetAlpha() - 0.9) < 1e-6, "transparency survives a relayout")
+slider:SetValue(0)
+assert(ns.modules.console.frames.cap:GetAlpha() == 1, "back to opaque")
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
 

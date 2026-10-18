@@ -8,7 +8,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 460
+local W, H = 650, 490
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -90,6 +90,44 @@ function Config:Edit(text, key, x, y, w)
 	return eb
 end
 
+-- Slider bound to db.consoleOpts[key] (lo-hi, whole steps); `after` runs as
+-- it moves. No template: the game's slider templates differ between clients.
+function Config:Slider(text, key, lo, hi, x, y, w, after)
+	label(self.frame, text, x, y)
+	local s = CreateFrame("Slider", nil, self.frame, "BackdropTemplate")
+	s:SetOrientation("HORIZONTAL")
+	s:SetSize(w, 17)
+	s:SetPoint("TOPLEFT", x + 170, y + 1)
+	s:SetBackdrop({
+		bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
+		edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
+		tile = true, tileSize = 8, edgeSize = 8,
+		insets = { left = 3, right = 3, top = 6, bottom = 6 },
+	})
+	s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+	s:SetMinMaxValues(lo, hi)
+	s:SetValueStep(1)
+	s:SetObeyStepOnDrag(true)
+	s:EnableMouseWheel(true)
+	local value = label(self.frame, "", x + 178 + w, y, "GameFontHighlight")
+	s:SetScript("OnValueChanged", function(_, v)
+		v = math.floor(v + 0.5)
+		value:SetText(v .. "%")
+		if ns.db.consoleOpts[key] ~= v then
+			ns.db.consoleOpts[key] = v
+			if after then
+				after(v)
+			end
+		end
+	end)
+	s:SetScript("OnMouseWheel", function(slider, delta)
+		slider:SetValue(slider:GetValue() + delta)
+	end)
+	s.key, s.value = key, value
+	self.sliders[#self.sliders + 1] = s
+	return s
+end
+
 ----------------------------------------------------------------------------
 
 function Config:Build()
@@ -117,7 +155,7 @@ function Config:Build()
 	f:Hide()
 	tinsert(UISpecialFrames, "ReforgedUIConfig")
 	self.frame = f
-	self.checks, self.edits = {}, {}
+	self.checks, self.edits, self.sliders = {}, {}, {}
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
@@ -210,8 +248,13 @@ function Config:Build()
 	label(f, "Right-click a stat icon on the console to change it too, or the experience bar for its rested colour.",
 		20, -388, "GameFontNormalSmall")
 
-	button(f, "Apply", 120, 20, -420, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -420, ReloadUI)
+	-- See-through console art (buttons, icons and text stay opaque).
+	self:Slider("Console transparency", "transparency", 0, 100, 20, -418, 300, function()
+		ns.modules.console:ApplyTransparency()
+	end)
+
+	button(f, "Apply", 120, 20, -450, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -450, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).
@@ -248,6 +291,10 @@ function Config:Refresh()
 		local v = o[eb.key]
 		eb:SetText(v and tostring(v) or "")
 		eb:SetCursorPosition(0)
+	end
+	for _, s in ipairs(self.sliders) do
+		s:SetValue(o[s.key] or 0)
+		s.value:SetText((o[s.key] or 0) .. "%")
 	end
 	for _, b in ipairs(self.themeButtons) do
 		b:SetEnabled(ns.db.theme ~= b.key)

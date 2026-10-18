@@ -260,6 +260,8 @@ local targetHealthArt = new("texture", nil, TargetFrame.TargetFrameContent)
 TargetFrame.TargetFrameContent.TargetFrameContentMain = new("frame", nil, TargetFrame.TargetFrameContent)
 local targetRepColor = new("texture", nil, TargetFrame.TargetFrameContent.TargetFrameContentMain)
 TargetFrame.TargetFrameContent.TargetFrameContentMain.ReputationColor = targetRepColor
+local targetName = new("fontstring", nil, TargetFrame.TargetFrameContent.TargetFrameContentMain)
+TargetFrame.TargetFrameContent.TargetFrameContentMain.Name = targetName
 TargetFrameSpellBar = new("frame", "TargetFrameSpellBar", TargetFrame)
 TargetFrameBuff1 = new("button", "TargetFrameBuff1", TargetFrame)
 local targetFrameArt = new("texture", nil, TargetFrame)
@@ -800,9 +802,13 @@ lateAura.Icon, lateAura.Cooldown = {}, {}
 -- The reaction-tinted strip behind the name stays hidden when Blizzard
 -- shows it again, and parts made later are hidden on the next target.
 targetRepColor:Show()
+-- The target's name too, even when its alpha comes back some other way.
+targetName._alpha = 1
+targetName:SetShown(true)
 local lateArt = new("texture", nil, TargetFrame.TargetFrameContent)
 fire("PLAYER_TARGET_CHANGED")
 assert(not targetRepColor:IsShown() and targetRepColor._alpha == 0, "the name strip stays hidden")
+assert(not targetName:IsShown(), "Blizzard's target name stays hidden")
 assert(lateArt._alpha == 0 and lateAura._alpha ~= 0, "later target frame art hides, later auras show")
 do
 	local lines = ns.modules.target:DescribeAuras()
@@ -1321,6 +1327,10 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 	assert(ns.topLayout.profile == size[3],
 		("expected %s at %sx%s, got %s"):format(size[3], size[1], size[2], ns.topLayout.profile))
 	assert(ns.layout.H == 768, "the console is 768 units tall")
+	-- The target's aura icons are placed through the Edit Mode layout all
+	-- characters share: the same spot on every theme, else each login on
+	-- another race asks for a reload.
+	local auraSpot = {}
 	for _, theme in ipairs({ "human", "orc", "undead", "nightelf", "dwarf", "gnome", "tauren", "troll",
 		"highorder", "windshapers", "forsaken", "skyborne", "auto" }) do
 		slash("theme " .. theme)
@@ -1333,6 +1343,14 @@ for _, size in ipairs({ { 1365.33, 768, "standard" }, { 1792, 768, "wide" }, { 2
 			local bg = LL.byKey.chat_bg.rect
 			assert(LL.W < 1365 or bg.x + bg.w <= LL.W + 0.01, "the chat area stays on screen")
 			assert(LL.shift == 0 or math.abs((LL.W - LL.rightPoint) - LL.shift) <= 2, ("the console is centred: W %s s %s shift %s right %s"):format(LL.W, s, LL.shift, LL.rightPoint))
+			for _, mode in ipairs({ "swap", "plate" }) do
+				local spot = LL.targetAuras[mode]
+				local key = s .. mode
+				auraSpot[key] = auraSpot[key] or spot
+				assert(math.abs(spot.x0 - auraSpot[key].x0) < 1e-6 and math.abs(spot.y - auraSpot[key].y) < 1e-6,
+					("the target's auras stay put on every theme: %s %s at W %s s %s (%s,%s, not %s,%s)"):format(
+						theme, mode, LL.W, s, spot.x0, spot.y, auraSpot[key].x0, auraSpot[key].y))
+			end
 		end
 	end
 	checkTopBar()

@@ -434,21 +434,25 @@ local function keepAuras(frame, depth)
 	end
 end
 
--- The strip behind the target's name, tinted by reaction (yellow when
--- neutral). Blizzard shows and recolours it on every target change, so it
--- is hidden outright, not only made clear.
+-- The target's name and the strip behind it, tinted by reaction (yellow
+-- when neutral). Blizzard shows and recolours them on every target change,
+-- and the name could come back past its hidden alpha, so they are hidden
+-- outright, not only made clear.
 local stripsHidden = {}
 local function hideNameStrips(tf)
 	local content = tf.TargetFrameContent
 	local main = content and content.TargetFrameContentMain
 	for _, region in ipairs({ main and main.ReputationColor or false, tf.nameBackground or false,
-		_G.TargetFrameNameBackground or false }) do
+		_G.TargetFrameNameBackground or false, main and main.Name or false, tf.name or false }) do
 		if region and region.Hide then
 			ns:ConcealRegion(region)
 			region:Hide()
 			if not stripsHidden[region] then
 				stripsHidden[region] = true
 				hooksecurefunc(region, "Show", region.Hide)
+				if region.SetShown then
+					hooksecurefunc(region, "SetShown", region.Hide)
+				end
 			end
 		end
 	end

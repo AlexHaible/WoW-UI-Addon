@@ -57,6 +57,7 @@ local DEFAULTS = {
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
 		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
 		transparency = 0, -- how see-through the console's art is, 0-100 %
+		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 	},
 }
 
@@ -437,12 +438,23 @@ end
 -- The console is laid out for a screen 768 units tall (the original addon's
 -- design size) and keeps that share of the screen's height, but never gets
 -- narrower than a 16:9 screen: on narrower ones (16:10, 4:3) it scales down
--- to fit that width, so the chat area keeps its 16:9 width.
+-- to fit that width, so the chat area keeps its 16:9 width. The "Chat width"
+-- option (0-100 %) widens that further, up to room for the original addon's
+-- chat width, on screens too narrow for it.
 local CONSOLE_MIN_ASPECT = 16 / 9
+
+-- The narrowest the console gets, in console units.
+function ns:ConsoleMinWidth()
+	local Layout = self.Layout
+	local base = 768 * CONSOLE_MIN_ASPECT
+	local full = math.max(base, (Layout.CONSOLE_FIXED + Layout.CHAT_W) * self:LayoutOptions().s)
+	local p = math.max(0, math.min(100, tonumber(self.db.consoleOpts.chatWiden) or 0)) / 100
+	return base + (full - base) * p
+end
 
 -- UIParent units per console unit.
 function ns:ConsoleScale()
-	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / (768 * CONSOLE_MIN_ASPECT))
+	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / self:ConsoleMinWidth())
 end
 
 function ns:Relayout()

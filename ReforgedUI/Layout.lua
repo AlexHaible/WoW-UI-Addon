@@ -283,6 +283,12 @@ Layout.ENDCAP_GEN_THEMES = {
 	human = true, orc = true, undead = true, nightelf = true, dwarf = true, gnome = true, tauren = true, troll = true,
 	highorder = true, windshapers = true, forsaken = true,
 }
+-- The original addon's chat area width (times s), and the width of
+-- everything left of it on the widest theme (Night Elf's, 4.285 s): with
+-- the "Chat width" option the console scales down to make room for the
+-- chat area, by the same amount on every theme.
+Layout.CHAT_W = 2.2
+Layout.CONSOLE_FIXED = 4.29
 -- The chat area gives up width so the caps fit beside it, down to this
 -- (times s); below that the caps go past the screen edges instead.
 Layout.ENDCAP_CHAT_MIN = 1.6
@@ -547,7 +553,7 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 	local bg = rect(right(RL) + 3, 0, 0, 0.5578 * s + m)
 	-- The original addon's default width, or up to the screen edge where that is less
 	-- (Compute narrows it further to make room for the end caps).
-	bg.w = chatW or max(0, min(2.2 * s, W - bg.x))
+	bg.w = chatW or max(0, min(Layout.CHAT_W * s, W - bg.x))
 
 	local aeh = 0
 	if s >= 250 and s <= 259 then aeh = -3 elseif s > 259 then aeh = -6 end
@@ -1065,7 +1071,7 @@ local function placement(W, H, o)
 	local fixed = build(W, H, o, 0).chatBgX -- everything left of the chat area
 	local C = Layout.EndcapArt(o.theme)
 	local room = (C.w - C.overlap) * s -- what each cap adds outside the console
-	local full = 2.2 * s
+	local full = Layout.CHAT_W * s
 	if W >= fixed + full + 2 * room then
 		return floor((W - fixed - full) / 2), full
 	elseif W - 2 * math.ceil(room) - fixed >= Layout.ENDCAP_CHAT_MIN * s then

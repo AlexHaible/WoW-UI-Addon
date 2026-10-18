@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 516
+local W, H = 650, 542
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -91,9 +91,11 @@ function Config:Edit(text, key, x, y, w)
 	return eb
 end
 
--- Slider bound to db.consoleOpts[key] (lo-hi, whole steps); `after` runs as
--- it moves. No template: the game's slider templates differ between clients.
-function Config:Slider(text, key, lo, hi, x, y, w, after)
+-- Slider bound to db.consoleOpts[key] (lo-hi, whole steps, its value shown
+-- with `unit`, "%" by default); `after` runs as it moves. No template: the
+-- game's slider templates differ between clients.
+function Config:Slider(text, key, lo, hi, x, y, w, after, unit)
+	unit = unit or "%"
 	label(self.frame, text, x, y)
 	local s = CreateFrame("Slider", nil, self.frame, "BackdropTemplate")
 	s:SetOrientation("HORIZONTAL")
@@ -113,7 +115,7 @@ function Config:Slider(text, key, lo, hi, x, y, w, after)
 	local value = label(self.frame, "", x + 178 + w, y, "GameFontHighlight")
 	s:SetScript("OnValueChanged", function(_, v)
 		v = math.floor(v + 0.5)
-		value:SetText(v .. "%")
+		value:SetText(v .. unit)
 		if ns.db.consoleOpts[key] ~= v then
 			ns.db.consoleOpts[key] = v
 			if after then
@@ -124,7 +126,7 @@ function Config:Slider(text, key, lo, hi, x, y, w, after)
 	s:SetScript("OnMouseWheel", function(slider, delta)
 		slider:SetValue(slider:GetValue() + delta)
 	end)
-	s.key, s.value = key, value
+	s.key, s.value, s.unit = key, value, unit
 	self.sliders[#self.sliders + 1] = s
 	return s
 end
@@ -228,12 +230,11 @@ function Config:Build()
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
-	self:Edit("Extend bottom right upwards (0-150)", "chatUp", x, y - 42)
-	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 84)
-	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 126)
-	self:Edit("", "portraitX", x, y - 126)
-	self:Edit("", "portraitY", x + 70, y - 126)
-	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 168)
+	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 42)
+	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 84)
+	self:Edit("", "portraitX", x, y - 84)
+	self:Edit("", "portraitY", x + 70, y - 84)
+	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
@@ -257,13 +258,18 @@ function Config:Build()
 	-- A wider chat area on screens too narrow for the original addon's: the
 	-- console scales down to make room. Edit Mode's places for the target's
 	-- auras and the cast bar follow when the slider is let go.
-	local chat = self:Slider("Chat width", "chatWiden", 0, 100, 20, -444, 300, relayout)
-	chat:SetScript("OnMouseUp", function()
+	local function placeEditMode()
 		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
-	end)
+	end
+	local chat = self:Slider("Chat width", "chatWiden", 0, 100, 20, -444, 300, relayout)
+	chat:SetScript("OnMouseUp", placeEditMode)
+	-- The original addon's "Extend bottom right upwards": raises the chat
+	-- area (and the cast bar above it, when let go), in console units.
+	local height = self:Slider("Chat height", "chatUp", 0, 150, 20, -470, 300, relayout, "")
+	height:SetScript("OnMouseUp", placeEditMode)
 
-	button(f, "Apply", 120, 20, -476, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -476, ReloadUI)
+	button(f, "Apply", 120, 20, -502, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -502, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).
@@ -280,7 +286,6 @@ function Config:Apply()
 		end
 	end
 	num("uiScale", ns.Layout.SCALE_MIN, ns.Layout.SCALE_MAX)
-	num("chatUp", 0, 150)
 	num("hpWarning", 0, 100)
 	num("portraitX", 0, 300)
 	num("portraitY", 0, 300)
@@ -303,7 +308,7 @@ function Config:Refresh()
 	end
 	for _, s in ipairs(self.sliders) do
 		s:SetValue(o[s.key] or 0)
-		s.value:SetText((o[s.key] or 0) .. "%")
+		s.value:SetText((o[s.key] or 0) .. s.unit)
 	end
 	for _, b in ipairs(self.themeButtons) do
 		b:SetEnabled(ns.db.theme ~= b.key)

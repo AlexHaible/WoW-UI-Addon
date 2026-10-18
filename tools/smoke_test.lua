@@ -1354,6 +1354,23 @@ do
 	UIParent._w, UIParent._h, ReforgedUIDB.consoleOpts.uiScale = w, h, uiScale
 	ns:Relayout()
 end
+-- The chat height slider raises the chat area, saved, shown in units.
+do
+	local height = config.sliders[3]
+	assert(height and height.key == "chatUp", "chat height slider")
+	for _, eb in ipairs(config.edits) do
+		assert(eb.key ~= "chatUp", "chat height is a slider, not a number box")
+	end
+	local before = ReforgedUIDB.consoleOpts.chatUp
+	ns:Relayout()
+	local low = ns.layout.byKey.chat_bg.rect.h
+	height:SetValue(before + 60)
+	assert(ReforgedUIDB.consoleOpts.chatUp == before + 60, "chat height saved")
+	assert(math.abs(ns.layout.byKey.chat_bg.rect.h - (low + 60)) < 0.01, "the chat area grows by the slider's units")
+	assert(height.value._text == tostring(before + 60), "shown without a % sign")
+	height._scripts.OnMouseUp(height)
+	height:SetValue(before)
+end
 -- Everything left of the chat area fits ns.Layout.CONSOLE_FIXED on every theme.
 for _, theme in ipairs(ns.Layout.THEMES) do
 	for _, s in ipairs({ 240, 255, 270 }) do

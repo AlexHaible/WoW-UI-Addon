@@ -26,13 +26,25 @@ local EMPTY_SLOT = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
 local MENU_HINT = "\n|cff808080Right-click to choose what this icon shows.|r"
 
 -- Stat icon choices (the original addon's ChangeWeaponIcon).
-Hero.ICON_KINDS = { "main", "offhand", "ranged", "ammo", "spell", "heal", "armor", "none" }
+Hero.ICON_KINDS = {
+	"main", "offhand", "ranged", "ammo", "spell", "heal", "armor",
+	"str", "agi", "int", "crit", "none",
+}
 Hero.ICON_LABELS = {
 	main = "Main hand", offhand = "Offhand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", armor = "Armor", none = "None",
+	spell = "Spell power", heal = "Healing", armor = "Armor",
+	str = "Strength", agi = "Agility", int = "Intellect", crit = "Crit chance", none = "None",
 }
 local SLOT = { main = 16, offhand = 17, ranged = 18, ammo = 0 }
 local SCHOOLS = { "holy", "fire", "nature", "frost", "shadow", "arcane" }
+-- Primary stats: UnitStat index and Warcraft III's hero attribute art.
+local PRIMARY = {
+	str = { index = 1, name = "Strength", art = "other\\attribute_str" },
+	agi = { index = 2, name = "Agility", art = "other\\attribute_agi" },
+	int = { index = 4, name = "Intellect", art = "other\\attribute_int" },
+}
+-- WoW ships the Blademaster's Critical Strike button as one of its own icons.
+local CRIT_ICON = "Interface\\Icons\\Ability_CriticalStrike"
 
 -- Shapeshift forms that replace the weapon and armour icons, by form ID.
 local FORM_ICONS = {
@@ -453,6 +465,27 @@ local function armourText()
 	return ("%.1f%%"):format(dr)
 end
 
+-- Current value and the parts of it from buffs and debuffs of primary stat
+-- `kind`.
+local function primaryStat(kind)
+	local _, stat, posBuff, negBuff = UnitStat("player", PRIMARY[kind].index)
+	return stat, posBuff or 0, negBuff or 0
+end
+
+-- The player's chance to critically hit, in percent: melee, ranged and the
+-- best spell school.
+local function critChances()
+	local melee = GetCritChance and GetCritChance() or 0
+	local ranged = GetRangedCritChance and GetRangedCritChance() or 0
+	local spell = 0
+	if GetSpellCritChance then
+		for i = 2, 7 do
+			spell = math.max(spell, GetSpellCritChance(i) or 0)
+		end
+	end
+	return melee, ranged, spell
+end
+
 -- The picture of a stat icon of kind `kind` (nil for an empty slot).
 local function statIcon(kind)
 	if kind == "ammo" then
@@ -465,6 +498,10 @@ local function statIcon(kind)
 		return "Interface\\Icons\\Spell_Holy_Heal"
 	elseif kind == "armor" then
 		return GetInventoryItemTexture("player", 5) or CAPE
+	elseif PRIMARY[kind] then
+		return ns:ArtPath(PRIMARY[kind].art)
+	elseif kind == "crit" then
+		return CRIT_ICON
 	end
 end
 
@@ -472,6 +509,7 @@ end
 local STAT_LABELS = {
 	main = "Damage:", offhand = "Damage:", ranged = "Damage:", ammo = "Ammo:",
 	spell = "Spell:", heal = "Healing:", armor = "Armor:",
+	str = "Strength:", agi = "Agility:", int = "Intellect:", crit = "Crit:",
 }
 
 -- Label and value for a stat icon of kind `kind`. In combat the client can
@@ -512,6 +550,11 @@ local function statValues(kind)
 		return "Healing:", tostring(healing())
 	elseif kind == "armor" then
 		return "Armor:", armourText()
+	elseif PRIMARY[kind] then
+		return STAT_LABELS[kind], tostring(primaryStat(kind))
+	elseif kind == "crit" then
+		-- The highest of the three, so casters and hunters see theirs.
+		return "Crit:", ("%.2f%%"):format(math.max(critChances()))
 	end
 end
 
@@ -574,6 +617,19 @@ local function statInfo(kind)
 			text = text .. GOLD .. school:gsub("^%l", string.upper) .. ":|r " .. (by[school] or 0) .. "\n"
 		end
 		return text
+	elseif PRIMARY[kind] then
+		local stat, pos, neg = primaryStat(kind)
+		local text = ("%s%s:|r %d"):format(GOLD, PRIMARY[kind].name, stat)
+		if pos > 0 or neg < 0 then
+			text = text .. (" (%d base"):format(stat - pos - neg)
+				.. (pos > 0 and ("|cff40ff40 +%d|r"):format(pos) or "")
+				.. (neg < 0 and ("|cffff4040 %d|r"):format(neg) or "") .. ")"
+		end
+		return text
+	elseif kind == "crit" then
+		local melee, ranged, spell = critChances()
+		return ("%sMelee crit:|r %.2f%%\n%sRanged crit:|r %.2f%%\n%sSpell crit:|r %.2f%%"):format(
+			GOLD, melee, GOLD, ranged, GOLD, spell)
 	end
 	return attackInfo(kind)
 end
@@ -615,7 +671,8 @@ end
 
 local ICON_NAMES = {
 	main = "Main hand", offhand = "Off hand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", armor = "Armor", none = "None",
+	spell = "Spell power", heal = "Healing", armor = "Armor",
+	str = "Strength", agi = "Agility", int = "Intellect", crit = "Crit chance", none = "None",
 }
 local ICON_TITLES = { "Top left stat icon", "Top right stat icon", "Bottom right stat icon", "Bottom left stat icon" }
 

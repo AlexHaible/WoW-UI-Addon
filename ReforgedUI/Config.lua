@@ -2,13 +2,14 @@
 -- the chat area (or /rui config). The original addon's
 -- "General" tab in its wording, kept minimal: the console is always laid out
 -- like the original addon's "Center UI" with its chat area and inventory, so the centre
--- modes, chat width, chat placement and "Hide bags" options are gone.
+-- modes, chat placement and "Hide bags" options are gone, and "Chat width" only
+-- matters where the screen is too narrow for the original addon's chat area.
 -- The original addon's "Customize" tab is not ported (see README.md).
 
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 490
+local W, H = 650, 516
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -253,8 +254,16 @@ function Config:Build()
 		ns.modules.console:ApplyTransparency()
 	end)
 
-	button(f, "Apply", 120, 20, -450, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -450, ReloadUI)
+	-- A wider chat area on screens too narrow for the original addon's: the
+	-- console scales down to make room. Edit Mode's places for the target's
+	-- auras and the cast bar follow when the slider is let go.
+	local chat = self:Slider("Chat width", "chatWiden", 0, 100, 20, -444, 300, relayout)
+	chat:SetScript("OnMouseUp", function()
+		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
+	end)
+
+	button(f, "Apply", 120, 20, -476, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -476, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).

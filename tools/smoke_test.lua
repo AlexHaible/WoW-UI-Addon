@@ -1308,9 +1308,6 @@ end
 function methods:GetText() return self._text end
 config:Apply()
 assert(ReforgedUIDB.consoleOpts.uiScale == 270 and ns.layout.s == 270, "UI scale is clamped to 240-270")
-for _, eb in ipairs(config.edits) do
-	assert(not tContains({ "chatWidth" }, eb.key), "no chat width option")
-end
 for _, cb in ipairs(config.checks) do
 	assert(not tContains({ "hideBags", "placeChat", "hideMicro" }, cb.key), "no " .. tostring(cb.key) .. " option")
 	assert(cb.key, "every checkbox is a plain option (no centre mode boxes)")
@@ -1329,6 +1326,41 @@ ns:Relayout()
 assert(math.abs(ns.modules.console.frames.grid:GetAlpha() - 0.9) < 1e-6, "transparency survives a relayout")
 slider:SetValue(0)
 assert(ns.modules.console.frames.cap:GetAlpha() == 1, "back to opaque")
+-- The chat width slider: on a screen too narrow for the original addon's
+-- chat area (16:10 here), the console scales down to make room for it; 0 %
+-- keeps a 16:9 screen's width. Wider screens are left alone.
+do
+	local chat = config.sliders[2]
+	assert(chat and chat.key == "chatWiden", "chat width slider")
+	local w, h, uiScale = UIParent._w, UIParent._h, ReforgedUIDB.consoleOpts.uiScale
+	ReforgedUIDB.consoleOpts.uiScale = 240
+	UIParent._w, UIParent._h = 1920, 1200
+	assert(ReforgedUIDB.consoleOpts.chatWiden == 0, "16:9 width by default")
+	ns:Relayout()
+	local narrow = ns.layout.byKey.chat_bg.rect.w
+	assert(math.abs(ns.layout.W - 1365.33) < 0.01, "16:9 width at 0 %")
+	chat:SetValue(100)
+	assert(ReforgedUIDB.consoleOpts.chatWiden == 100, "chat width saved")
+	local wide = ns.layout.byKey.chat_bg.rect.w
+	assert(wide > narrow + 150 and wide >= ns.Layout.ENDCAP_CHAT_MIN * 240, ("the chat area widens: %s to %s"):format(narrow, wide))
+	assert(ns.layout.byKey.chat_bg.rect.x + wide <= ns.layout.W + 0.01, "and stays on screen")
+	assert(ns.layout.byKey.chat_bg.rect.x + wide >= ns.layout.W - 2,
+		"and reaches the screen edge, the end caps past it")
+	chat._scripts.OnMouseUp(chat)
+	UIParent._w, UIParent._h = 1792, 768
+	ns:Relayout()
+	assert(ns.layout.W == 1792, "21:9 is wide enough already")
+	chat:SetValue(0)
+	UIParent._w, UIParent._h, ReforgedUIDB.consoleOpts.uiScale = w, h, uiScale
+	ns:Relayout()
+end
+-- Everything left of the chat area fits ns.Layout.CONSOLE_FIXED on every theme.
+for _, theme in ipairs(ns.Layout.THEMES) do
+	for _, s in ipairs({ 240, 255, 270 }) do
+		local LT = ns.Layout.Compute(5000, 768, { s = s, m = 10, theme = theme, zoneTextPos = 1 })
+		assert(LT.chatBgX - LT.shift <= ns.Layout.CONSOLE_FIXED * s, theme .. " fits CONSOLE_FIXED")
+	end
+end
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
 

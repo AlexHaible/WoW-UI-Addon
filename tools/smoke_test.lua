@@ -1848,6 +1848,17 @@ do
 		assert(target.tot.kind == want, "ToT tint " .. want)
 	end
 	assert(target.tot.glow._vertex[2] == 1 and target.tot.glow._vertex[1] < 0.5, "friendly ToT is green")
+	-- In instances "is it me" can be secret: never tested, tinted by reaction.
+	do
+		local secretBool = {}
+		local oldIsUnit = UnitIsUnit
+		UnitIsUnit = function(a, b) if a == "targettarget" then return secretBool end return oldIsUnit(a, b) end
+		secret = true
+		target:UpdateToT()
+		secret = false
+		assert(target.tot.kind == "friendly", "a secret ToT is tinted by reaction")
+		UnitIsUnit = oldIsUnit
+	end
 	-- Clearing the target restores the player, in combat.
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")

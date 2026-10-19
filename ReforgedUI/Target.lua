@@ -697,7 +697,7 @@ function Target:UpdateHealth()
 	v.health:SetMinMaxValues(0, max)
 	v.health:SetValue(cur)
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
-	if tapped then
+	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
 	elseif v == self.plate then
 		v.health:SetStatusBarColor(0, 1, 0) -- the hero's green
@@ -798,6 +798,9 @@ function Target:UpdateToT()
 	end
 	SetPortraitTexture(tot.portrait, "targettarget")
 	local isMe = UnitIsUnit and UnitIsUnit("targettarget", "player")
+	if isSecret(isMe) then
+		isMe = false -- not known in instances: tinted by reaction instead
+	end
 	local kind = isMe and "player" or reactionKind("targettarget")
 	tot.kind = kind
 	local c = REACTION[kind]

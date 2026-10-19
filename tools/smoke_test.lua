@@ -409,7 +409,8 @@ FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local savedLayouts
 Enum = Enum or {}
-Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3 }
+Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6 }
+Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
 Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
@@ -435,8 +436,12 @@ C_EditMode = {
 			{ system = 3, systemIndex = 2, settings = { { setting = 4, value = 0 } } },
 			{ system = 3, systemIndex = 1, isInDefaultPosition = true, settings = { { setting = 2, value = 0 } } },
 			{ system = 0, systemIndex = 2, settings = { { setting = 3, value = 100 } } },
+			{ system = 6, systemIndex = 1, isInDefaultPosition = true },
+			{ system = 6, systemIndex = 2, isInDefaultPosition = true },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
+			{ system = 6, systemIndex = 1, isInDefaultPosition = false, anchorInfo = { point = "TOPLEFT",
+				relativeTo = "UIParent", relativePoint = "TOPLEFT", offsetX = 300, offsetY = -200 } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
@@ -718,6 +723,17 @@ do
 	assert(ours.systems[4].settings[1].value == 1 and L[1].systems[4].settings[1].value == 0,
 		"raid-style party frames in our layout only")
 	assert(ours.systems[1].anchorInfo.relativeTo == "UIParent", "the copy is of the repaired layout")
+	-- Buffs start just below the top bar, debuffs under them, in the layout
+	-- (so Edit Mode can still move them); a player's own place is kept.
+	for _, layout in ipairs({ L[1], ours }) do
+		local buffs, debuffs = layout.systems[7].anchorInfo, layout.systems[8].anchorInfo
+		assert(not layout.systems[7].isInDefaultPosition and buffs.point == "TOPRIGHT"
+			and buffs.relativeTo == "UIParent" and buffs.offsetX < 0 and buffs.offsetY < 0, "buffs below the top bar")
+		assert(debuffs.relativeTo == "BuffFrame" and debuffs.point == "TOPRIGHT", "debuffs under the buffs")
+	end
+	assert(L[2].systems[2].anchorInfo.offsetX == 300, "buffs the player moved stay put")
+	assert(ns.db.consoleOpts.buffSpot and ns.db.consoleOpts.buffSpot.y == ours.systems[7].anchorInfo.offsetY,
+		"the buffs' place is remembered")
 	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
 	-- target aura spot: above the plate (the mode at login), then beside the
 	-- target of target once swap mode is picked.
@@ -753,6 +769,19 @@ do
 	end
 	ns:SetupEditMode()
 	assert(#popups == offered, "no reload offered for offsets the game rounded")
+	-- Buffs still where we put them follow a new top bar scale; moved ones don't.
+	local ourBuffs, mineBuffs = savedLayouts.layouts[3].systems[7], savedLayouts.layouts[1].systems[7]
+	mineBuffs.anchorInfo.offsetX = -400
+	local oldY = ourBuffs.anchorInfo.offsetY
+	local oldSpot = ns.BuffSpot
+	ns.BuffSpot = function() return { x = -24, y = oldY * 2 } end
+	ns:SetupEditMode()
+	assert(ourBuffs.anchorInfo.offsetY == oldY * 2 and mineBuffs.anchorInfo.offsetX == -400,
+		"our buffs follow the top bar, moved buffs stay")
+	assert(popups[#popups].text:find("buffs"), "reload offered after moving buffs")
+	ns.BuffSpot = oldSpot
+	ns:SetupEditMode()
+	offered = #popups
 	-- "Let Edit Mode place action bars 1-3": the bars are placed in our
 	-- layout once over the grid rows, at a grid-like icon size in whichever
 	-- form the layout stores it, and then left to the player.
@@ -1733,16 +1762,9 @@ for _, e in ipairs({ "UNIT_HEALTH", "UNIT_POWER_UPDATE", "PLAYER_XP_UPDATE", "BA
 end
 flushTimers()
 slash("feeds")
--- Buffs hang just below the top bar, debuffs under the buffs; both anchored
--- to Blizzard frames only.
-do
-	local point, rel, _, x, y = BuffFrame:GetPoint(1)
-	assert(point == "TOPRIGHT" and rel == UIParent and x < 0 and y < 0, "buffs pinned below the top bar")
-	local _, drel = DebuffFrame:GetPoint(1)
-	assert(drel == BuffFrame, "debuffs under the buffs")
-	BuffFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-	assert(select(2, BuffFrame:GetPoint(1)) == UIParent and BuffFrame:GetPoint(1) == "TOPRIGHT", "buffs stay pinned")
-end
+-- Buffs are left to Edit Mode: moving them sticks.
+BuffFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+assert(BuffFrame:GetPoint(1) == "CENTER", "buffs can be moved")
 -- Bars 2, 3 and 8 are turned on once per character.
 assert(settingValues.PROXY_SHOW_ACTIONBAR_2 and settingValues.PROXY_SHOW_ACTIONBAR_3
 	and settingValues.PROXY_SHOW_ACTIONBAR_8, "bars 2, 3 and 8 turned on")

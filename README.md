@@ -82,8 +82,8 @@ screen stays free on either side).
   per faction, Horde and Alliance apart); right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
-  social, guild, world map, game menu, ...: whichever the client has). A
-  panel's slot opens it with a secure click on Blizzard's micro button for
+  social, guild, world map, game menu, ...: whichever the client has),
+  shown by name in the theme's menu font and colour. A panel's slot opens it with a secure click on Blizzard's micro button for
   it, so it opens untainted and in combat too. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and

@@ -63,7 +63,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 
 **Top bar**
 - The **day/night clock** in the middle, with Blizzard's menu buttons either side of it.
-- **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold, with Horde and Alliance listed and totalled apart (gold can't cross factions). Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons, or one of the game's own panels: character, spellbook, talents, skills, quest log, social, guild, world map, game menu and the rest your client has. Click a panel's slot to open it, in combat too.
+- **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold, with Horde and Alliance listed and totalled apart (gold can't cross factions). Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons, or one of the game's own panels: character, spellbook, talents, skills, quest log, social, guild, world map, game menu and the rest your client has. Panels show by name in the theme's menu font; click one to open it, in combat too.
 
 **Damage meter**
 - The game's built-in damage meter wears your theme: the top bar's trim around each window, a dark inset, the theme's rail under the header and every bar, and Warcraft III's bar texture and font. The breakdown window that opens on click matches.

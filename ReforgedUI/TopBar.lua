@@ -233,43 +233,43 @@ end
 -- window opens untainted and works in combat as Blizzard's button would.
 -- Without a button, `open` opens it from our code. A panel shows in the
 -- slot menu only when the client has a way to open it. Saved in a slot as
--- "panel:<key>", which no data feed is named.
+-- "panel:<key>", which no data feed is named. Their slots show just the
+-- name, in the theme's menu font and colour (the old menu plates' look).
 local PANEL_PREFIX = "panel:"
 local PANELS = {
-	{ key = "character", label = _G.CHARACTER_BUTTON or "Character", icon = "Interface\\Icons\\INV_Chest_Cloth_17",
+	{ key = "character", label = _G.CHARACTER_BUTTON or "Character",
 		buttons = { "CharacterMicroButton" },
 		open = function() ToggleCharacter("PaperDollFrame") end, can = function() return ToggleCharacter end },
-	{ key = "spellbook", label = _G.SPELLBOOK or "Spellbook", icon = "Interface\\Icons\\INV_Misc_Book_09",
+	{ key = "spellbook", label = _G.SPELLBOOK or "Spellbook",
 		buttons = { "SpellbookMicroButton" } },
-	{ key = "talents", label = _G.TALENTS or "Talents", icon = "Interface\\Icons\\Ability_Marksmanship",
+	{ key = "talents", label = _G.TALENTS or "Talents",
 		buttons = { "TalentMicroButton", "PlayerSpellsMicroButton" } },
-	{ key = "professions", label = _G.PROFESSIONS_BUTTON or "Professions", icon = "Interface\\Icons\\Trade_Engineering",
+	{ key = "professions", label = _G.PROFESSIONS_BUTTON or "Professions",
 		buttons = { "ProfessionMicroButton" } },
 	-- Classic's skills are a tab of the character window, with no button.
-	{ key = "skills", label = _G.SKILLS or "Skills", icon = "Interface\\Icons\\INV_Misc_Book_11",
+	{ key = "skills", label = _G.SKILLS or "Skills",
 		open = function() ToggleCharacter("SkillFrame") end,
 		can = function() return ToggleCharacter and _G.SkillFrame end },
 	{ key = "achievements", label = _G.ACHIEVEMENTS or "Achievements",
-		icon = "Interface\\Icons\\Achievement_Quests_Completed_08",
 		buttons = { "LegacyMicroButton", "AchievementMicroButton" } },
-	{ key = "quests", label = _G.QUESTLOG_BUTTON or "Quest Log", icon = "Interface\\Icons\\INV_Misc_Note_01",
+	{ key = "quests", label = _G.QUESTLOG_BUTTON or "Quest Log",
 		buttons = { "QuestLogMicroButton" },
 		open = function() ToggleQuestLog() end, can = function() return ToggleQuestLog end },
-	{ key = "social", label = _G.SOCIAL_BUTTON or "Social", icon = "Interface\\Icons\\INV_Misc_GroupNeedMore",
+	{ key = "social", label = _G.SOCIAL_BUTTON or "Social",
 		buttons = { "SocialsMicroButton", "FriendsMicroButton" },
 		open = function() ToggleFriendsFrame() end, can = function() return ToggleFriendsFrame end },
-	{ key = "guild", label = _G.GUILD or "Guild", icon = "Interface\\Icons\\INV_Shirt_GuildTabard_01",
+	{ key = "guild", label = _G.GUILD or "Guild",
 		buttons = { "GuildMicroButton" } },
-	{ key = "groupfinder", label = _G.DUNGEONS_BUTTON or "Group Finder", icon = "Interface\\Icons\\INV_Misc_GroupLooking",
+	{ key = "groupfinder", label = _G.DUNGEONS_BUTTON or "Group Finder",
 		buttons = { "LFGMicroButton", "LFDMicroButton" } },
-	{ key = "map", label = _G.WORLDMAP_BUTTON or "World Map", icon = "Interface\\Icons\\INV_Misc_Map_01",
+	{ key = "map", label = _G.WORLDMAP_BUTTON or "World Map",
 		buttons = { "WorldMapMicroButton" },
 		open = function() ToggleWorldMap() end, can = function() return ToggleWorldMap end },
-	{ key = "collections", label = _G.COLLECTIONS or "Collections", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+	{ key = "collections", label = _G.COLLECTIONS or "Collections",
 		buttons = { "CollectionsMicroButton" } },
-	{ key = "menu", label = _G.MAINMENU_BUTTON or "Game Menu", icon = "Interface\\Icons\\INV_Misc_Gear_01",
+	{ key = "menu", label = _G.MAINMENU_BUTTON or "Game Menu",
 		buttons = { "MainMenuMicroButton" } },
-	{ key = "help", label = _G.HELP_BUTTON or "Help", icon = "Interface\\Icons\\INV_Misc_QuestionMark",
+	{ key = "help", label = _G.HELP_BUTTON or "Help",
 		buttons = { "HelpMicroButton" } },
 }
 local panelByName = {}
@@ -480,10 +480,41 @@ function TopBar:GetSlot(i)
 	return slot
 end
 
+-- A game panel's name, centred in the theme's menu font and title colour
+-- (GameFontNormalSmall where the theme has none); feeds go back to the
+-- plain white font beside their icon.
+function TopBar:StyleSlotText(slot, panel)
+	if slot.panelStyle == (panel and ns.theme or false) then
+		return
+	end
+	slot.panelStyle = panel and ns.theme or false
+	local text, theme = slot.text, ns.theme
+	text:ClearAllPoints()
+	text.ourFont = nil
+	if panel then
+		text:SetPoint("LEFT", 6, 0)
+		text:SetPoint("RIGHT", -6, 0)
+		text:SetJustifyH("CENTER")
+		if not (theme and theme.font and ns:SetFont(text, 11, "", theme.font)) then
+			text:SetFontObject("GameFontNormalSmall")
+		end
+		if theme and theme.title then
+			text:SetTextColor(unpack(theme.title))
+		end
+	else
+		text:SetPoint("LEFT", slot.icon, "RIGHT", 4, 0)
+		text:SetPoint("RIGHT", -6, 0)
+		text:SetJustifyH("RIGHT")
+		text:SetFontObject("GameFontHighlightSmall")
+		text:SetTextColor(1, 1, 1)
+	end
+end
+
 function TopBar:RefreshSlot(slot)
 	local name = self:SlotFeed(slot.index)
 	local obj = self:FeedObject(name)
 	self:UpdateSecure(slot)
+	self:StyleSlotText(slot, panelByName[name or ""])
 	if obj then
 		slot.icon:SetTexture(obj.icon)
 		slot.icon:SetShown(obj.icon ~= nil)
@@ -871,6 +902,7 @@ function TopBar:OnTheme(theme)
 	for _, slot in ipairs(self.slots) do
 		ns.Art.PaintInset(slot.plate, theme)
 	end
+	self:RefreshSlots()
 	if ns.topLayout then
 		ns.Art.PlacePanel(self.panel, ns.topLayout.topBar, ns.topRoot, false)
 	end

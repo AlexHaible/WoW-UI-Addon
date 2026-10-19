@@ -169,7 +169,7 @@ function methods:GetAlpha() return self._alpha or 1 end
 function methods:EnableMouse(v) self._mouse = v end
 function methods:IsForbidden() return self._forbidden or false end
 function methods:SetColorTexture(r, g, b) assert(r and g and b, "colour needs rgb") end
-function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb") end
+function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb"); self._textColor = { r, g, b } end
 function methods:SetStatusBarColor(r, g, b) assert(r and g and b, "colour needs rgb"); self._color = { r, g, b } end
 function methods:SetMinMaxValues(lo, hi) self._min, self._max = lo, hi end
 function methods:SetValue(v)
@@ -1301,7 +1301,10 @@ do
 	assert(not panels.skills and not panels.professions, "no panel without a way to open it")
 	SlashCmdList.REFORGEDUI("slot 4 quests")
 	local slot = tb.slots[4]
-	assert(slot.text._text == panels.quests.label and slot.icon._shown, "slot 4 shows the quest log")
+	assert(slot.text._text == panels.quests.label and not slot.icon._shown, "slot 4 shows the quest log, without an icon")
+	local title = ns.theme.title
+	assert(slot.text._textColor and slot.text._textColor[1] == title[1] and slot.text._textColor[3] == title[3],
+		"in the theme's menu colour")
 	local f = slot.secure
 	assert(f and f:IsProtected() and f:IsShown() and f:GetParent() == UIParent, "a secure button over the slot")
 	assert(f:GetAttribute("type1") == "click" and f:GetAttribute("clickbutton") == QuestLogMicroButton,
@@ -1332,6 +1335,7 @@ do
 	SkillFrame, ToggleCharacter = nil, nil
 	SlashCmdList.REFORGEDUI("slot 4 none")
 	assert(slot.text._text == "" and not f:IsShown(), "an emptied slot drops the secure button")
+	assert(slot.text._textColor[1] == 1 and slot.text._textColor[2] == 1 and slot.text._textColor[3] == 1, "and goes back to white")
 end
 assert(tb.panel and ns.topRoot and tb.holder:GetParent() == ns.topRoot, "top bar lives on its own root")
 do

@@ -3,7 +3,9 @@
 -- midnight) with Blizzard's own micro buttons (character, talents, group
 -- finder, ..., game menu) either side of it, and slots for LibDataBroker
 -- feeds, like Titan Panel, everywhere else. Gold, bag space and durability
--- are feeds of our own and fill the first three slots by default.
+-- are feeds of our own and fill the first three slots by default. A slot
+-- can also hold one of the game's own panels (quest log, map, game menu,
+-- ...), opened by a click.
 -- Right-click an empty slot, or Alt-right-click a filled one, to choose its
 -- feed.
 
@@ -223,6 +225,92 @@ function TopBar:UpdateFeeds()
 end
 
 ----------------------------------------------------------------------------
+-- Game panels
+
+-- The game's own windows, for slots: each opens through Blizzard's micro
+-- button for it where the client has one (also the hidden ones, see
+-- HIDDEN_MICRO), clicked by a secure button (see TopBar:PlaceSecure) so the
+-- window opens untainted and works in combat as Blizzard's button would.
+-- Without a button, `open` opens it from our code. A panel shows in the
+-- slot menu only when the client has a way to open it. Saved in a slot as
+-- "panel:<key>", which no data feed is named.
+local PANEL_PREFIX = "panel:"
+local PANELS = {
+	{ key = "character", label = _G.CHARACTER_BUTTON or "Character", icon = "Interface\\Icons\\INV_Chest_Cloth_17",
+		buttons = { "CharacterMicroButton" },
+		open = function() ToggleCharacter("PaperDollFrame") end, can = function() return ToggleCharacter end },
+	{ key = "spellbook", label = _G.SPELLBOOK or "Spellbook", icon = "Interface\\Icons\\INV_Misc_Book_09",
+		buttons = { "SpellbookMicroButton" } },
+	{ key = "talents", label = _G.TALENTS or "Talents", icon = "Interface\\Icons\\Ability_Marksmanship",
+		buttons = { "TalentMicroButton", "PlayerSpellsMicroButton" } },
+	{ key = "professions", label = _G.PROFESSIONS_BUTTON or "Professions", icon = "Interface\\Icons\\Trade_Engineering",
+		buttons = { "ProfessionMicroButton" } },
+	-- Classic's skills are a tab of the character window, with no button.
+	{ key = "skills", label = _G.SKILLS or "Skills", icon = "Interface\\Icons\\INV_Misc_Book_11",
+		open = function() ToggleCharacter("SkillFrame") end,
+		can = function() return ToggleCharacter and _G.SkillFrame end },
+	{ key = "achievements", label = _G.ACHIEVEMENTS or "Achievements",
+		icon = "Interface\\Icons\\Achievement_Quests_Completed_08",
+		buttons = { "LegacyMicroButton", "AchievementMicroButton" } },
+	{ key = "quests", label = _G.QUESTLOG_BUTTON or "Quest Log", icon = "Interface\\Icons\\INV_Misc_Note_01",
+		buttons = { "QuestLogMicroButton" },
+		open = function() ToggleQuestLog() end, can = function() return ToggleQuestLog end },
+	{ key = "social", label = _G.SOCIAL_BUTTON or "Social", icon = "Interface\\Icons\\INV_Misc_GroupNeedMore",
+		buttons = { "SocialsMicroButton", "FriendsMicroButton" },
+		open = function() ToggleFriendsFrame() end, can = function() return ToggleFriendsFrame end },
+	{ key = "guild", label = _G.GUILD or "Guild", icon = "Interface\\Icons\\INV_Shirt_GuildTabard_01",
+		buttons = { "GuildMicroButton" } },
+	{ key = "groupfinder", label = _G.DUNGEONS_BUTTON or "Group Finder", icon = "Interface\\Icons\\INV_Misc_GroupLooking",
+		buttons = { "LFGMicroButton", "LFDMicroButton" } },
+	{ key = "map", label = _G.WORLDMAP_BUTTON or "World Map", icon = "Interface\\Icons\\INV_Misc_Map_01",
+		buttons = { "WorldMapMicroButton" },
+		open = function() ToggleWorldMap() end, can = function() return ToggleWorldMap end },
+	{ key = "collections", label = _G.COLLECTIONS or "Collections", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+		buttons = { "CollectionsMicroButton" } },
+	{ key = "menu", label = _G.MAINMENU_BUTTON or "Game Menu", icon = "Interface\\Icons\\INV_Misc_Gear_01",
+		buttons = { "MainMenuMicroButton" } },
+	{ key = "help", label = _G.HELP_BUTTON or "Help", icon = "Interface\\Icons\\INV_Misc_QuestionMark",
+		buttons = { "HelpMicroButton" } },
+}
+local panelByName = {}
+for _, p in ipairs(PANELS) do
+	p.name = PANEL_PREFIX .. p.key
+	p.type = "launcher"
+	panelByName[p.name] = p
+end
+TopBar.PANELS = PANELS
+
+-- Blizzard's micro button that opens `panel`, if the client has one.
+local function panelButton(panel)
+	for _, name in ipairs(panel.buttons or {}) do
+		local b = _G[name]
+		if type(b) == "table" and b.Click and not ns.IsForbidden(b) then
+			return b
+		end
+	end
+end
+
+local function panelAvailable(panel)
+	return panelButton(panel) ~= nil or (panel.can and panel.can() and true or false)
+end
+
+-- Opens `panel` from our own code: for a click the secure button didn't
+-- take (it waits for the end of combat to be set up).
+local function openPanel(panel)
+	local b = panelButton(panel)
+	if b then
+		b:Click("LeftButton")
+	elseif panel.open and panel.can and panel.can() then
+		panel.open()
+	end
+end
+
+local function panelTooltip(panel, tip)
+	tip:AddLine(panel.label, 1, 1, 1)
+	tip:AddLine("Click to open.", 0.8, 0.8, 0.8)
+end
+
+----------------------------------------------------------------------------
 -- Slots
 
 local function feedText(name, obj)
@@ -240,6 +328,26 @@ end
 
 function TopBar:SlotFeed(i)
 	return ns.db.broker.slots[i]
+end
+
+-- The data object a slot's feed name stands for: a game panel or a data
+-- broker feed.
+function TopBar:FeedObject(name)
+	if not name then
+		return
+	end
+	return panelByName[name] or (LDB and LDB:GetDataObjectByName(name))
+end
+
+-- The game panels this client can open, in PANELS order.
+function TopBar:PanelList()
+	local list = {}
+	for _, p in ipairs(PANELS) do
+		if panelAvailable(p) then
+			list[#list + 1] = p
+		end
+	end
+	return list
 end
 
 function TopBar:SetSlotFeed(i, name)
@@ -269,6 +377,17 @@ end
 function TopBar:OpenSlotMenu(slot)
 	local current = self:SlotFeed(slot.index)
 	local items = { { text = "Empty", checked = not current, func = function() self:SetSlotFeed(slot.index, nil) end } }
+	local panels = self:PanelList()
+	if #panels > 0 then
+		items[#items + 1] = { text = "Game panels", title = true }
+		for _, p in ipairs(panels) do
+			items[#items + 1] = {
+				text = p.label, checked = current == p.name,
+				func = function() self:SetSlotFeed(slot.index, p.name) end,
+			}
+		end
+		items[#items + 1] = { text = "Data feeds", title = true }
+	end
 	for _, name in ipairs(self:FeedNames()) do
 		items[#items + 1] = {
 			text = name, checked = current == name,
@@ -276,25 +395,27 @@ function TopBar:OpenSlotMenu(slot)
 		}
 	end
 	if not ns:ShowMenu(slot, "Slot " .. slot.index, items) then
-		ns:Print("use /rui feeds and /rui slot <number> <feed name>|none")
+		ns:Print("use /rui feeds and /rui slot <number> <feed or panel name>|none")
 	end
 end
 
 local function slotEnter(slot)
 	local name = TopBar:SlotFeed(slot.index)
-	local obj = name and LDB and LDB:GetDataObjectByName(name)
+	local obj = TopBar:FeedObject(name)
 	if obj and obj.OnEnter then
 		obj.OnEnter(slot)
 		return
 	end
 	GameTooltip:SetOwner(slot, "ANCHOR_BOTTOM")
-	if obj and obj.OnTooltipShow then
+	if panelByName[name] then
+		panelTooltip(obj, GameTooltip)
+	elseif obj and obj.OnTooltipShow then
 		obj.OnTooltipShow(GameTooltip)
 	elseif obj then
 		GameTooltip:AddLine(obj.label or name, 1, 1, 1)
 	else
 		GameTooltip:AddLine("Empty slot", 1, 1, 1)
-		GameTooltip:AddLine("Right-click to choose a data feed.", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("Right-click to choose a data feed or game panel.", 0.8, 0.8, 0.8)
 	end
 	if obj then
 		GameTooltip:AddLine("Alt-right-click to change this slot.", 0.6, 0.6, 0.6)
@@ -303,8 +424,7 @@ local function slotEnter(slot)
 end
 
 local function slotLeave(slot)
-	local name = TopBar:SlotFeed(slot.index)
-	local obj = name and LDB and LDB:GetDataObjectByName(name)
+	local obj = TopBar:FeedObject(TopBar:SlotFeed(slot.index))
 	if obj and obj.OnLeave then
 		obj.OnLeave(slot)
 	else
@@ -314,10 +434,14 @@ end
 
 local function slotClick(slot, button)
 	local name = TopBar:SlotFeed(slot.index)
-	local obj = name and LDB and LDB:GetDataObjectByName(name)
+	local obj = TopBar:FeedObject(name)
 	if button == "RightButton" and (IsAltKeyDown() or not (obj and obj.OnClick)) then
 		GameTooltip:Hide()
 		TopBar:OpenSlotMenu(slot)
+	elseif panelByName[name] then
+		if button == "LeftButton" then
+			openPanel(obj)
+		end
 	elseif obj and obj.OnClick then
 		obj.OnClick(slot, button)
 	end
@@ -358,7 +482,8 @@ end
 
 function TopBar:RefreshSlot(slot)
 	local name = self:SlotFeed(slot.index)
-	local obj = name and LDB and LDB:GetDataObjectByName(name)
+	local obj = self:FeedObject(name)
+	self:UpdateSecure(slot)
 	if obj then
 		slot.icon:SetTexture(obj.icon)
 		slot.icon:SetShown(obj.icon ~= nil)
@@ -380,6 +505,52 @@ function TopBar:RefreshSlots()
 			self:RefreshSlot(slot)
 		end
 	end
+end
+
+-- A slot holding a game panel gets a secure button over it that clicks
+-- Blizzard's micro button for the panel, so the panel opens as if that
+-- button had been clicked: untainted, and in combat too. It's protected, so
+-- it hangs from UIParent (anchoring it to our frames would protect them as
+-- well) and changes only out of combat; until then the slot's own click
+-- opens the panel.
+function TopBar:UpdateSecure(slot)
+	ns:RunOutOfCombat("topbar secure " .. slot.index, function() self:PlaceSecure(slot) end)
+end
+
+function TopBar:PlaceSecure(slot)
+	local panel = panelByName[self:SlotFeed(slot.index) or ""]
+	local b = panel and slot:IsShown() and slot.rect and panelButton(panel)
+	local f = slot.secure
+	if not b then
+		if f then
+			f:Hide()
+		end
+		return
+	end
+	if not f then
+		f = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+		f:SetFrameStrata("BACKGROUND")
+		f:SetFrameLevel(60) -- over the slot's face
+		f:RegisterForClicks("AnyUp")
+		f:SetAttribute("useOnKeyDown", false)
+		f:SetAttribute("type1", "click")
+		f:SetScript("OnEnter", function() slotEnter(slot) end)
+		f:SetScript("OnLeave", function() slotLeave(slot) end)
+		-- The left click is the secure one; the right still opens the menu.
+		f:SetScript("PostClick", function(_, button)
+			if button ~= "LeftButton" then
+				slotClick(slot, button)
+			end
+		end)
+		slot.secure = f
+	end
+	f:SetAttribute("clickbutton", b)
+	local r = slot.rect
+	local s = ns.topRoot:GetEffectiveScale() / f:GetEffectiveScale()
+	f:ClearAllPoints()
+	f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", r.x * s, r.y * s)
+	f:SetSize(r.w * s, r.h * s)
+	f:Show()
 end
 
 ----------------------------------------------------------------------------
@@ -682,10 +853,12 @@ function TopBar:OnLayout()
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)
 		place(slot, r)
+		slot.rect = r
 		slot:Show()
 	end
 	for i = #L.topSlots + 1, #self.slots do
 		self.slots[i]:Hide()
+		self:UpdateSecure(self.slots[i])
 	end
 	self:UpdateClock()
 	self:UpdateFeeds()
@@ -706,9 +879,16 @@ end
 -- For /rui feeds and /rui slot.
 function TopBar:ListFeeds()
 	ns:Print("data feeds:", table.concat(self:FeedNames(), ", "))
+	local panels = {}
+	for _, p in ipairs(self:PanelList()) do
+		panels[#panels + 1] = p.label
+	end
+	ns:Print("game panels:", table.concat(panels, ", "))
 	for i, slot in ipairs(self.slots) do
 		if slot:IsShown() then
-			print(("  slot %d: %s"):format(i, self:SlotFeed(i) or "empty"))
+			local name = self:SlotFeed(i)
+			local panel = panelByName[name or ""]
+			print(("  slot %d: %s"):format(i, panel and panel.label or name or "empty"))
 		end
 	end
 end
@@ -717,6 +897,17 @@ function TopBar:SetSlotByName(i, query)
 	if query == "none" or query == "empty" then
 		self:SetSlotFeed(i, nil)
 		return true
+	end
+	-- Game panels by name or key first: "map", "quests", "game menu".
+	local panels = self:PanelList()
+	for _, exact in ipairs({ true, false }) do
+		for _, p in ipairs(panels) do
+			local label = p.label:lower()
+			if label == query or p.key == query or (not exact and label:find(query, 1, true)) then
+				self:SetSlotFeed(i, p.name)
+				return p.label
+			end
+		end
 	end
 	for _, name in ipairs(self:FeedNames()) do
 		if name:lower() == query or name:lower():find(query, 1, true) then

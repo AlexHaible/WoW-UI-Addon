@@ -80,7 +80,11 @@ screen stays free on either side).
   to the screen edges: gold, bag space and durability fill the first three
   (right of the clock; hover the gold for every character's gold and a total
   per faction, Horde and Alliance apart); right-click an empty
-  slot (Alt-right-click a filled one) to choose any feed. The micro buttons
+  slot (Alt-right-click a filled one) to choose any feed, or one of the
+  game's own panels (character, spellbook, talents, skills, quest log,
+  social, guild, world map, game menu, ...: whichever the client has). A
+  panel's slot opens it with a secure click on Blizzard's micro button for
+  it, so it opens untainted and in combat too. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and
   click-through wherever Edit Mode puts it.
@@ -231,8 +235,8 @@ of your faction. Saved themes from earlier versions keep working.
 ```
 /rui config                      open the options menu
 /rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
-/rui feeds                       list data feeds and top bar slots
-/rui slot <number> <feed>|none   put a feed in a top bar slot
+/rui feeds                       list data feeds, game panels and top bar slots
+/rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall

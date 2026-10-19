@@ -502,7 +502,11 @@ function ns:ShowMenu(owner, title, items)
 	MenuUtil.CreateContextMenu(owner, function(_, root)
 		root:CreateTitle(title)
 		for _, item in ipairs(items) do
-			root:CreateRadio(item.text, function() return item.checked end, function() item.func() end)
+			if item.title then
+				root:CreateTitle(item.text)
+			else
+				root:CreateRadio(item.text, function() return item.checked end, function() item.func() end)
+			end
 		end
 		if #items > 20 and root.SetScrollMode then
 			root:SetScrollMode(400)
@@ -1066,8 +1070,8 @@ local function usage()
 	ns:Print("commands (the console's own options are in its menu: the cogwheel in the chat area's bottom-right corner):")
 	print("  /rui config  (open that menu)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
-	print("  /rui feeds  (list data feeds and top bar slots)")
-	print("  /rui slot <number> <feed name>||none")
+	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
+	print("  /rui slot <number> <feed or panel name>||none")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"

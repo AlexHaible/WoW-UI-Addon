@@ -1263,6 +1263,47 @@ feed.text = "updated"
 assert(tb.slots[4].text._text == "updated", "feed changes should reach the slot")
 SlashCmdList.REFORGEDUI("slot 5 test feed")
 assert(tb.slots[4].text._text == "" and tb.slots[5].text._text == "updated", "a feed should move, not duplicate")
+do
+	-- Game panels go in slots too: opened by a secure click on Blizzard's
+	-- micro button for them (hidden ones included), set up out of combat.
+	local panels = {}
+	for _, p in ipairs(tb:PanelList()) do panels[p.key] = p end
+	assert(panels.quests and panels.map and panels.menu and panels.talents and panels.character, "panels with micro buttons")
+	assert(not panels.skills and not panels.professions, "no panel without a way to open it")
+	SlashCmdList.REFORGEDUI("slot 4 quests")
+	local slot = tb.slots[4]
+	assert(slot.text._text == panels.quests.label and slot.icon._shown, "slot 4 shows the quest log")
+	local f = slot.secure
+	assert(f and f:IsProtected() and f:IsShown() and f:GetParent() == UIParent, "a secure button over the slot")
+	assert(f:GetAttribute("type1") == "click" and f:GetAttribute("clickbutton") == QuestLogMicroButton,
+		"which clicks the quest log's micro button")
+	assert(f._points[1][2] == UIParent and f._w > 0 and f._h > 0, "hanging from UIParent, not our frames")
+	local clicks = QuestLogMicroButton._clicks or 0
+	slot._scripts.OnClick(slot, "LeftButton")
+	assert(QuestLogMicroButton._clicks == clicks + 1, "the slot's own click opens it too")
+	f._scripts.PostClick(f, "LeftButton")
+	assert(QuestLogMicroButton._clicks == clicks + 1, "no second click after the secure one")
+	inCombat = true
+	SlashCmdList.REFORGEDUI("slot 4 map")
+	assert(slot.text._text == panels.map.label and f:GetAttribute("clickbutton") == QuestLogMicroButton,
+		"the secure button waits for the end of combat")
+	inCombat = false
+	fire("PLAYER_REGEN_ENABLED")
+	assert(f:GetAttribute("clickbutton") == WorldMapMicroButton, "and changes after it")
+	SlashCmdList.REFORGEDUI("slot 4 game menu")
+	assert(f:GetAttribute("clickbutton") == MainMenuMicroButton, "panels by their name")
+	-- Classic's skills: a tab of the character window, opened from our code.
+	local opened
+	SkillFrame = new("frame", "SkillFrame", UIParent)
+	ToggleCharacter = function(tab) opened = tab end
+	SlashCmdList.REFORGEDUI("slot 4 skills")
+	assert(slot.text._text == tb.PANELS[5].label and not f:IsShown(), "skills, with no secure button")
+	slot._scripts.OnClick(slot, "LeftButton")
+	assert(opened == "SkillFrame", "skills open the character window's skill tab")
+	SkillFrame, ToggleCharacter = nil, nil
+	SlashCmdList.REFORGEDUI("slot 4 none")
+	assert(slot.text._text == "" and not f:IsShown(), "an emptied slot drops the secure button")
+end
 assert(tb.panel and ns.topRoot and tb.holder:GetParent() == ns.topRoot, "top bar lives on its own root")
 do
 	-- The clock hangs from the screen's top edge over the bar; the dial turns

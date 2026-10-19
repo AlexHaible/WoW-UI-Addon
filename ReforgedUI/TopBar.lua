@@ -3,7 +3,8 @@
 -- midnight) with Blizzard's own micro buttons (character, talents, group
 -- finder, ..., game menu) either side of it, and slots for LibDataBroker
 -- feeds, like Titan Panel, everywhere else. Gold, bag space and durability
--- are feeds of our own and fill the first three slots by default. A slot
+-- are feeds of our own and fill the first three slots by default; so is
+-- ping and framerate, for any slot. A slot
 -- can also hold one of the game's own panels (quest log, map, game menu,
 -- ...), opened by a click.
 -- Right-click an empty slot, or Alt-right-click a filled one, to choose its
@@ -14,6 +15,7 @@ local TopBar = ns:RegisterModule("topbar", {})
 local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 
 local FEED_GOLD, FEED_BAGS, FEED_REPAIR = "Reforged: Gold", "Reforged: Bags", "Reforged: Durability"
+local FEED_PING = "Reforged: Ping & FPS"
 local DEFAULT_SLOTS = { FEED_GOLD, FEED_BAGS, FEED_REPAIR } -- slot 1 is nearest the clock, on its right
 
 local Container = C_Container or {}
@@ -64,6 +66,45 @@ local function formatMoney(copper)
 end
 TopBar.FormatMoney = formatMoney
 
+-- World latency (what other players' actions lag by) coloured green, yellow
+-- or red, and the framerate. textLeft and textRight are ours: our slots show
+-- the ping on the left and the framerate on the right; other broker
+-- displays show `text`, both together.
+local function pingColor(ms)
+	return ms < 100 and "33ff33" or ms < 250 and "ffd100" or "ff3333"
+end
+
+local function netStats()
+	if not GetNetStats then
+		return
+	end
+	local inKB, outKB, home, world = GetNetStats()
+	return inKB, outKB, home, world
+end
+
+function TopBar:UpdatePing()
+	local feed = self.feeds and self.feeds.ping
+	if not feed then
+		return
+	end
+	local _, _, _, world = netStats()
+	local ping = world and ("|cff%s%d ms|r"):format(pingColor(world), world) or "- ms"
+	local fps = ("%d fps"):format(math.floor((GetFramerate and GetFramerate() or 0) + 0.5))
+	feed.textLeft, feed.textRight = ping, fps
+	feed.text = ping .. "  " .. fps
+end
+
+function TopBar:PingTooltip(tip)
+	tip:AddLine("Ping & FPS", 1, 1, 1)
+	local inKB, outKB, home, world = netStats()
+	if world then
+		tip:AddDoubleLine("World latency", ("|cff%s%d ms|r"):format(pingColor(world), world), 0.8, 0.8, 0.8, 1, 1, 1)
+		tip:AddDoubleLine("Home latency", ("|cff%s%d ms|r"):format(pingColor(home), home), 0.8, 0.8, 0.8, 1, 1, 1)
+		tip:AddDoubleLine("Bandwidth in / out", ("%.1f / %.1f KB/s"):format(inKB, outKB), 0.8, 0.8, 0.8, 1, 1, 1)
+	end
+	tip:AddDoubleLine("Framerate", ("%.0f fps"):format(GetFramerate and GetFramerate() or 0), 0.8, 0.8, 0.8, 1, 1, 1)
+end
+
 function TopBar:CreateFeeds()
 	if not LDB then
 		return
@@ -91,7 +132,21 @@ function TopBar:CreateFeeds()
 				tip:AddLine("Lowest durability of your equipped items.", 0.8, 0.8, 0.8)
 			end,
 		}),
+		ping = LDB:NewDataObject(FEED_PING, {
+			type = "data source", label = "Ping & FPS", text = "- ms  0 fps",
+			OnTooltipShow = function(tip) TopBar:PingTooltip(tip) end,
+		}),
 	}
+	-- The framerate changes all the time: once a second is enough.
+	local elapsed = 1
+	self.pingTimer = CreateFrame("Frame")
+	self.pingTimer:SetScript("OnUpdate", function(_, dt)
+		elapsed = elapsed + dt
+		if elapsed >= 1 then
+			elapsed = 0
+			self:UpdatePing()
+		end
+	end)
 	for _, e in ipairs({ "PLAYER_MONEY", "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED",
 		"UPDATE_INVENTORY_DURABILITY", "PLAYER_EQUIPMENT_CHANGED" }) do
 		ns:On(e, function() self:UpdateFeeds() end)
@@ -468,6 +523,13 @@ function TopBar:GetSlot(i)
 		slot.text:SetPoint("RIGHT", -6, 0)
 		slot.text:SetJustifyH("RIGHT")
 		slot.text:SetWordWrap(false)
+		-- For a feed with textLeft and textRight (ours, ping and framerate):
+		-- the left half, `text` taking the right.
+		slot.left = face:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		slot.left:SetPoint("LEFT", 6, 0)
+		slot.left:SetJustifyH("LEFT")
+		slot.left:SetWordWrap(false)
+		slot.left:Hide()
 		slot:RegisterForClicks("AnyUp")
 		slot:SetScript("OnEnter", slotEnter)
 		slot:SetScript("OnLeave", slotLeave)
@@ -514,11 +576,25 @@ function TopBar:RefreshSlot(slot)
 	local name = self:SlotFeed(slot.index)
 	local obj = self:FeedObject(name)
 	self:UpdateSecure(slot)
-	self:StyleSlotText(slot, panelByName[name or ""])
+	local panel = panelByName[name or ""]
+	self:StyleSlotText(slot, panel)
+	local split = obj and not panel and obj.textLeft and obj.textRight
+	slot.left:SetShown(split and true or false)
 	if obj then
 		slot.icon:SetTexture(obj.icon)
 		slot.icon:SetShown(obj.icon ~= nil)
-		slot.text:SetText(feedText(name, obj))
+		if split then
+			slot.left:ClearAllPoints()
+			if obj.icon then
+				slot.left:SetPoint("LEFT", slot.icon, "RIGHT", 4, 0)
+			else
+				slot.left:SetPoint("LEFT", 6, 0)
+			end
+			slot.left:SetText(obj.textLeft)
+			slot.text:SetText(obj.textRight)
+		else
+			slot.text:SetText(feedText(name, obj))
+		end
 		if obj.iconR then
 			slot.icon:SetVertexColor(obj.iconR, obj.iconG or 1, obj.iconB or 1)
 		else
@@ -653,7 +729,11 @@ function TopBar:OnEnable()
 	if LDB then
 		local refresh = ns:Throttle(function() self:RefreshSlots() end, 0.05)
 		LDB.RegisterCallback(self, "LibDataBroker_DataObjectCreated", refresh)
-		LDB.RegisterCallback(self, "LibDataBroker_AttributeChanged", function(_, name)
+		LDB.RegisterCallback(self, "LibDataBroker_AttributeChanged", function(_, name, key)
+			-- textLeft and textRight change just before text does.
+			if key == "textLeft" or key == "textRight" then
+				return
+			end
 			for _, slot in ipairs(self.slots) do
 				if slot:IsShown() and self:SlotFeed(slot.index) == name then
 					self:RefreshSlot(slot)

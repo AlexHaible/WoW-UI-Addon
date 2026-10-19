@@ -363,6 +363,8 @@ function UnitIsUnit(a, b) return a == b or (a == "targettarget" and b == "player
 function UnitCastingInfo() return nil end
 function UnitChannelInfo() return nil end
 function GetTime() return 100 end
+function GetNetStats() return 1.5, 0.5, 40, 180 end
+function GetFramerate() return 59.6 end
 function UnitIsPlayer() return false end
 function UnitReaction() return 2 end
 function UnitClassification() return "elite" end
@@ -1292,6 +1294,34 @@ feed.text = "updated"
 assert(tb.slots[4].text._text == "updated", "feed changes should reach the slot")
 SlashCmdList.REFORGEDUI("slot 5 test feed")
 assert(tb.slots[4].text._text == "" and tb.slots[5].text._text == "updated", "a feed should move, not duplicate")
+do
+	-- Ping and framerate: world latency on the left of the slot, fps on the right.
+	tb.pingTimer._scripts.OnUpdate(tb.pingTimer, 1)
+	SlashCmdList.REFORGEDUI("slot 6 ping")
+	local slot = tb.slots[6]
+	assert(slot.left._shown and slot.left._text:find("180 ms", 1, true) and slot.left._text:find("ffd100"),
+		"world ping on the left, in yellow")
+	assert(slot.text._text == "60 fps", "fps on the right")
+	assert(tb.feeds.ping.text:find("180 ms", 1, true) and tb.feeds.ping.text:find("60 fps", 1, true),
+		"other displays get both")
+	GetNetStats = function() return 1, 1, 30, 45 end
+	GetFramerate = function() return 120 end
+	tb.pingTimer._scripts.OnUpdate(tb.pingTimer, 0.5)
+	assert(slot.text._text == "60 fps", "updates once a second")
+	tb.pingTimer._scripts.OnUpdate(tb.pingTimer, 0.5)
+	assert(slot.text._text == "120 fps" and slot.left._text:find("45 ms", 1, true) and slot.left._text:find("33ff33"),
+		"a second later, the new values")
+	local lines = {}
+	tb.feeds.ping.OnTooltipShow({
+		AddLine = function(_, t) lines[#lines + 1] = t end,
+		AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+	})
+	local text = table.concat(lines, "\n")
+	assert(text:find("World latency", 1, true) and text:find("Home latency", 1, true) and text:find("120 fps", 1, true),
+		"ping tooltip")
+	SlashCmdList.REFORGEDUI("slot 6 none")
+	assert(not slot.left._shown and slot.text._text == "", "an emptied slot drops the ping")
+end
 do
 	-- Game panels go in slots too: opened by a secure click on Blizzard's
 	-- micro button for them (hidden ones included), set up out of combat.

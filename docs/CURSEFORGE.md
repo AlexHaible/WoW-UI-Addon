@@ -4,7 +4,7 @@
 
 Reforged UI replaces the bottom of your screen with the Warcraft III command console: minimap block, portrait, hero screen, action grid, inventory and chat, all set into one stone (or wood, bone, iron…) wall. A top bar adds a Warcraft III day/night clock, Blizzard's menu buttons and slots for data feeds. Every playable race gets its own console.
 
-It works on 16:9, 21:9 and 32:9 screens. On wide screens the console stays centred and leaves the sides free.
+It works on 16:9, 16:10, 21:9 and 32:9 screens. On wide screens the console stays centred and leaves the sides free. On 16:10 it scales down to a 16:9 screen's width, so the chat area stays as wide as on 16:9.
 
 ---
 
@@ -57,7 +57,8 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Clicks go through Blizzard's bag buttons, so bag addons like **BetterBags** open as usual.
 
 **Chat area**
-- Your main chat window sits in the black panel at the right end of the console, and can be raised.
+- Your main chat window sits in the black panel at the right end of the console.
+- Two sliders in the options size it: **Chat height** raises the chat area, and **Chat width** makes it wider on screens too narrow for the full chat area by scaling the console down a little more.
 - Prefer it elsewhere? Turn on **Let me move and resize the chat window**, then drag and resize it as you like.
 
 **Top bar**
@@ -99,7 +100,8 @@ Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wh
 
 Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui config`, or go to **Options → AddOns → Reforged UI**, where the menu opens right inside the game's options. Options include:
 - theme and UI scale
-- raising the chat area
+- console transparency, which fades the console's art so the world shows through while buttons, icons, text and the portrait stay solid
+- chat width and height
 - portrait position
 - low-health warning threshold
 - zone text position

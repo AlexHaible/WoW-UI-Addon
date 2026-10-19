@@ -10,7 +10,7 @@ globals = {
 read_globals = {
 	-- WoW API and frames (Retail and Classic-based clients)
 	"DamageMeter", "DamageMeterEntryMixin", "AddonCompartmentFrame", "BACKPACK_TOOLTIP", "C_Container", "C_PvP", "ClearOverrideBindings",
-	"ContainerFrameCombinedBags", "ContainerIDToInventoryID", "CreateColor", "CreateFrame",
+	"ContainerFrameCombinedBags", "ContainerIDToInventoryID", "CreateColor", "CreateFontFamily", "CreateFrame",
 	"EQUIP_CONTAINER", "ExpansionLandingPageMinimapButton", "FCF_SavePositionAndDimensions",
 	"GameTimeFrame", "GameTooltip", "GameTooltip_Hide", "GameTooltip_SetDefaultAnchor",
 	"GarrisonLandingPageMinimapButton", "GetBindingKey", "GetContainerNumFreeSlots", "GetContainerNumSlots",

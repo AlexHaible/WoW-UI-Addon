@@ -318,16 +318,66 @@ function ns:Anchor(frame, point, x, y)
 	frame:SetPoint(point, UIParent, "BOTTOMLEFT", x * s, y * s)
 end
 
+-- Our font (the original addon's) only has Latin letters, so a name in
+-- Korean, Chinese or Cyrillic came out as boxes. A font family hands those
+-- letters to the fonts the game itself uses for them (its own SystemFont
+-- families do the same); one family per size and outline.
+local FALLBACK_FONTS = {
+	{ "korean", "Fonts\\2002.TTF" },
+	{ "simplifiedchinese", "Fonts\\ARKai_T.ttf" },
+	{ "traditionalchinese", "Fonts\\blei00d.TTF" },
+	{ "russian", "Fonts\\FRIZQT___CYR.TTF" },
+}
+local families = {}
+local function fontFamily(size, flags)
+	local key = size .. "_" .. flags
+	if families[key] == nil then
+		local members = { { alphabet = "roman", file = ns.FONT, height = size, flags = flags } }
+		for i, f in ipairs(FALLBACK_FONTS) do
+			members[i + 1] = { alphabet = f[1], file = f[2], height = size, flags = flags }
+		end
+		local ok, family = pcall(CreateFontFamily, "ReforgedUIFont" .. key:gsub("%W", "_"), members)
+		families[key] = ok and family or false
+	end
+	return families[key]
+end
+
+-- Gives a font string our font at `size`, with the game's fonts for letters
+-- ours lacks. False when our font file cannot be loaded.
+function ns:SetFont(fs, size, flags)
+	flags = flags or ""
+	if not fs:SetFont(self.FONT, size, flags) then
+		return false
+	end
+	fs.ourFont = flags
+	local family = CreateFontFamily and fontFamily(size, flags)
+	if family then
+		fs:SetFontObject(family)
+	end
+	return true
+end
+
+-- Changes a font string's font size, keeping its font (ours with its
+-- fallbacks, or whatever it had).
+function ns:ResizeFont(fs, size)
+	if fs.ourFont then
+		self:SetFont(fs, size, fs.ourFont)
+	else
+		local path, _, flags = fs:GetFont()
+		fs:SetFont(path, size, flags or "")
+	end
+end
+
 -- Sets `text` on a one-line font string and shrinks its font, a point at a
 -- time from the size it was created with, until it fits the string's width.
 local MIN_FIT_SIZE = 7
 function ns:FitText(fs, text)
 	fs:SetWordWrap(false)
-	local path, size, flags = fs:GetFont()
+	local path, size = fs:GetFont()
 	fs.fitSize = fs.fitSize or size
 	size = fs.fitSize
 	if path and size then
-		fs:SetFont(path, size, flags or "")
+		self:ResizeFont(fs, size)
 	end
 	fs:SetText(text)
 	local maxW = fs:GetWidth()
@@ -337,7 +387,7 @@ function ns:FitText(fs, text)
 	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
 	while measure(fs) > maxW and size > MIN_FIT_SIZE do
 		size = size - 1
-		fs:SetFont(path, size, flags or "")
+		self:ResizeFont(fs, size)
 	end
 end
 
@@ -494,6 +544,11 @@ end
 ns.themeCallbacks = {}
 ReforgedUI = {
 	FONT = ns.FONT,
+	-- SetFont(fs, size, flags): our font, with the game's fonts for Korean,
+	-- Chinese and Cyrillic letters (Core.lua).
+	SetFont = function(fs, size, flags)
+		return ns:SetFont(fs, size, flags)
+	end,
 	-- The theme's key (also its art folder name) and its table (Themes.lua).
 	GetTheme = function()
 		return ns.themeKey, ns.theme

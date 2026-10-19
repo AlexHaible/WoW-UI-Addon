@@ -1812,9 +1812,15 @@ do
 		local oldFull, oldIsSecret = GetUnitName, issecretvalue
 		GetUnitName = function(u, full) if u == "target" then return secretName end return oldFull(u, full) end
 		issecretvalue = function(v) return v == secretName or oldIsSecret(v) end
+		-- The string's width turns secret along with its text.
+		local oldWidth = methods.GetWidth
+		methods.GetWidth = function(self, ...)
+			assert(self._text ~= secretName, "read the width of a secret name")
+			return oldWidth(self, ...)
+		end
 		fire("UNIT_NAME_UPDATE", "target")
 		assert(hero.xp.name._text == secretName, "a secret target name is shown untouched")
-		GetUnitName, issecretvalue = oldFull, oldIsSecret
+		GetUnitName, issecretvalue, methods.GetWidth = oldFull, oldIsSecret, oldWidth
 		fire("UNIT_NAME_UPDATE", "target")
 		assert(hero.xp.name._text == "Hogger", "the plain name comes back")
 	end

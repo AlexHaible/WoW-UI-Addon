@@ -370,8 +370,8 @@ end
 
 -- Sets `text` on a one-line font string and shrinks its font, a point at a
 -- time from the size it was created with, until it fits the string's width.
--- Secret text (a unit name in an instance) can't be measured, so it keeps
--- the starting size.
+-- Secret text (a unit name in an instance) can't be measured, and makes the
+-- string's own width secret too, so it keeps the starting size.
 local MIN_FIT_SIZE = 7
 function ns:FitText(fs, text)
 	fs:SetWordWrap(false)
@@ -382,11 +382,11 @@ function ns:FitText(fs, text)
 		self:ResizeFont(fs, size)
 	end
 	fs:SetText(text)
-	local maxW = fs:GetWidth()
-	if not (path and size and maxW and maxW > 0) then
+	if issecretvalue and issecretvalue(text) then
 		return
 	end
-	if issecretvalue and issecretvalue(text) then
+	local maxW = fs:GetWidth()
+	if not (path and size and maxW) or (issecretvalue and issecretvalue(maxW)) or maxW <= 0 then
 		return
 	end
 	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth

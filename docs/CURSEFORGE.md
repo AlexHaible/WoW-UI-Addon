@@ -133,6 +133,7 @@ Theme names: `human`, `dwarf`, `gnome`, `nightelf`, `highorder`, `windshapers`, 
 
 - Blizzard's player and target frames are replaced by the console. The focus frame is left to Edit Mode.
 - In combat this client doesn't let any addon read a target's auras. That's why Reforged UI uses Blizzard's own aura icons for the target: they keep working when the fighting starts.
+- Names in Korean, Chinese or Cyrillic show properly. The console's font only has Latin letters, so the game's own fonts fill in the rest.
 - If you turn Action Bar 8 off, the three slots beside the minimap become empty sockets. Hover them to see how to turn it back on.
 
 ## Bugs and suggestions

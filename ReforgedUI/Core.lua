@@ -320,41 +320,85 @@ end
 
 -- Our font (the original addon's) only has Latin letters, so a name in
 -- Korean, Chinese or Cyrillic came out as boxes. A font family hands those
--- letters to the fonts the game itself uses for them (its own SystemFont
--- families do the same); one family per size and outline.
+-- letters to the fonts the game itself uses for them, read from its own
+-- GameFontHighlight family (these files as a fallback); one family per size
+-- and outline.
 local FALLBACK_FONTS = {
-	{ "korean", "Fonts\\2002.TTF" },
-	{ "simplifiedchinese", "Fonts\\ARKai_T.ttf" },
-	{ "traditionalchinese", "Fonts\\blei00d.TTF" },
-	{ "russian", "Fonts\\FRIZQT___CYR.TTF" },
+	korean = "Fonts\\2002.TTF",
+	simplifiedchinese = "Fonts\\ARKai_T.ttf",
+	traditionalchinese = "Fonts\\blei00d.TTF",
+	russian = "Fonts\\FRIZQT___CYR.TTF",
 }
+local ALPHABETS = { "korean", "simplifiedchinese", "traditionalchinese", "russian" }
+
+local function gameFontFile(alphabet)
+	local base = GameFontHighlight
+	if base and base.GetFontObjectForAlphabet then
+		local ok, member = pcall(base.GetFontObjectForAlphabet, base, alphabet)
+		local file = ok and member and member:GetFont()
+		if file then
+			return file
+		end
+	end
+	return FALLBACK_FONTS[alphabet]
+end
+
 local families = {}
 local function fontFamily(size, flags)
 	local key = size .. "_" .. flags
 	if families[key] == nil then
 		local members = { { alphabet = "roman", file = ns.FONT, height = size, flags = flags } }
-		for i, f in ipairs(FALLBACK_FONTS) do
-			members[i + 1] = { alphabet = f[1], file = f[2], height = size, flags = flags }
+		for i, alphabet in ipairs(ALPHABETS) do
+			members[i + 1] = { alphabet = alphabet, file = gameFontFile(alphabet), height = size, flags = flags }
 		end
 		local ok, family = pcall(CreateFontFamily, "ReforgedUIFont" .. key:gsub("%W", "_"), members)
 		families[key] = ok and family or false
+		ns.fontFamilyError = not ok and family or nil
 	end
 	return families[key]
+end
+
+-- Whether our font file loads, tried on a spare font string: SetFont on the
+-- string itself would set its font directly, and a font set directly wins
+-- over the family given to it afterwards (1.6.1 still drew boxes).
+local probe
+local function fontLoads(size, flags)
+	probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
+	return probe:SetFont(ns.FONT, size, flags)
 end
 
 -- Gives a font string our font at `size`, with the game's fonts for letters
 -- ours lacks. False when our font file cannot be loaded.
 function ns:SetFont(fs, size, flags)
 	flags = flags or ""
-	if not fs:SetFont(self.FONT, size, flags) then
+	if not fontLoads(size, flags) then
 		return false
 	end
 	fs.ourFont = flags
 	local family = CreateFontFamily and fontFamily(size, flags)
 	if family then
 		fs:SetFontObject(family)
+	else
+		fs:SetFont(self.FONT, size, flags)
 	end
 	return true
+end
+
+-- For /rui font: whether names get the fallback fonts.
+function ns:DescribeFont(fs)
+	local lines = { "CreateFontFamily: " .. (CreateFontFamily and "yes" or "missing") }
+	if self.fontFamilyError then
+		lines[#lines + 1] = "font family error: " .. tostring(self.fontFamilyError)
+	end
+	for _, alphabet in ipairs(ALPHABETS) do
+		lines[#lines + 1] = alphabet .. ": " .. tostring(gameFontFile(alphabet))
+	end
+	if fs then
+		local obj = fs.GetFontObject and fs:GetFontObject()
+		lines[#lines + 1] = ("name font: %s, object %s"):format(tostring((fs:GetFont())),
+			tostring(obj and obj.GetName and obj:GetName()))
+	end
+	return lines
 end
 
 -- Changes a font string's font size, keeping its font (ours with its
@@ -1030,6 +1074,7 @@ local function usage()
 		.. " topbar, config; needs /reload)")
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
+	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui reset")
 end
@@ -1076,6 +1121,11 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
 	elseif cmd == "auras" and ns.modules.target.enabled then
 		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
+			ns:Print(line)
+		end
+	elseif cmd == "font" then
+		local hero = ns.modules.hero
+		for _, line in ipairs(ns:DescribeFont(hero and hero.xp and hero.xp.name)) do
 			ns:Print(line)
 		end
 	elseif cmd == "status" then

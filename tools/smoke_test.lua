@@ -43,6 +43,21 @@ end
 function methods:GetName() return self._name end
 function methods:SetFont(path, size, flags) self._font, self._size, self._flags = path, size, flags; return true end
 function methods:GetFont() return self._font or "Fonts\\FRIZQT__.TTF", self._size or 12, self._flags or "" end
+-- A font family: a font string given one reports its first (roman) member.
+fontFamilies = {}
+function CreateFontFamily(name, members)
+	assert(not fontFamilies[name], "font family " .. name .. " made twice")
+	local f = new("font", name)
+	f._members = members
+	fontFamilies[name] = f
+	return f
+end
+function methods:SetFontObject(obj)
+	if type(obj) == "table" and obj._members then
+		local m = obj._members[1]
+		self._fontObject, self._font, self._size, self._flags = obj, m.file, m.height, m.flags
+	end
+end
 -- Roughly half an em per character.
 function methods:GetStringWidth() return #(self._text or "") * (self._size or 12) * 0.5 end
 function methods:SetSize(w, h) self._w, self._h = w, h end
@@ -1043,6 +1058,14 @@ do
 	assert(fs._size < base and fs:GetStringWidth() <= fs:GetWidth() or fs._size == 7, "a long name shrinks to fit")
 	ns:FitText(fs, "Thrall")
 	assert(fs._size == base, "a short name gets its full size back")
+	-- Our font lacks Korean, Chinese and Cyrillic letters: the family behind
+	-- every size hands them to the game's fonts.
+	local members = {}
+	for _, m in ipairs(fs._fontObject._members) do members[m.alphabet] = m end
+	assert(members.roman.file == ns.FONT and members.roman.height == base, "names use our font")
+	for _, alphabet in ipairs({ "korean", "simplifiedchinese", "traditionalchinese", "russian" }) do
+		assert(members[alphabet] and members[alphabet].height == base, "names fall back for " .. alphabet)
+	end
 	ns:FitText(fs, ns:FullName("player"))
 end
 assert(math.abs(hero.xp.bar._w - L.xp.bar.w / 4) < 0.01, "XP bar at 25%")

@@ -57,7 +57,7 @@ local FORM_ICONS = {
 }
 
 local function font(fs, size)
-	if not fs:SetFont(ns.FONT, size, "") then
+	if not ns:SetFont(fs, size) then
 		fs:SetFontObject("GameFontHighlightSmall")
 	end
 end

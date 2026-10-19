@@ -53,12 +53,11 @@ local function SkinEntry(entry)
 	own.rail:ClearAllPoints()
 	own.rail:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, 1)
 	own.rail:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", 0, 1)
-	local font = ReforgedUI.FONT
 	if own.nameSize then
-		bar.Name:SetFont(font, own.nameSize, "OUTLINE")
+		ReforgedUI.SetFont(bar.Name, own.nameSize, "OUTLINE")
 	end
 	if own.valueSize then
-		bar.Value:SetFont(font, own.valueSize, "OUTLINE")
+		ReforgedUI.SetFont(bar.Value, own.valueSize, "OUTLINE")
 	end
 end
 

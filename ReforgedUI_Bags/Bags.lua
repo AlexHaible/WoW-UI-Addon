@@ -65,7 +65,7 @@ local function Paint(window)
 	local title = window.TitleContainer and window.TitleContainer.TitleText
 	if title then
 		local _, size = title:GetFont()
-		title:SetFont(ReforgedUI.FONT, size or FONT_SIZE, "")
+		ReforgedUI.SetFont(title, size or FONT_SIZE)
 	end
 end
 

@@ -44,7 +44,7 @@ local CLASSIFICATION = {
 local isSecret = issecretvalue or function() return false end
 
 local function font(fs, size)
-	if not fs:SetFont(ns.FONT, size, "") then
+	if not ns:SetFont(fs, size) then
 		fs:SetFontObject("GameFontHighlightSmall")
 	end
 end
@@ -150,10 +150,10 @@ local MIN_PAIR_SIZE = 6
 -- setPair, then shrink the font until the text fits its width: never "...".
 -- When the width cannot be measured (secret text), the smallest size.
 local function fitPair(fs, cur, max)
-	local path, size, flags = fs:GetFont()
+	local path, size = fs:GetFont()
 	fs.fitSize = fs.fitSize or size
 	if path then
-		fs:SetFont(path, fs.fitSize, flags or "")
+		ns:ResizeFont(fs, fs.fitSize)
 	end
 	setPair(fs, cur, max)
 	local ok = pcall(function()
@@ -162,11 +162,11 @@ local function fitPair(fs, cur, max)
 		size = fs.fitSize
 		while measure(fs) > maxW and size > MIN_PAIR_SIZE do
 			size = size - 1
-			fs:SetFont(path, size, flags or "")
+			ns:ResizeFont(fs, size)
 		end
 	end)
 	if not ok and path then
-		fs:SetFont(path, MIN_PAIR_SIZE, flags or "")
+		ns:ResizeFont(fs, MIN_PAIR_SIZE)
 	end
 end
 

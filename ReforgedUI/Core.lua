@@ -416,6 +416,31 @@ function ns:FullName(unit)
 	return name
 end
 
+-- Puts `unit` in a 3D portrait model, with its flat portrait on `flat`
+-- (a texture behind the model) for as long as the model has nothing to
+-- show: in instances an enemy's model can stay empty.
+function ns:SetUnitModel(model, flat, unit)
+	model:SetUnit(unit)
+	if model.SetPortraitZoom then
+		model:SetPortraitZoom(1)
+	end
+	if not flat.hooked and model.HasScript and model:HasScript("OnModelLoaded") then
+		flat.hooked = true
+		model:HookScript("OnModelLoaded", function() flat:Hide() end)
+	end
+	local has = true
+	if model.GetModelFileID then
+		local ok, id = pcall(model.GetModelFileID, model)
+		has = ok and not (issecretvalue and issecretvalue(id)) and type(id) == "number" and id > 0
+	end
+	if has then
+		flat:Hide()
+	else
+		SetPortraitTexture(flat, unit)
+		flat:Show()
+	end
+end
+
 function ns:PlaceRect(frame, r, point)
 	self:Anchor(frame, point or "BOTTOMLEFT", r.x, r.y)
 	if r.w and r.h then

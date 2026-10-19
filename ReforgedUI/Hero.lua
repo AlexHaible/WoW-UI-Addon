@@ -126,16 +126,15 @@ function Hero:CreatePortrait()
 	self.portraitBg = bgFrame:CreateTexture(nil, "BACKGROUND")
 	self.portraitBg:SetTexture(ns:ArtPath("other\\black_background"))
 	self.pulse = bgFrame
+	self.flatPortrait = bgFrame:CreateTexture(nil, "ARTWORK")
+	self.flatPortrait:Hide()
 
 	local model = CreateFrame("PlayerModel", "ReforgedUIPortrait", root)
 	model:SetFrameStrata("BACKGROUND")
 	model:SetFrameLevel(3)
 	self.model = model
 	local function refresh()
-		model:SetUnit(Hero.viewUnit)
-		if model.SetPortraitZoom then
-			model:SetPortraitZoom(1)
-		end
+		ns:SetUnitModel(model, Hero.flatPortrait, Hero.viewUnit)
 		if ns.db.consoleOpts.stopAnimation and model.FreezeAnimation then
 			pcall(model.FreezeAnimation, model, 0, 0, 0)
 		end
@@ -889,6 +888,7 @@ end
 function Hero:OnLayout(L)
 	place(self.portraitBg, L.portraitBg)
 	place(self.model, L.portrait)
+	place(self.flatPortrait, L.portrait)
 	place(self.click, L.portrait)
 	self.RefreshModel()
 	place(self.health, L.health)

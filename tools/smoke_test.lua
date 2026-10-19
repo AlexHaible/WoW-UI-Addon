@@ -1880,6 +1880,31 @@ do
 		"plate: the hero's level plate, without an experience fill")
 	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
 		"plate: health and power numbers")
+	-- In instances an enemy's 3D model can stay empty: its flat portrait shows
+	-- behind it until the model has one.
+	do
+		local fileID
+		methods.GetModelFileID = function() return fileID end
+		target:UpdateModel()
+		assert(pl.flatPortrait:IsShown(), "no model: the flat portrait shows")
+		fileID = 123
+		target:UpdateModel()
+		assert(not pl.flatPortrait:IsShown(), "a model hides the flat portrait")
+		methods.GetModelFileID = nil
+	end
+	-- A secret level reads "??", the rest of the line still shows.
+	do
+		local oldLevel = UnitLevel
+		local secretLevel = setmetatable({}, { __lt = function() error("compared a secret value") end,
+			__le = function() error("compared a secret value") end })
+		UnitLevel = function(u) if u == "target" then return secretLevel end return oldLevel(u) end
+		secret = true
+		fire("UNIT_LEVEL", "target")
+		secret = false
+		assert(pl.info._text == "Level ?? Elite Beast", "secret level: " .. tostring(pl.info._text))
+		UnitLevel = oldLevel
+		fire("UNIT_LEVEL", "target")
+	end
 	-- Long numbers are abbreviated and shrink to fit: never cut off.
 	local oldH, oldHM = UnitHealth, UnitHealthMax
 	UnitHealth = function(u) return u == "target" and 123456 or 300 end

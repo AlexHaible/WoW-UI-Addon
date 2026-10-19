@@ -370,6 +370,8 @@ end
 
 -- Sets `text` on a one-line font string and shrinks its font, a point at a
 -- time from the size it was created with, until it fits the string's width.
+-- Secret text (a unit name in an instance) can't be measured, and makes the
+-- string's own width secret too, so it keeps the starting size.
 local MIN_FIT_SIZE = 7
 function ns:FitText(fs, text)
 	fs:SetWordWrap(false)
@@ -380,26 +382,63 @@ function ns:FitText(fs, text)
 		self:ResizeFont(fs, size)
 	end
 	fs:SetText(text)
+	if issecretvalue and issecretvalue(text) then
+		return
+	end
 	local maxW = fs:GetWidth()
-	if not (path and size and maxW and maxW > 0) then
+	if not (path and size and maxW) or (issecretvalue and issecretvalue(maxW)) or maxW <= 0 then
 		return
 	end
 	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
-	while measure(fs) > maxW and size > MIN_FIT_SIZE do
-		size = size - 1
-		self:ResizeFont(fs, size)
+	local ok = pcall(function()
+		while measure(fs) > maxW and size > MIN_FIT_SIZE do
+			size = size - 1
+			self:ResizeFont(fs, size)
+		end
+	end)
+	if not ok then
+		self:ResizeFont(fs, fs.fitSize)
 	end
 end
 
 -- A unit's full name: on Forever a character's surname comes back where
 -- other clients put the realm, and GetUnitName(unit, true) joins the two
--- ("John Dwarfadin").
+-- ("John Dwarfadin"). In instances the name can be a "secret" string: it
+-- can be shown but not compared, so it is passed on untouched.
 function ns:FullName(unit)
 	local name = GetUnitName and GetUnitName(unit, true)
+	if issecretvalue and issecretvalue(name) then
+		return name
+	end
 	if type(name) ~= "string" or name == "" then
 		name = UnitName(unit)
 	end
 	return name
+end
+
+-- Puts `unit` in a 3D portrait model, with its flat portrait on `flat`
+-- (a texture behind the model) for as long as the model has nothing to
+-- show: in instances an enemy's model can stay empty.
+function ns:SetUnitModel(model, flat, unit)
+	model:SetUnit(unit)
+	if model.SetPortraitZoom then
+		model:SetPortraitZoom(1)
+	end
+	if not flat.hooked and model.HasScript and model:HasScript("OnModelLoaded") then
+		flat.hooked = true
+		model:HookScript("OnModelLoaded", function() flat:Hide() end)
+	end
+	local has = true
+	if model.GetModelFileID then
+		local ok, id = pcall(model.GetModelFileID, model)
+		has = ok and not (issecretvalue and issecretvalue(id)) and type(id) == "number" and id > 0
+	end
+	if has then
+		flat:Hide()
+	else
+		SetPortraitTexture(flat, unit)
+		flat:Show()
+	end
 end
 
 function ns:PlaceRect(frame, r, point)

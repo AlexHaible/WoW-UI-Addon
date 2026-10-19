@@ -94,23 +94,35 @@ local function nameColor(unit)
 end
 
 -- "Level 12 Elite Humanoid", "Level ?? Boss Dragonkin", "Level 60 Warrior".
+-- In instances any part can be secret: a part that can't be read is left
+-- out (a secret level reads "??"), the rest still shows.
 local function infoText(unit)
-	local ok, text = pcall(function()
+	local levelText = "??"
+	pcall(function()
 		local level = UnitLevel(unit)
-		local levelText = (level and level > 0) and tostring(level) or "??"
+		if not isSecret(level) and level and level > 0 then
+			levelText = tostring(level)
+		end
+	end)
+	local text = (LEVEL or "Level") .. " " .. levelText
+	pcall(function()
 		local class = CLASSIFICATION[UnitClassification(unit) or ""]
+		if class then
+			text = text .. " " .. class
+		end
+	end)
+	pcall(function()
 		local kind
 		if UnitIsPlayer(unit) then
 			kind = (UnitClass(unit))
 		else
 			kind = UnitCreatureType(unit)
 		end
-		local parts = { LEVEL or "Level", levelText }
-		parts[#parts + 1] = class
-		parts[#parts + 1] = kind
-		return table.concat(parts, " ")
+		if isSecret(kind) or kind then
+			text = text .. " " .. kind
+		end
 	end)
-	return ok and text or ""
+	return text
 end
 
 -- 950, 12.3k, 123k, 1.2m: plain numbers only (secret ones are left to the
@@ -316,13 +328,12 @@ function Target:CreatePlate()
 	-- window shapes the portrait, as on the hero screen.
 	v.portraitBg = f:CreateTexture(nil, "BACKGROUND")
 	v.portraitBg:SetTexture(ns:ArtPath("other\\black_background"))
+	v.flatPortrait = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+	v.flatPortrait:Hide()
 	local model = CreateFrame("PlayerModel", nil, f)
 	model:SetFrameLevel(11)
 	model:SetScript("OnShow", function(m)
-		m:SetUnit("target")
-		if m.SetPortraitZoom then
-			m:SetPortraitZoom(1)
-		end
+		ns:SetUnitModel(m, v.flatPortrait, "target")
 	end)
 	v.model = model
 	local art = CreateFrame("Frame", nil, f)
@@ -665,10 +676,7 @@ function Target:UpdateModel()
 		ns.modules.hero.RefreshModel()
 	else
 		v.model:ClearModel()
-		v.model:SetUnit("target")
-		if v.model.SetPortraitZoom then
-			v.model:SetPortraitZoom(1)
-		end
+		ns:SetUnitModel(v.model, v.flatPortrait, "target")
 	end
 end
 
@@ -697,7 +705,7 @@ function Target:UpdateHealth()
 	v.health:SetMinMaxValues(0, max)
 	v.health:SetValue(cur)
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
-	if tapped then
+	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
 	elseif v == self.plate then
 		v.health:SetStatusBarColor(0, 1, 0) -- the hero's green
@@ -798,6 +806,9 @@ function Target:UpdateToT()
 	end
 	SetPortraitTexture(tot.portrait, "targettarget")
 	local isMe = UnitIsUnit and UnitIsUnit("targettarget", "player")
+	if isSecret(isMe) then
+		isMe = false -- not known in instances: tinted by reaction instead
+	end
 	local kind = isMe and "player" or reactionKind("targettarget")
 	tot.kind = kind
 	local c = REACTION[kind]
@@ -839,6 +850,7 @@ function Target:OnLayout(L)
 	place(pl.art, P.frame)
 	place(pl.portraitBg, P.portraitBg)
 	place(pl.model, P.portrait)
+	place(pl.flatPortrait, P.portrait)
 	place(pl.health, P.health)
 	place(pl.power, P.power)
 	-- The numbers fit their bar (fitPair measures against this width).

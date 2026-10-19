@@ -1803,6 +1803,27 @@ do
 	assert(type(target.swap.health._value) == "table", "secret health reaches the bar")
 	secretTarget = false
 	fire("UNIT_HEALTH", "target")
+	-- Secret name (in instances): shown as it is, never compared or measured.
+	do
+		local secretName = newproxy(true)
+		local mt = getmetatable(secretName)
+		mt.__len = function() error("measured a secret name") end
+		mt.__tostring = function() return "secret name" end
+		local oldFull, oldIsSecret = GetUnitName, issecretvalue
+		GetUnitName = function(u, full) if u == "target" then return secretName end return oldFull(u, full) end
+		issecretvalue = function(v) return v == secretName or oldIsSecret(v) end
+		-- The string's width turns secret along with its text.
+		local oldWidth = methods.GetWidth
+		methods.GetWidth = function(self, ...)
+			assert(self._text ~= secretName, "read the width of a secret name")
+			return oldWidth(self, ...)
+		end
+		fire("UNIT_NAME_UPDATE", "target")
+		assert(hero.xp.name._text == secretName, "a secret target name is shown untouched")
+		GetUnitName, issecretvalue, methods.GetWidth = oldFull, oldIsSecret, oldWidth
+		fire("UNIT_NAME_UPDATE", "target")
+		assert(hero.xp.name._text == "Hogger", "the plain name comes back")
+	end
 	-- Reaction colours: hostile red, neutral yellow, friendly green.
 	local function nameRGB() local fs = hero.xp.name; return fs._r, fs._g, fs._b end
 	local oldColor = methods.SetTextColor
@@ -1827,6 +1848,17 @@ do
 		assert(target.tot.kind == want, "ToT tint " .. want)
 	end
 	assert(target.tot.glow._vertex[2] == 1 and target.tot.glow._vertex[1] < 0.5, "friendly ToT is green")
+	-- In instances "is it me" can be secret: never tested, tinted by reaction.
+	do
+		local secretBool = {}
+		local oldIsUnit = UnitIsUnit
+		UnitIsUnit = function(a, b) if a == "targettarget" then return secretBool end return oldIsUnit(a, b) end
+		secret = true
+		target:UpdateToT()
+		secret = false
+		assert(target.tot.kind == "friendly", "a secret ToT is tinted by reaction")
+		UnitIsUnit = oldIsUnit
+	end
 	-- Clearing the target restores the player, in combat.
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")
@@ -1848,6 +1880,31 @@ do
 		"plate: the hero's level plate, without an experience fill")
 	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
 		"plate: health and power numbers")
+	-- In instances an enemy's 3D model can stay empty: its flat portrait shows
+	-- behind it until the model has one.
+	do
+		local fileID
+		methods.GetModelFileID = function() return fileID end
+		target:UpdateModel()
+		assert(pl.flatPortrait:IsShown(), "no model: the flat portrait shows")
+		fileID = 123
+		target:UpdateModel()
+		assert(not pl.flatPortrait:IsShown(), "a model hides the flat portrait")
+		methods.GetModelFileID = nil
+	end
+	-- A secret level reads "??", the rest of the line still shows.
+	do
+		local oldLevel = UnitLevel
+		local secretLevel = setmetatable({}, { __lt = function() error("compared a secret value") end,
+			__le = function() error("compared a secret value") end })
+		UnitLevel = function(u) if u == "target" then return secretLevel end return oldLevel(u) end
+		secret = true
+		fire("UNIT_LEVEL", "target")
+		secret = false
+		assert(pl.info._text == "Level ?? Elite Beast", "secret level: " .. tostring(pl.info._text))
+		UnitLevel = oldLevel
+		fire("UNIT_LEVEL", "target")
+	end
 	-- Long numbers are abbreviated and shrink to fit: never cut off.
 	local oldH, oldHM = UnitHealth, UnitHealthMax
 	UnitHealth = function(u) return u == "target" and 123456 or 300 end

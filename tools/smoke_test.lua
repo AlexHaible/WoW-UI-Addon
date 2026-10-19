@@ -41,7 +41,10 @@ Object.__index = function(t, k)
 end
 
 function methods:GetName() return self._name end
-function methods:SetFont(path, size, flags) self._font, self._size, self._flags = path, size, flags; return true end
+function methods:SetFont(path, size, flags)
+	self._font, self._size, self._flags, self._fontSetDirectly = path, size, flags, true
+	return true
+end
 function methods:GetFont() return self._font or "Fonts\\FRIZQT__.TTF", self._size or 12, self._flags or "" end
 -- A font family: a font string given one reports its first (roman) member.
 fontFamilies = {}
@@ -1066,6 +1069,9 @@ do
 	for _, alphabet in ipairs({ "korean", "simplifiedchinese", "traditionalchinese", "russian" }) do
 		assert(members[alphabet] and members[alphabet].height == base, "names fall back for " .. alphabet)
 	end
+	-- A font set on the string directly would win over the family.
+	assert(not fs._fontSetDirectly, "the name's font comes only from the family")
+	SlashCmdList.REFORGEDUI("font")
 	ns:FitText(fs, ns:FullName("player"))
 end
 assert(math.abs(hero.xp.bar._w - L.xp.bar.w / 4) < 0.01, "XP bar at 25%")

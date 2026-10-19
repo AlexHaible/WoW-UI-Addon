@@ -345,10 +345,10 @@ local function gameFontFile(alphabet)
 end
 
 local families = {}
-local function fontFamily(size, flags)
-	local key = size .. "_" .. flags
+local function fontFamily(size, flags, file)
+	local key = size .. "_" .. flags .. (file ~= ns.FONT and ("_" .. file) or "")
 	if families[key] == nil then
-		local members = { { alphabet = "roman", file = ns.FONT, height = size, flags = flags } }
+		local members = { { alphabet = "roman", file = file, height = size, flags = flags } }
 		for i, alphabet in ipairs(ALPHABETS) do
 			members[i + 1] = { alphabet = alphabet, file = gameFontFile(alphabet), height = size, flags = flags }
 		end
@@ -363,24 +363,26 @@ end
 -- string itself would set its font directly, and a font set directly wins
 -- over the family given to it afterwards (1.6.1 still drew boxes).
 local probe
-local function fontLoads(size, flags)
+local function fontLoads(file, size, flags)
 	probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
-	return probe:SetFont(ns.FONT, size, flags)
+	return probe:SetFont(file, size, flags)
 end
 
--- Gives a font string our font at `size`, with the game's fonts for letters
--- ours lacks. False when our font file cannot be loaded.
-function ns:SetFont(fs, size, flags)
-	flags = flags or ""
-	if not fontLoads(size, flags) then
+-- Gives a font string our font (or the font file `file`) at `size`, with the
+-- game's fonts for letters it lacks. False when the font file cannot be
+-- loaded.
+function ns:SetFont(fs, size, flags, file)
+	flags, file = flags or "", file or self.FONT
+	if not fontLoads(file, size, flags) then
 		return false
 	end
 	fs.ourFont = flags
-	local family = CreateFontFamily and fontFamily(size, flags)
+	fs.ourFontFile = file
+	local family = CreateFontFamily and fontFamily(size, flags, file)
 	if family then
 		fs:SetFontObject(family)
 	else
-		fs:SetFont(self.FONT, size, flags)
+		fs:SetFont(file, size, flags)
 	end
 	return true
 end
@@ -406,7 +408,7 @@ end
 -- fallbacks, or whatever it had).
 function ns:ResizeFont(fs, size)
 	if fs.ourFont then
-		self:SetFont(fs, size, fs.ourFont)
+		self:SetFont(fs, size, fs.ourFont, fs.ourFontFile)
 	else
 		local path, _, flags = fs:GetFont()
 		fs:SetFont(path, size, flags or "")
@@ -503,7 +505,11 @@ function ns:ShowMenu(owner, title, items)
 	MenuUtil.CreateContextMenu(owner, function(_, root)
 		root:CreateTitle(title)
 		for _, item in ipairs(items) do
-			root:CreateRadio(item.text, function() return item.checked end, function() item.func() end)
+			if item.title then
+				root:CreateTitle(item.text)
+			else
+				root:CreateRadio(item.text, function() return item.checked end, function() item.func() end)
+			end
 		end
 		if #items > 20 and root.SetScrollMode then
 			root:SetScrollMode(400)
@@ -1126,8 +1132,8 @@ local function usage()
 	ns:Print("commands (the console's own options are in its menu: the cogwheel in the chat area's bottom-right corner):")
 	print("  /rui config  (open that menu)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
-	print("  /rui feeds  (list data feeds and top bar slots)")
-	print("  /rui slot <number> <feed name>||none")
+	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
+	print("  /rui slot <number> <feed or panel name>||none")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"

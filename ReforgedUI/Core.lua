@@ -56,6 +56,7 @@ local DEFAULTS = {
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
 		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
+		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 	},
@@ -733,7 +734,9 @@ end
 --  * Blizzard's target frame, buffs on top, placed so its aura icons (all
 --    that is left visible of it, see Target.lua) stand beside the target of
 --    target. Placed again at each login and target mode change, as it
---    follows the console's layout.
+--    follows the console's layout;
+--  * buffs just below the top bar, debuffs under them (in every layout
+--    where they are still in their default place).
 -- It is all saved in the layout, so it is Edit Mode that applies it and
 -- every piece can still be moved and changed there. A cast bar that is still
 -- in its default place in any other layout of the player's own is raised too.
@@ -793,6 +796,56 @@ local function raiseCastBar(layout, y)
 	return true
 end
 
+-- Buffs start in the top-right corner just below the top bar (Blizzard's
+-- default place is under it), debuffs under the buffs. Placed in every
+-- layout where they are still in their default place, or still where we
+-- put them last (so a new top bar scale carries them along); once moved in
+-- Edit Mode they are the player's.
+local BUFF_GAP, BUFF_RIGHT = 6, 12
+
+local function near(v, want)
+	return type(v) == "number" and math.abs(v - want) <= 2
+end
+
+function ns:BuffSpot()
+	local buffs = _G.BuffFrame
+	if not (buffs and not forbidden(buffs) and self.topRoot and self.topLayout) then
+		return nil
+	end
+	local s = self.topRoot:GetEffectiveScale() / buffs:GetEffectiveScale()
+	return { x = math.floor(-BUFF_RIGHT * s + 0.5), y = math.floor(-(self.topLayout.topBar.h + BUFF_GAP) * s + 0.5) }
+end
+
+local function placeBuffs(layout, spot, last)
+	local sys, indices = Enum.EditModeSystem, Enum.EditModeAuraFrameSystemIndices
+	local buffs = sys.AuraFrame and indices and findSystem(layout, sys.AuraFrame, indices.BuffFrame)
+	if not (buffs and spot) then
+		return false
+	end
+	local changed = false
+	local a = buffs.anchorInfo or {}
+	local atOurs = a.point == "TOPRIGHT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
+		and a.relativePoint == "TOPRIGHT"
+	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
+	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
+	if buffs.isInDefaultPosition or (ours and not inPlace) then
+		buffs.anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT",
+			offsetX = spot.x, offsetY = spot.y }
+		buffs.anchorInfo2 = nil
+		buffs.isInDefaultPosition = false
+		changed = true
+	end
+	local debuffs = findSystem(layout, sys.AuraFrame, indices.DebuffFrame)
+	if debuffs and debuffs.isInDefaultPosition then
+		debuffs.anchorInfo = { point = "TOPRIGHT", relativeTo = "BuffFrame", relativePoint = "BOTTOMRIGHT",
+			offsetX = 0, offsetY = -BUFF_GAP }
+		debuffs.anchorInfo2 = nil
+		debuffs.isInDefaultPosition = false
+		changed = true
+	end
+	return changed
+end
+
 local function setCVar(name, value)
 	local cvars = _G.C_CVar
 	local get = cvars and cvars.GetCVar or _G.GetCVar
@@ -826,9 +879,6 @@ function ns:PlaceTargetAuras(layout)
 	-- two either way counts as already in place (otherwise every login
 	-- would save the layout again and ask for a reload).
 	local a = tf.anchorInfo or {}
-	local function near(v, want)
-		return type(v) == "number" and math.abs(v - want) <= 2
-	end
 	local inPlace = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
 		and a.relativePoint == "BOTTOMLEFT" and near(a.offsetX, x) and near(a.offsetY, y)
 		and not tf.isInDefaultPosition
@@ -971,14 +1021,21 @@ function ns:SetupEditMode()
 	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
 	placed = placed or barsPlaced
 
-	local raised = 0
+	local raised, buffsMoved = 0, 0
+	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
 	for _, layout in ipairs(info.layouts) do
 		if raiseCastBar(layout, castY) then
 			raised = raised + 1
 		end
+		if placeBuffs(layout, spot, last or nil) then
+			buffsMoved = buffsMoved + 1
+		end
 	end
-	if (made or placed or raised > 0) and not pcall(C_EditMode.SaveLayouts, info) then
+	if (made or placed or raised > 0 or buffsMoved > 0) and not pcall(C_EditMode.SaveLayouts, info) then
 		return
+	end
+	if spot then
+		self.db.consoleOpts.buffSpot = spot
 	end
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true
@@ -998,6 +1055,9 @@ function ns:SetupEditMode()
 			.. " frames). Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
 	elseif raised > 0 then
 		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
+	elseif buffsMoved > 0 then
+		self:AskReload(("placed your buffs below the top bar in %d Edit Mode layout(s); move them there as you"
+			.. " like."):format(buffsMoved))
 	elseif barsPlaced then
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))

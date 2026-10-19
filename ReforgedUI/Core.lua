@@ -370,6 +370,8 @@ end
 
 -- Sets `text` on a one-line font string and shrinks its font, a point at a
 -- time from the size it was created with, until it fits the string's width.
+-- Secret text (a unit name in an instance) can't be measured, so it keeps
+-- the starting size.
 local MIN_FIT_SIZE = 7
 function ns:FitText(fs, text)
 	fs:SetWordWrap(false)
@@ -384,18 +386,30 @@ function ns:FitText(fs, text)
 	if not (path and size and maxW and maxW > 0) then
 		return
 	end
+	if issecretvalue and issecretvalue(text) then
+		return
+	end
 	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
-	while measure(fs) > maxW and size > MIN_FIT_SIZE do
-		size = size - 1
-		self:ResizeFont(fs, size)
+	local ok = pcall(function()
+		while measure(fs) > maxW and size > MIN_FIT_SIZE do
+			size = size - 1
+			self:ResizeFont(fs, size)
+		end
+	end)
+	if not ok then
+		self:ResizeFont(fs, fs.fitSize)
 	end
 end
 
 -- A unit's full name: on Forever a character's surname comes back where
 -- other clients put the realm, and GetUnitName(unit, true) joins the two
--- ("John Dwarfadin").
+-- ("John Dwarfadin"). In instances the name can be a "secret" string: it
+-- can be shown but not compared, so it is passed on untouched.
 function ns:FullName(unit)
 	local name = GetUnitName and GetUnitName(unit, true)
+	if issecretvalue and issecretvalue(name) then
+		return name
+	end
 	if type(name) ~= "string" or name == "" then
 		name = UnitName(unit)
 	end

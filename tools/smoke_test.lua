@@ -1803,6 +1803,21 @@ do
 	assert(type(target.swap.health._value) == "table", "secret health reaches the bar")
 	secretTarget = false
 	fire("UNIT_HEALTH", "target")
+	-- Secret name (in instances): shown as it is, never compared or measured.
+	do
+		local secretName = newproxy(true)
+		local mt = getmetatable(secretName)
+		mt.__len = function() error("measured a secret name") end
+		mt.__tostring = function() return "secret name" end
+		local oldFull, oldIsSecret = GetUnitName, issecretvalue
+		GetUnitName = function(u, full) if u == "target" then return secretName end return oldFull(u, full) end
+		issecretvalue = function(v) return v == secretName or oldIsSecret(v) end
+		fire("UNIT_NAME_UPDATE", "target")
+		assert(hero.xp.name._text == secretName, "a secret target name is shown untouched")
+		GetUnitName, issecretvalue = oldFull, oldIsSecret
+		fire("UNIT_NAME_UPDATE", "target")
+		assert(hero.xp.name._text == "Hogger", "the plain name comes back")
+	end
 	-- Reaction colours: hostile red, neutral yellow, friendly green.
 	local function nameRGB() local fs = hero.xp.name; return fs._r, fs._g, fs._b end
 	local oldColor = methods.SetTextColor

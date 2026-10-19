@@ -83,10 +83,11 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - The cast bar is above the console.
 - Party frames use the raid-style frames, with class colours, power bars, debuffs, aggro highlight and incoming heals turned on.
 - The target frame is placed so its buff and debuff icons sit next to the target display.
+- Your buffs and debuffs start in the top-right corner, just below the top bar.
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
 
-Frames that Edit Mode manages (cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
+Frames that Edit Mode manages (buffs and debuffs, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
 
 ---
 

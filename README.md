@@ -79,7 +79,9 @@ screen stays free on either side).
   LibDataBroker feeds, the same distance either side of the centre and out
   to the screen edges: gold, bag space and durability fill the first three
   (right of the clock; hover the gold for every character's gold and a total
-  per faction, Horde and Alliance apart); right-click an empty
+  per faction, Horde and Alliance apart). Our ping and FPS feed shows world
+  latency on the left of its slot and the framerate on the right (hover it for
+  home latency and bandwidth). Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),

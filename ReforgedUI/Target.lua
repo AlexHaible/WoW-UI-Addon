@@ -38,7 +38,6 @@ local REACTION = {
 	hostile = { 1, 0.2, 0.15 },
 	neutral = { 1, 0.9, 0 },
 	friendly = { 0.2, 1, 0.2 },
-	player = { 0.25, 0.55, 1 }, -- the target of target is you
 }
 local TAPPED = { 0.6, 0.6, 0.6 }
 local CLASSIFICATION = {
@@ -366,13 +365,10 @@ end
 
 -- A Warcraft III unit icon on a secure unit button (target of target,
 -- pet): a square portrait over a small health bar (and a power bar), in the
--- theme's trim (Trim.lua, thinner than around a window), a coloured glow
--- just outside it. Its parts are placed relative to the button
+-- theme's trim (Trim.lua, thinner than around a window). Its parts are placed relative to the button
 -- (PlaceUnitIcon), so they move with it.
 function Target.CreateUnitIcon(name, unit, level, power)
 	local b = secureButton(name, unit, level)
-	b.glow = b:CreateTexture(nil, "BACKGROUND")
-	b.glow:SetTexture(ns:ArtPath("other\\white_background"))
 	b.back = b:CreateTexture(nil, "BORDER")
 	b.back:SetColorTexture(0, 0, 0, 1)
 	b.portrait = b:CreateTexture(nil, "ARTWORK")
@@ -400,7 +396,6 @@ function Target.PlaceUnitIcon(b, U)
 		region:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", r.x - o.x, r.y - o.y)
 		region:SetSize(math.max(r.w, 0.01), math.max(r.h, 0.01))
 	end
-	at(b.glow, { x = o.x - 2, y = o.y - 2, w = o.w + 4, h = o.h + 4 })
 	at(b.back, U.box)
 	at(b.portrait, U.icon)
 	at(b.health, U.health)
@@ -841,22 +836,13 @@ function Target:UpdateCast()
 	end
 end
 
--- Target of target: portrait, health and a tint for who it is: blue for
--- you, else green, yellow or red by reaction.
+-- Target of target: portrait and health.
 function Target:UpdateToT()
 	local tot = self.tot
 	if not UnitExists("targettarget") then
 		return
 	end
 	SetPortraitTexture(tot.portrait, "targettarget")
-	local isMe = UnitIsUnit and UnitIsUnit("targettarget", "player")
-	if isSecret(isMe) then
-		isMe = false -- not known in instances: tinted by reaction instead
-	end
-	local kind = isMe and "player" or reactionKind("targettarget")
-	tot.kind = kind
-	local c = REACTION[kind]
-	tot.glow:SetVertexColor(c[1], c[2], c[3], 0.9)
 	tot.health:SetMinMaxValues(0, UnitHealthMax("targettarget"))
 	tot.health:SetValue(UnitHealth("targettarget"))
 end

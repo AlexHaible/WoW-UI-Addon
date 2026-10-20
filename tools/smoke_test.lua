@@ -2015,28 +2015,6 @@ do
 			or (want == "friendly" and cr < 0.5 and cg == 1), "name colour for " .. want)
 	end
 	reaction = 2
-	-- Target of target: tinted by who it is.
-	totIsPlayer = true
-	target:UpdateToT()
-	assert(target.tot.kind == "player" and target.tot.glow._vertex[3] == 1, "ToT: you are tinted blue")
-	totIsPlayer = false
-	for r, want in pairs({ [2] = "hostile", [6] = "friendly" }) do
-		totReaction = r
-		target:UpdateToT()
-		assert(target.tot.kind == want, "ToT tint " .. want)
-	end
-	assert(target.tot.glow._vertex[2] == 1 and target.tot.glow._vertex[1] < 0.5, "friendly ToT is green")
-	-- In instances "is it me" can be secret: never tested, tinted by reaction.
-	do
-		local secretBool = {}
-		local oldIsUnit = UnitIsUnit
-		UnitIsUnit = function(a, b) if a == "targettarget" then return secretBool end return oldIsUnit(a, b) end
-		secret = true
-		target:UpdateToT()
-		secret = false
-		assert(target.tot.kind == "friendly", "a secret ToT is tinted by reaction")
-		UnitIsUnit = oldIsUnit
-	end
 	-- Clearing the target restores the player, in combat.
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")

@@ -22,7 +22,6 @@ local HAPPINESS_COORDS = {
 	{ 0.1875, 0.375, 0, 0.359375 }, -- content
 	{ 0, 0.1875, 0, 0.359375 }, -- happy
 }
-local GLOW = { 0.2, 1, 0.2 }
 
 local isSecret = issecretvalue or function() return false end
 
@@ -108,7 +107,6 @@ end
 function Pet:Create()
 	local target = ns.modules.target
 	local b = target.CreateUnitIcon("ReforgedUIPet", "pet", 32, true)
-	b.glow:SetVertexColor(GLOW[1], GLOW[2], GLOW[3], 0.9)
 	b:HookScript("OnEnter", function()
 		GameTooltip:AddLine("Shift-drag to move.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()

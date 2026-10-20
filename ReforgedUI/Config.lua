@@ -236,6 +236,9 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
+	-- No top bar: the menu buttons stand above the minimap instead.
+	self:Check("Hide top bar", "hideTopBar", x, y - 178, function(on) ns:SetTopBarShown(not on) end)
+
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
 	label(f, "Stat icons (this class)", x, -318)

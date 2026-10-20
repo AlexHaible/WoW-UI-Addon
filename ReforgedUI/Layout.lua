@@ -1093,11 +1093,75 @@ end
 -- on another race save the layout again and ask for a reload.
 local AURA_THEME = "human"
 
--- The layout for `o` (see above).
+-- With the top bar hidden, Blizzard's micro buttons stand on the minimap
+-- block's wall, the bottom row half over it, between the left end cap and
+-- the addon compartment's button (whose flyout Minimap.lua lifts over them
+-- when it would cover them), well left of the target of target and the
+-- pet's icon. `micro` lists their width/height ratios, as for the top bar.
+-- They take as many rows (up to three) as it needs to keep them about as
+-- big as on the top bar (CONSOLE_MICRO_H, a share of s), centred in the
+-- room; the first row is on top.
+local CONSOLE_MICRO_H, CONSOLE_MICRO_GAP = 0.085, 1
+
+local function buildMicro(L, micro)
+	local s, c, mm = L.s, L.addonCompartment, L.minimap
+	local x0 = max(L.minimapArt.x, right(L.endcaps.left)) + 3
+	local room = c.x - 4 - x0
+	local n = #micro
+	L.micro = {}
+	if n == 0 then
+		return
+	end
+	local function rowsOf(count)
+		local per, list = math.ceil(n / count), {}
+		for i = 1, n do
+			local r = math.ceil(i / per)
+			list[r] = list[r] or { sum = 0 }
+			local row = list[r]
+			row[#row + 1] = i
+			row.sum = row.sum + micro[i]
+		end
+		local h = CONSOLE_MICRO_H * s
+		for _, row in ipairs(list) do
+			if row.sum > 0 then
+				h = min(h, (room - (#row - 1) * CONSOLE_MICRO_GAP) / row.sum)
+			end
+		end
+		return list, h
+	end
+	local rows, h = rowsOf(1)
+	for count = 2, 3 do
+		local more, mh = rowsOf(count)
+		if mh > h + 0.5 then
+			rows, h = more, mh
+		end
+	end
+	local wall = (LEFT_WALL[L.theme] or LEFT_WALL[L.base] or 0.64) * s
+	local y = max(top(mm) + 2, wall - 0.3 * h) + (#rows - 1) * (h + CONSOLE_MICRO_GAP)
+	local spanL, spanR = x0 + room, x0
+	for _, row in ipairs(rows) do
+		local w = row.sum * h + (#row - 1) * CONSOLE_MICRO_GAP
+		local x = x0 + max(0, (room - w) / 2)
+		spanL, spanR = min(spanL, x), max(spanR, x + w)
+		for _, i in ipairs(row) do
+			L.micro[i] = rect(x, y, micro[i] * h, h)
+			x = x + micro[i] * h + CONSOLE_MICRO_GAP
+		end
+		y = y - h - CONSOLE_MICRO_GAP
+	end
+	local bottom = y + h + CONSOLE_MICRO_GAP
+	L.microSpan = rect(spanL, bottom, max(0, spanR - spanL), #rows * (h + CONSOLE_MICRO_GAP) - CONSOLE_MICRO_GAP)
+end
+
+-- The layout for `o` (see above). `o.micro`, when set, places Blizzard's
+-- micro buttons on the console (the top bar is hidden).
 function Layout.Compute(W, H, o)
 	local dx, chatW = placement(W, H, o)
 	local L = build(W, H, o, dx, chatW)
 	L.shift = dx
+	if o.micro then
+		buildMicro(L, o.micro)
+	end
 	local ref = o.theme == AURA_THEME and dx or placement(W, H, setmetatable({ theme = AURA_THEME }, { __index = o }))
 	local T = L.targetAuras
 	for _, spot in ipairs({ T.swap, T.plate }) do

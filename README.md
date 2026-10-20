@@ -58,8 +58,11 @@ screen stays free on either side).
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
-  Warrior stances, Druid forms, ...) and the pet bar stand in a row on the wall
-  above the grid, as in Warcraft III; these are Blizzard's buttons too.
+  Warrior stances, Druid forms, ...) stand in a row on the wall above the grid,
+  as in Warcraft III; these are Blizzard's buttons too. The pet bar starts in a
+  row just above them (on their row, for classes without stances), at about
+  their size, and is Blizzard's Edit Mode bar, so you can move and resize it
+  in Edit Mode.
 - **Inventory**: the bags in the 2x3 inventory (backpack top-left, bags 1-4,
   reagent bag bottom-right where the client has one) with the key ring to its
   right, under the chat buttons. Clicks go through Blizzard's own bag buttons, so bag addons such as
@@ -101,8 +104,9 @@ Buffs and debuffs are held in the top-right corner just below the top bar.
 Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
-this client. (The stance and pet bars' own frames stay put too, empty and
-click-through; only their buttons move into the console.)
+this client. (The stance bar's own frame stays put too, empty and
+click-through; only its buttons move into the console.) The pet bar is placed
+through the layout instead, see below.
 
 **Edit Mode layout.** The first time each character logs in, the addon
 switches it to an account-wide Edit Mode layout called "Reforged UI", made
@@ -115,7 +119,9 @@ power bars for every role, debuffs, aggro highlight, incoming heals, main
 tank and assist, health as a percentage. Everything lives in the layout and
 the game's options, so you can change any of it, or pick another layout, in
 Edit Mode. In your other layouts a cast bar still in its default place is
-moved above the console too.
+moved above the console too. In every layout the pet bar, while still in its
+default place (over the console), starts just above the stance row on the
+console wall; once you move it in Edit Mode it stays where you put it.
 After any such change the addon offers a reload: Blizzard applies layout
 changes made by an addon as addon code, and its party frames would otherwise
 error later (for example when Edit Mode closes).
@@ -257,7 +263,7 @@ the client now does itself:
 - **Cast bar alignment**, the **buff position** option (buffs always sit under
   the top bar) and moving the **pet
   frame**: these are Edit Mode frames; place them in Edit Mode. (The stance
-  and pet bar buttons are placed, see above; the position options are not.)
+  buttons and the pet bar are placed, see above; the position options are not.)
 - Moving Blizzard's **player status icons** (rest, combat, leader, master
   looter, PvP): replaced by our own icons in the same places (no master
   looter icon).

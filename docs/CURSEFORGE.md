@@ -50,7 +50,8 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Action bars 1–3, twelve slots each.
 - These are Blizzard's own buttons, so bindings, paging, cooldowns and proc glows all work as normal. Icons show in full, in Warcraft III's steel button frame.
 - Rather arrange the bars yourself? Turn on **Let Edit Mode place action bars 1-3**: they start over the grid and you can then move, resize and reflow them in Edit Mode like any bar.
-- Stance, aura, form and pet buttons stand on the wall above the grid.
+- Stance, aura and form buttons stand on the wall above the grid.
+- The pet bar starts just above them (in their place, for classes without stances), clear of the chat. Move and resize it in Edit Mode.
 
 **Inventory**
 - Your bags in the 2×3 inventory, each with its free slots, plus the classic key ring button on the wall beside them.
@@ -84,10 +85,11 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - Party frames use the raid-style frames, with class colours, power bars, debuffs, aggro highlight and incoming heals turned on.
 - The target frame is placed so its buff and debuff icons sit next to the target display.
 - Your buffs and debuffs start in the top-right corner, just below the top bar.
+- The pet bar starts on the console wall, just above the stance buttons (in your other layouts too, unless you've moved it).
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
 
-Frames that Edit Mode manages (buffs and debuffs, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
+Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
 
 ---
 

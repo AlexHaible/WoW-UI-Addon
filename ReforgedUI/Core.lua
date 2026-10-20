@@ -57,6 +57,7 @@ local DEFAULTS = {
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
 		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
+		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 	},
@@ -848,6 +849,87 @@ local function placeBuffs(layout, spot, last)
 	return changed
 end
 
+-- The pet bar starts just above the stance row on the console wall
+-- (Blizzard's default place is over the console). Like the buffs it is placed
+-- in every layout where it is still in its default place, or still where we
+-- put it last (so a new console scale carries it along); once moved in Edit
+-- Mode it is the player's.
+function ns:PetBarInEditMode()
+	local indices = Enum and Enum.EditModeActionBarSystemIndices
+	local bar = _G.PetActionBar
+	return indices and indices.PetActionBar ~= nil and bar ~= nil and not forbidden(bar)
+		and C_EditMode ~= nil and C_EditMode.SaveLayouts ~= nil or false
+end
+
+-- The pet row is just above the stance row; without stance buttons (as for
+-- most pet classes) the pet bar takes the stance row itself.
+function ns:PetRow(L)
+	L = L or self.layout
+	local forms = _G.GetNumShapeshiftForms
+	if L and L.stance and forms and (forms() or 0) == 0 then
+		return L.stance
+	end
+	return L and L.pet
+end
+
+function ns:PetBarSpot()
+	local row = self:PetRow()
+	if not (row and self:PetBarInEditMode()) then
+		return nil
+	end
+	local u = self:UnitsFor(_G.PetActionBar)
+	return { x = math.floor(row.x * u + 0.5), y = math.floor(row.y * u + 0.5),
+		size = row.size * u, padding = (row.step - row.size) * u }
+end
+
+local BUTTON_SIZE = 45 -- an action button at 100% icon size
+local PET_BUTTON_SIZE = 30 -- a pet button at 100% icon size
+local BAR_PADDING = 8
+
+-- Sets an Edit Mode bar's icon size (`scale` of its buttons' own size, in
+-- 10% steps) and padding. Layouts store sliders either as the value or as
+-- the step index from the minimum: the icon size tells which.
+local function setIconSize(entry, settings, scale, padding)
+	local stored
+	for _, s in ipairs(entry.settings or {}) do
+		if s.setting == settings.IconSize then
+			stored = s.value
+		end
+	end
+	local indexed = stored ~= nil and stored <= 15
+	local pct = math.max(50, math.min(200, math.floor(scale * 10 + 0.5) * 10))
+	setSetting(entry, settings.IconSize, indexed and (pct - 50) / 10 or pct)
+	setSetting(entry, settings.IconPadding, indexed and padding - 2 or padding)
+end
+
+local function placePetBar(layout, spot, last)
+	local sys, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
+	local pet = spot and sys.ActionBar and indices and indices.PetActionBar
+		and findSystem(layout, sys.ActionBar, indices.PetActionBar)
+	if not pet then
+		return false
+	end
+	local a = pet.anchorInfo or {}
+	local atOurs = a.point == "BOTTOMLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
+		and a.relativePoint == "BOTTOMLEFT"
+	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
+	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
+	if not (pet.isInDefaultPosition or (ours and not inPlace)) then
+		return false
+	end
+	-- Placed the first time at about the stance buttons' size, so the row
+	-- fits over the grid; after that the size is the player's.
+	local settings = Enum.EditModeActionBarSetting
+	if pet.isInDefaultPosition and settings and settings.IconSize then
+		setIconSize(pet, settings, spot.size / PET_BUTTON_SIZE, math.max(2, math.floor(spot.padding + 0.5)))
+	end
+	pet.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+		offsetX = spot.x, offsetY = spot.y }
+	pet.anchorInfo2 = nil
+	pet.isInDefaultPosition = false
+	return true
+end
+
 local function setCVar(name, value)
 	local cvars = _G.C_CVar
 	local get = cvars and cvars.GetCVar or _G.GetCVar
@@ -912,8 +994,6 @@ local ACTION_BARS = {
 	{ index = "Bar2", row = "bar2", frame = { "MultiBarBottomLeft" } },
 	{ index = "Bar3", row = "bar3", frame = { "MultiBarBottomRight" } },
 }
-local BUTTON_SIZE = 45 -- an action button at 100% icon size
-local BAR_PADDING = 8
 
 function ns:PlaceActionBars(layout)
 	local o, L = self.db.consoleOpts, self.layout
@@ -938,19 +1018,9 @@ function ns:PlaceActionBars(layout)
 			entry.isInDefaultPosition = false
 			-- Icon size in 10% steps, near the grid's cells; padding 8 with
 			-- the bar art and scrolling hidden and every slot shown (as a
-			-- tester found fits). Layouts store sliders either as the value
-			-- or as the step index from the minimum: the icon size tells which.
+			-- tester found fits).
 			if settings and settings.IconSize then
-				local stored
-				for _, s in ipairs(entry.settings or {}) do
-					if s.setting == settings.IconSize then
-						stored = s.value
-					end
-				end
-				local indexed = stored ~= nil and stored <= 15
-				local pct = math.max(50, math.min(200, math.floor(row.size * u / BUTTON_SIZE * 10 + 0.5) * 10))
-				setSetting(entry, settings.IconSize, indexed and (pct - 50) / 10 or pct)
-				setSetting(entry, settings.IconPadding, indexed and BAR_PADDING - 2 or BAR_PADDING)
+				setIconSize(entry, settings, row.size * u / BUTTON_SIZE, BAR_PADDING)
 			end
 			if settings then
 				setSetting(entry, settings.HideBarArt, 1)
@@ -1023,8 +1093,9 @@ function ns:SetupEditMode()
 	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
 	placed = placed or barsPlaced
 
-	local raised, buffsMoved = 0, 0
+	local raised, buffsMoved, petMoved = 0, 0, 0
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
+	local petSpot, petLast = self:PetBarSpot(), self.db.consoleOpts.petSpot
 	for _, layout in ipairs(info.layouts) do
 		if raiseCastBar(layout, castY) then
 			raised = raised + 1
@@ -1032,12 +1103,19 @@ function ns:SetupEditMode()
 		if placeBuffs(layout, spot, last or nil) then
 			buffsMoved = buffsMoved + 1
 		end
+		if placePetBar(layout, petSpot, petLast or nil) then
+			petMoved = petMoved + 1
+		end
 	end
-	if (made or placed or raised > 0 or buffsMoved > 0) and not pcall(C_EditMode.SaveLayouts, info) then
+	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0)
+		and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
 	if spot then
 		self.db.consoleOpts.buffSpot = spot
+	end
+	if petSpot then
+		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
 	end
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true
@@ -1058,8 +1136,12 @@ function ns:SetupEditMode()
 	elseif raised > 0 then
 		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
 	elseif buffsMoved > 0 then
-		self:AskReload(("placed your buffs below the top bar in %d Edit Mode layout(s); move them there as you"
-			.. " like."):format(buffsMoved))
+		self:AskReload(("placed your buffs below the top bar%s in %d Edit Mode layout(s); move them there as you"
+			.. " like."):format(petMoved > 0 and " and the pet bar on the console wall" or "",
+			math.max(buffsMoved, petMoved)))
+	elseif petMoved > 0 then
+		self:AskReload(("placed the pet bar on the console wall in %d Edit Mode layout(s); move it there as"
+			.. " you like."):format(petMoved))
 	elseif barsPlaced then
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))

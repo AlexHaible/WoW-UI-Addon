@@ -342,6 +342,8 @@ PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
 local gameHour = 0
 function GetGameTime() return gameHour, 0 end
+local localClock = { hour = 21, min = 7 }
+function date(fmt) assert(fmt == "*t"); return { hour = localClock.hour, min = localClock.min } end
 function GetMoney() return 1234567 end
 function GetInventoryItemDurability(slot) if slot == 5 then return 20, 100 end end
 ContainerFrame1 = new("frame", "ContainerFrame1", UIParent)
@@ -1357,6 +1359,39 @@ do
 		"ping tooltip")
 	SlashCmdList.REFORGEDUI("slot 6 none")
 	assert(not slot.left._shown and slot.text._text == "", "an emptied slot drops the ping")
+end
+do
+	-- The time capsule under the clock: server time on a 24 hour clock by
+	-- default; the options switch it to local time, 12 hours, or hide it.
+	local cap = tb.capsule
+	gameHour = 0
+	tb:UpdateClock()
+	assert(cap._shown ~= false and cap.text._text == "00:00", "server time, 24 hours, by default")
+	local clock = ns.topLayout.clockFrame
+	local _, _, _, cx = cap:GetPoint(1)
+	assert(math.abs(cx + cap._w / 2 - (clock.x + clock.w / 2)) < 0.01, "the capsule is centred under the clock")
+	assert(cap:GetFrameLevel() < tb.clockFrame:GetFrameLevel(), "the clock frame covers the capsule's top")
+	local cfg = ns.modules.config
+	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	assert(cap.text._text == "12:00 AM" and ReforgedUIDB.consoleOpts.clockHours == 12, "12 hours")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	assert(cap.text._text == "9:07 PM" and ReforgedUIDB.consoleOpts.clockTime == "local", "local time")
+	gameHour, localClock.hour, localClock.min = 12, 9, 30
+	tb.clockFrame._scripts.OnUpdate(tb.clockFrame, 1)
+	assert(cap.text._text == "9:30 AM", "the capsule keeps time")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	assert(cap._shown == false and ReforgedUIDB.consoleOpts.clockTime == "off", "hidden")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	assert(cap._shown and cap.text._text == "12:00", "back to server time, 24 hours")
+	assert(tb.FormatTime(13, 5, 12) == "1:05 PM" and tb.FormatTime(12, 0, 12) == "12:00 PM" and tb.FormatTime(9, 5, 24) == "09:05",
+		"time formats")
+	gameHour = 0
+	tb:UpdateClock()
+	-- The zone, coloured like the minimap's.
+	SlashCmdList.REFORGEDUI("slot 8 zone")
+	assert(tb.slots[8].text._text:find("Durotar", 1, true), "zone feed shows the zone")
+	SlashCmdList.REFORGEDUI("slot 8 none")
 end
 do
 	-- Game panels go in slots too: opened by a secure click on Blizzard's

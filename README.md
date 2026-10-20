@@ -71,7 +71,9 @@ screen stays free on either side).
   console, since it always stands in mid-screen. On 21:9 the chat area
   narrows a little where it needs to for both to fit; on 16:9 they are past
   the screen edges.
-- **Top bar** (Reforged UI): the day/night clock in the middle with
+- **Top bar** (Reforged UI): the day/night clock in the middle (with a
+  capsule under it showing the server or local time, 24 or 12 hour, or
+  hidden, set in the options) with
   Blizzard's micro buttons either side of it (character, professions,
   talents, group finder, collections, ... in Blizzard's order, then Legacy
   and the game menu to close the row; no quest log, social or map buttons,
@@ -81,7 +83,8 @@ screen stays free on either side).
   (right of the clock; hover the gold for every character's gold and a total
   per faction, Horde and Alliance apart). Our ping and FPS feed shows world
   latency on the left of its slot and the framerate on the right (hover it for
-  home latency and bandwidth). Right-click an empty
+  home latency and bandwidth); a zone feed shows where you are, coloured by
+  PvP status like the minimap's. Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),
@@ -154,7 +157,7 @@ menu keeps the original addon's options, minus the layout ones (the centre modes
 area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
 the chat area upwards, portrait position and scale, low health threshold,
-zone text position, chat input above the
+zone text position, the time under the clock, chat input above the
 chat, health and power as percentages, and hiding the grid texture and chat
 icons, and hiding the top bar. (The micro buttons live in the top bar, or
 above the minimap without it.)

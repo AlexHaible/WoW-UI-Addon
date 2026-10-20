@@ -294,7 +294,7 @@ end
 -- target (Layout.lua's petIcon).
 function Pet:Spot()
 	local L = self.layout
-	local spot = ns.db.consoleOpts.petSpot
+	local spot = ns.db.consoleOpts.petIconSpot
 	local r = L.petIcon.frame
 	if type(spot) == "table" and plain(spot[1]) and plain(spot[2]) then
 		return { x = spot[1], y = spot[2], w = r.w, h = r.h }
@@ -316,12 +316,12 @@ function Pet:SaveSpot()
 	if not (x and y and rx and ry) then
 		return
 	end
-	ns.db.consoleOpts.petSpot = { x - rx, y - ry }
+	ns.db.consoleOpts.petIconSpot = { x - rx, y - ry }
 	ns:RunOutOfCombat("pet-button", function() self:PlaceButton() end)
 end
 
 function Pet:ResetSpot()
-	ns.db.consoleOpts.petSpot = false
+	ns.db.consoleOpts.petIconSpot = false
 	ns:RunOutOfCombat("pet-button", function() self:PlaceButton() end)
 end
 

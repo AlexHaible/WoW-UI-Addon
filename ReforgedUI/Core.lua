@@ -61,7 +61,7 @@ local DEFAULTS = {
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		transparency = 0, -- how see-through the console's art is, 0-100 %
-		petSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
+		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 	},

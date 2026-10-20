@@ -2486,17 +2486,19 @@ do
 	GetPetHappiness = nil
 	-- Shift-drag saves the spot; in combat it doesn't move; reset puts it back.
 	IsShiftKeyDown = function() return true end
+	local barSpot = ReforgedUIDB.consoleOpts.petSpot
 	b._scripts.OnDragStart(b)
 	b._scripts.OnDragStop(b)
-	assert(type(ReforgedUIDB.consoleOpts.petSpot) == "table", "a Shift-drag saves the pet's spot")
+	assert(type(ReforgedUIDB.consoleOpts.petIconSpot) == "table", "a Shift-drag saves the pet's spot")
+	assert(ReforgedUIDB.consoleOpts.petSpot == barSpot, "and leaves the pet bar's spot alone")
 	slash("theme orc")
 	slash("pet reset")
-	assert(ReforgedUIDB.consoleOpts.petSpot == false, "/rui pet reset")
+	assert(ReforgedUIDB.consoleOpts.petIconSpot == false, "/rui pet reset")
 	inCombat = true
-	ReforgedUIDB.consoleOpts.petSpot = false
+	ReforgedUIDB.consoleOpts.petIconSpot = false
 	b._scripts.OnDragStart(b)
 	b._scripts.OnDragStop(b)
-	assert(ReforgedUIDB.consoleOpts.petSpot == false, "no moving in combat")
+	assert(ReforgedUIDB.consoleOpts.petIconSpot == false, "no moving in combat")
 	inCombat = false
 	IsShiftKeyDown = nil
 	slash("theme auto")

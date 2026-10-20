@@ -618,8 +618,7 @@ function TopBar:StyleSlotText(slot, panel)
 			text:SetTextColor(unpack(theme.title))
 		end
 	else
-		text:SetPoint("LEFT", slot.icon, "RIGHT", 4, 0)
-		text:SetPoint("RIGHT", -6, 0)
+		-- Feeds are anchored in RefreshSlot, which knows about the icon.
 		text:SetJustifyH("RIGHT")
 		text:SetFontObject("GameFontHighlightSmall")
 		text:SetTextColor(1, 1, 1)
@@ -648,6 +647,17 @@ function TopBar:RefreshSlot(slot)
 			slot.text:SetText(obj.textRight)
 		else
 			slot.text:SetText(feedText(name, obj))
+		end
+		-- Without an icon (the zone, say), the text takes the slot's
+		-- full width rather than starting where the icon would be.
+		if not panel then
+			slot.text:ClearAllPoints()
+			if obj.icon then
+				slot.text:SetPoint("LEFT", slot.icon, "RIGHT", 4, 0)
+			else
+				slot.text:SetPoint("LEFT", 6, 0)
+			end
+			slot.text:SetPoint("RIGHT", -6, 0)
 		end
 		if obj.iconR then
 			slot.icon:SetVertexColor(obj.iconR, obj.iconG or 1, obj.iconB or 1)

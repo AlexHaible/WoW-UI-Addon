@@ -1,10 +1,8 @@
 -- Your pet's unit icon, like the target of target's (Target.lua): its
 -- portrait in the theme's trim over its health and power bars, standing on
--- the wall beside the target of target, its name above. A hunter's pet shows
--- its happiness in the portrait's corner (hover it for the details: damage
--- and loyalty), and the pet's buffs and debuffs stand in rows above the
--- name, debuffs nearest. Left-click
--- targets the pet, right-click opens its menu, Shift-drag moves the whole of
+-- the wall beside the target of target, its name above. The pet's buffs and
+-- debuffs stand in rows above the name, debuffs nearest. Left-click targets
+-- the pet, right-click opens its menu, Shift-drag moves the whole of
 -- it (out of combat; /rui pet reset puts it back).
 --
 -- Health and power go straight into status bars; an aura that can't be read
@@ -17,13 +15,6 @@ local Pet = ns:RegisterModule("pet", {})
 local MAX_AURAS = 6 -- per kind, three to a row
 local PER_ROW = 3
 local NAME_H = 11 -- the name's line over the trim
-
-local HAPPINESS_TEXTURE = "Interface\\PetPaperDollFrame\\UI-PetHappiness"
-local HAPPINESS_COORDS = {
-	{ 0.375, 0.5625, 0, 0.359375 }, -- unhappy
-	{ 0.1875, 0.375, 0, 0.359375 }, -- content
-	{ 0, 0.1875, 0, 0.359375 }, -- happy
-}
 
 local isSecret = issecretvalue or function() return false end
 
@@ -93,24 +84,6 @@ local function makeAura(parent, filter, index)
 	return f
 end
 
-local function happinessTip(owner)
-	local happiness, damage, loyalty = _G.GetPetHappiness()
-	if not plain(happiness) then
-		return
-	end
-	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-	GameTooltip:SetText(_G["PET_HAPPINESS" .. happiness] or "")
-	if plain(damage) and damage ~= 100 and _G.PET_DAMAGE_PERCENTAGE then
-		GameTooltip:AddLine(_G.PET_DAMAGE_PERCENTAGE:format(damage), 1, 1, 1)
-	end
-	if plain(loyalty) and loyalty ~= 0 then
-		local gaining = loyalty > 0
-		GameTooltip:AddLine(gaining and (_G.GAINING_LOYALTY or "Gaining Loyalty") or (_G.LOSING_LOYALTY or "Losing Loyalty"),
-			gaining and 0.1 or 1, gaining and 1 or 0.1, 0.1)
-	end
-	GameTooltip:Show()
-end
-
 function Pet:Create()
 	local target = ns.modules.target
 	local b = target.CreateUnitIcon("ReforgedUIPet", "pet", 32, true)
@@ -149,18 +122,6 @@ function Pet:Create()
 	b.name:SetTextColor(1, 0.82, 0)
 	b.name:SetJustifyH("CENTER")
 
-	-- A hunter's pet's happiness, over the portrait's top-right corner.
-	local happy = CreateFrame("Frame", nil, b)
-	happy:SetFrameLevel(b:GetFrameLevel() + 4)
-	happy.icon = happy:CreateTexture(nil, "OVERLAY")
-	happy.icon:SetAllPoints()
-	happy.icon:SetTexture(HAPPINESS_TEXTURE)
-	happy:EnableMouse(true)
-	happy:SetScript("OnEnter", happinessTip)
-	happy:SetScript("OnLeave", GameTooltip_Hide)
-	happy:Hide()
-	b.happiness = happy
-
 	b.auras = { HARMFUL = {}, HELPFUL = {} }
 	for filter, list in pairs(b.auras) do
 		for i = 1, MAX_AURAS do
@@ -184,7 +145,6 @@ function Pet:OnEnable()
 	petEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH" }, self.UpdateHealth)
 	petEvent({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }, self.UpdatePower)
 	petEvent({ "UNIT_AURA" }, self.UpdateAuras)
-	petEvent({ "UNIT_HAPPINESS" }, self.UpdateHappiness)
 	petEvent({ "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" }, self.UpdatePortrait)
 	petEvent({ "UNIT_NAME_UPDATE" }, self.UpdateName)
 	ns:On("UNIT_PET", function(_, unit)
@@ -192,7 +152,6 @@ function Pet:OnEnable()
 			self:Update()
 		end
 	end)
-	ns:On("PET_UI_UPDATE", function() self:UpdateHappiness() end)
 	-- Auras run out without an event.
 	local elapsed = 0
 	self.button:HookScript("OnUpdate", function(_, dt)
@@ -212,7 +171,6 @@ function Pet:Update()
 	self:UpdateName()
 	self:UpdateHealth()
 	self:UpdatePower()
-	self:UpdateHappiness()
 	self:UpdateAuras()
 end
 
@@ -241,17 +199,6 @@ function Pet:UpdatePower()
 		r, g, b = c.r, c.g, c.b
 	end
 	bar:SetStatusBarColor(r, g, b)
-end
-
--- Hunter pets only: other pets have no happiness (nil).
-function Pet:UpdateHappiness()
-	local icon = self.button.happiness
-	local happiness = _G.GetPetHappiness and _G.GetPetHappiness()
-	local tc = plain(happiness) and HAPPINESS_COORDS[happiness]
-	if tc then
-		icon.icon:SetTexCoord(tc[1], tc[2], tc[3], tc[4])
-	end
-	icon:SetShown(tc and true or false)
 end
 
 -- One kind of aura into its icons; false when the client would not say.
@@ -349,13 +296,6 @@ function Pet:OnLayout(L)
 	self.layout = L
 	local P, b = L.petIcon, self.button
 	ns.modules.target.PlaceUnitIcon(b, P)
-	-- The happiness face over the portrait's top-right corner.
-	local size = 0.4 * P.icon.w
-	local icon = P.icon
-	b.happiness:ClearAllPoints()
-	b.happiness:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", icon.x + icon.w - size * 0.75 - P.frame.x,
-		icon.y + icon.h - size * 0.75 - P.frame.y)
-	b.happiness:SetSize(size, size)
 	-- The name just above the trim, a little wider than the icon.
 	b.name:ClearAllPoints()
 	b.name:SetPoint("BOTTOM", b, "TOP", 0, 0)

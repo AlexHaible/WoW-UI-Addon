@@ -466,7 +466,8 @@ function hooksecurefunc(a, b, c)
 	end
 end
 function updateContainerFrameAnchors() end
-function RegisterStateDriver() end
+stateDrivers = {}
+function RegisterStateDriver(f, _, v) stateDrivers[f] = v end
 function geterrorhandler() return function(err) error(err, 0) end end
 function GetBindingKey(cmd) if cmd == "ACTIONBUTTON1" then return "1", "SHIFT-1" end end
 local overrides = 0
@@ -928,10 +929,10 @@ assert(iy > 100, "the issue reporter should sit above the console")
 -- Blizzard's micro buttons live in the top bar, either side of the clock:
 -- still Blizzard's (same parent, visible), anchored to UIParent, scaled to
 -- the bar. The quest log, social and map buttons stay hidden.
-local function microAt(b, r, what)
+local function microAt(b, r, what, root)
 	local p = b._points[1]
 	assert(p and #b._points == 1 and p[2] == UIParent and p[1] == "BOTTOMLEFT", what .. " should be anchored to UIParent")
-	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
+	local k = b:GetEffectiveScale() / (root or ns.topRoot):GetEffectiveScale()
 	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
 	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
 	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
@@ -999,6 +1000,41 @@ checkMicro(MOVED)
 StoreMicroButton._shown = true
 flushTimers()
 checkMicro(MOVED)
+do
+	-- With the top bar hidden (clock, slots and all), the micro buttons
+	-- stand on the minimap block's wall, between the left end cap and the
+	-- addon compartment, clear of the map and the target of target; buffs
+	-- still where we put them move up to the screen's top edge.
+	local buffY = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
+	ns:SetTopBarShown(false)
+	flushTimers()
+	assert(stateDrivers[ns.topRoot] == "hide", "the top bar is hidden")
+	local L, tb = ns.layout, ns.modules.topbar
+	assert(#L.micro == #MOVED, "every micro button gets a place on the console")
+	local cap = L.endcaps.left
+	for i, b in ipairs(MOVED) do
+		local r = L.micro[i]
+		microAt(b, r, b:GetName() .. " (no top bar)", ns.root)
+		assert(r.x >= cap.x + cap.w and r.x + r.w <= L.addonCompartment.x, b:GetName() .. " beside the compartment")
+		assert(r.y >= L.minimap.y + L.minimap.h, b:GetName() .. " above the map")
+		for _, other in ipairs({ L.addonCompartment, L.tot.frame, L.petIcon and L.petIcon.frame or L.tot.frame }) do
+			assert(not ns.Layout.Overlaps(r, other), b:GetName() .. " collides")
+		end
+		for j = i + 1, #MOVED do
+			assert(not ns.Layout.Overlaps(r, L.micro[j]), "micro buttons overlap")
+		end
+	end
+	for _, slot in ipairs(tb.slots) do
+		assert(not slot._shown and not (slot.secure and slot.secure._shown), "no slots without the top bar")
+	end
+	local y = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
+	assert(y > buffY and y < 0, "buffs move up with the top bar hidden")
+	ns:SetTopBarShown(true)
+	flushTimers()
+	assert(stateDrivers[ns.topRoot] == "[petbattle] hide; show", "the top bar is back")
+	checkMicro(MOVED)
+	assert(savedLayouts.layouts[3].systems[7].anchorInfo.offsetY == buffY, "and the buffs under it")
+end
 -- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
 	local row = L.bars[key]

@@ -92,7 +92,12 @@ screen stays free on either side).
   it, so it opens untainted and in combat too. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and
-  click-through wherever Edit Mode puts it.
+  click-through wherever Edit Mode puts it. **Hide top bar** in the menu (or
+  `/rui topbar off`) takes the bar away, clock and slots too; the micro
+  buttons then stand on the minimap block's wall, the lower row half over
+  it, between the left end cap and the addon compartment's button (in two
+  or three rows where one would make them too small), and the buffs move
+  up to the screen's top edge.
 
 The three action slots beside the minimap are the first three buttons of
 Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
@@ -100,7 +105,8 @@ Action Bars > Action Bar 8). The addon turns on Action Bars 2, 3 and 8 once per
 character; if you turn bar 8 off later, the slots are empty sockets whose
 tooltip says how to turn it back on.
 
-Buffs and debuffs are held in the top-right corner just below the top bar.
+Buffs and debuffs are held in the top-right corner just below the top bar
+(at the screen's top edge with the top bar hidden).
 Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
@@ -153,7 +159,8 @@ centred with its chat area and inventory): theme, UI scale (240-270), extend
 the chat area upwards, portrait position and scale, low health threshold,
 zone text position, the time under the clock, chat input above the
 chat, health and power as percentages, and hiding the grid texture and chat
-icons. (The micro buttons always live in the top bar now.)
+icons, and hiding the top bar. (The micro buttons live in the top bar, or
+above the minimap without it.)
 
 **Let Edit Mode place action bars 1-3** (off by default) leaves bars 1-3 on
 their own Edit Mode bars instead of in the grid: they are placed once over
@@ -244,6 +251,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
+/rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status

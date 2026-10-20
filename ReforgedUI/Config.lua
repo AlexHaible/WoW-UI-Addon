@@ -21,7 +21,7 @@ local THEME_BUTTONS = {
 }
 local THEME_COLUMNS = 7
 local ZONE_TEXT = { "Zone text: bottom", "Zone text: top", "Zone text: hidden" }
-local CLOCK_TIME = { server = "Clock time: server", ["local"] = "Clock time: local", off = "Clock time: hidden" }
+local CLOCK_TIME = { server = "Time: server", ["local"] = "Time: local", off = "Time: hidden" }
 
 local function relayout()
 	if ns.ready then
@@ -237,10 +237,12 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
-	-- The time in the capsule under the top bar's clock: server, local or
-	-- none, on a 24 or 12 hour clock.
+	-- No top bar: the menu buttons stand above the minimap instead.
+	self:Check("Hide top bar", "hideTopBar", x, y - 178, function(on) ns:SetTopBarShown(not on) end)
+	-- On the same row, the time in the capsule under the top bar's clock:
+	-- server, local or none, on a 24 or 12 hour clock.
 	local topbar = ns.modules.topbar
-	self.clockTimeButton = button(f, CLOCK_TIME.server, 150, x, -280, function()
+	self.clockTimeButton = button(f, CLOCK_TIME.server, 110, x + 116, y - 179, function()
 		local modes, mode = topbar.TIME_MODES, topbar:TimeMode()
 		for i, m in ipairs(modes) do
 			if m == mode then
@@ -250,7 +252,7 @@ function Config:Build()
 		end
 		self:Refresh()
 	end)
-	self.clockHoursButton = button(f, "24-hour", 90, x + 154, -280, function()
+	self.clockHoursButton = button(f, "24-hour", 64, x + 230, y - 179, function()
 		topbar:SetTimeHours(topbar:TimeHours() == 12 and 24 or 12)
 		self:Refresh()
 	end)
@@ -339,9 +341,9 @@ function Config:Refresh()
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
 	local topbar = ns.modules.topbar
 	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])
-	self.clockTimeButton:SetEnabled(topbar.enabled and true or false)
+	self.clockTimeButton:SetEnabled(topbar.enabled and ns:TopBarShown() or false)
 	self.clockHoursButton:SetText(topbar:TimeHours() == 12 and "12-hour" or "24-hour")
-	self.clockHoursButton:SetEnabled(topbar.enabled and topbar:TimeMode() ~= "off" or false)
+	self.clockHoursButton:SetEnabled(topbar.enabled and ns:TopBarShown() and topbar:TimeMode() ~= "off" or false)
 	local hero = ns.modules.hero
 	local choices = hero:IconChoices()
 	for i, b in ipairs(self.iconButtons) do

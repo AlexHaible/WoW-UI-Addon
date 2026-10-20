@@ -392,8 +392,14 @@ function MinimapModule:OnLayout(L)
 	local rows = math.min(math.max(count, 1), FLYOUT_ROWS)
 	local step = size + 2
 	local bottom = c.y + c.h + 2
-	ns:PlaceRect(self.drawer, { x = c.x + c.w + 2 - cols * step - 2, y = bottom, w = cols * step + 2,
-		h = rows * step + 2 })
+	local left = c.x + c.w + 2 - cols * step - 2
+	-- With the top bar hidden, Blizzard's menu buttons stand left of the
+	-- compartment (Layout.lua): a wider flyout opens above them.
+	local span = L.microSpan
+	if span and span.w > 0 and left < span.x + span.w then
+		bottom = math.max(bottom, span.y + span.h + 2)
+	end
+	ns:PlaceRect(self.drawer, { x = left, y = bottom, w = cols * step + 2, h = rows * step + 2 })
 	for i, btn in ipairs(self.addonButtons) do
 		local col, line = math.floor((i - 1) / FLYOUT_ROWS), (i - 1) % FLYOUT_ROWS
 		local x, y = c.x - col * step, bottom + 2 + line * step

@@ -21,6 +21,7 @@ local THEME_BUTTONS = {
 }
 local THEME_COLUMNS = 7
 local ZONE_TEXT = { "Zone text: bottom", "Zone text: top", "Zone text: hidden" }
+local CLOCK_TIME = { server = "Time: server", ["local"] = "Time: local", off = "Time: hidden" }
 
 local function relayout()
 	if ns.ready then
@@ -57,6 +58,7 @@ function Config:Check(text, key, x, y, after)
 	fs:ClearAllPoints()
 	fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
 	fs:SetText(text)
+	cb.label = fs
 	cb:SetScript("OnClick", function(b)
 		if key then
 			ns.db.consoleOpts[key] = b:GetChecked() and true or false
@@ -236,6 +238,26 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
+	-- No top bar: the menu buttons stand above the minimap instead.
+	self:Check("Hide top bar", "hideTopBar", x, y - 178, function(on) ns:SetTopBarShown(not on) end)
+	-- On the same row, the time in the capsule under the top bar's clock:
+	-- server, local or none, on a 24 or 12 hour clock.
+	local topbar = ns.modules.topbar
+	self.clockTimeButton = button(f, CLOCK_TIME.server, 110, x + 116, y - 179, function()
+		local modes, mode = topbar.TIME_MODES, topbar:TimeMode()
+		for i, m in ipairs(modes) do
+			if m == mode then
+				topbar:SetTimeMode(modes[i % #modes + 1])
+				break
+			end
+		end
+		self:Refresh()
+	end)
+	self.clockHoursButton = button(f, "24-hour", 64, x + 230, y - 179, function()
+		topbar:SetTimeHours(topbar:TimeHours() == 12 and 24 or 12)
+		self:Refresh()
+	end)
+
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
 	label(f, "Stat icons (this class)", x, -318)
@@ -246,6 +268,14 @@ function Config:Build()
 		b.index = i
 		self.iconButtons[i] = b
 	end
+
+	-- A free-standing target health bar, for nearer the middle of the screen.
+	self.targetBarCheck = self:Check("Target bar (Shift-drag or Edit Mode)", "targetBar", x, -362, function(on)
+		ns.modules.target:SetBarEnabled(on)
+		if on then
+			ns:Print("target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
+		end
+	end)
 
 	label(f, "Right-click a stat icon on the console to change it too, or the experience bar for its rested colour.",
 		20, -388, "GameFontNormalSmall")
@@ -317,7 +347,16 @@ function Config:Refresh()
 	for _, b in ipairs(self.targetButtons) do
 		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
+	-- Greyed out like the buttons above while the target module is off.
+	self.targetBarCheck:SetEnabled(target.enabled and true or false)
+	local shade = target.enabled and 1 or 0.5
+	self.targetBarCheck.label:SetTextColor(shade, shade, shade)
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
+	local topbar = ns.modules.topbar
+	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])
+	self.clockTimeButton:SetEnabled(topbar.enabled and ns:TopBarShown() or false)
+	self.clockHoursButton:SetText(topbar:TimeHours() == 12 and "12-hour" or "24-hour")
+	self.clockHoursButton:SetEnabled(topbar.enabled and ns:TopBarShown() and topbar:TimeMode() ~= "off" or false)
 	local hero = ns.modules.hero
 	local choices = hero:IconChoices()
 	for i, b in ipairs(self.iconButtons) do

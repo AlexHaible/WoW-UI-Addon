@@ -38,7 +38,7 @@ read_globals = {
 	"GetShapeshiftFormID", "HasAction", "HasNewMail", "IsResting", "MiniMapMailBorder", "MiniMapTrackingFrame",
 	"PaperDollFrame_GetArmorReduction", "PlaceAction", "ReloadUI", "Settings", "issecurevariable", "UISpecialFrames", "UnitAffectingCombat",
 	"UnitAttackSpeed", "UnitHealthPercent", "UnitIsGroupLeader", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitPowerPercent",
-	"issecretvalue", "tinsert", "CreateFont",
+	"issecretvalue", "tinsert", "CreateFont", "date", "GetZoneText", "GetRealZoneText", "GetSubZoneText", "ZONE",
 	-- target display
 	"AbbreviateLargeNumbers", "GetTime", "TargetFrameToT", "UnitCanAttack", "UnitCastingInfo", "UnitChannelInfo",
 	"UnitIsUnit",

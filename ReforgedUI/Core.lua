@@ -53,6 +53,8 @@ local DEFAULTS = {
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
+		targetBar = false, -- a movable target health and power bar, besides the target display
+		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
 		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
@@ -61,6 +63,7 @@ local DEFAULTS = {
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
+		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 	},
 }
 
@@ -602,6 +605,24 @@ function ns:ConsoleScale()
 	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / self:ConsoleMinWidth())
 end
 
+-- Whether the top bar is shown ("Hide top bar" in the menu). Without it,
+-- the top bar module still places Blizzard's micro buttons, on the console.
+function ns:TopBarShown()
+	return not self.db.consoleOpts.hideTopBar
+end
+
+-- Shows or hides the top bar; buffs still where we put them move up or
+-- down with it (through the Edit Mode layouts, so that asks for a reload).
+function ns:SetTopBarShown(on)
+	self.db.consoleOpts.hideTopBar = not on
+	self:Relayout()
+	self:RunOutOfCombat("edit-mode", function() self:SetupEditMode() end)
+	local config = self.modules.config
+	if config.frame then
+		config:Refresh()
+	end
+end
+
 function ns:Relayout()
 	self:RunOutOfCombat("relayout", function()
 		local root = self.root
@@ -624,8 +645,17 @@ function ns:Relayout()
 		-- buttons (TopBar.lua).
 		local micro = self.TopBarMicroRatios and self:TopBarMicroRatios()
 		self.topLayout = self.Layout.ComputeTopBar(TW, TH, self.db.layout, micro, self.theme and self.theme.folder)
+		-- Hidden, the top bar stays hidden through pet battles too; its
+		-- micro buttons go on the console instead.
+		local shown = self:TopBarShown()
+		if self.topRootShown ~= shown then
+			self.topRootShown = shown
+			RegisterStateDriver(topRoot, "visibility", shown and "[petbattle] hide; show" or "hide")
+		end
 
-		local L = self.Layout.Compute(W, 768, self:LayoutOptions())
+		local opts = self:LayoutOptions()
+		opts.micro = not shown and micro or nil
+		local L = self.Layout.Compute(W, 768, opts)
 		self.layout = L
 		self:ForEachModule("OnLayout", L)
 	end)
@@ -801,7 +831,8 @@ local function raiseCastBar(layout, y)
 end
 
 -- Buffs start in the top-right corner just below the top bar (Blizzard's
--- default place is under it), debuffs under the buffs. Placed in every
+-- default place is under it), or at the screen's top edge with the top bar
+-- hidden; debuffs under the buffs. Placed in every
 -- layout where they are still in their default place, or still where we
 -- put them last (so a new top bar scale carries them along); once moved in
 -- Edit Mode they are the player's.
@@ -817,7 +848,8 @@ function ns:BuffSpot()
 		return nil
 	end
 	local s = self.topRoot:GetEffectiveScale() / buffs:GetEffectiveScale()
-	return { x = math.floor(-BUFF_RIGHT * s + 0.5), y = math.floor(-(self.topLayout.topBar.h + BUFF_GAP) * s + 0.5) }
+	local barH = self:TopBarShown() and self.topLayout.topBar.h or 0
+	return { x = math.floor(-BUFF_RIGHT * s + 0.5), y = math.floor(-(barH + BUFF_GAP) * s + 0.5) }
 end
 
 local function placeBuffs(layout, spot, last)
@@ -1138,6 +1170,7 @@ local function usage()
 	print("  /rui slot <number> <feed or panel name>||none")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
+	print("  /rui topbar on||off  (off: the menu buttons stand above the minimap)")
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
 		.. " pet, topbar, config; needs /reload)")
 	print("  /rui status")
@@ -1145,6 +1178,7 @@ local function usage()
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
+	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
 end
 
@@ -1174,6 +1208,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.scale = math.max(0.5, math.min(1.5, tonumber(arg)))
 		ns:Relayout()
 		ns:Print("top bar scale:", ns.db.scale)
+	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
+		ns:SetTopBarShown(arg == "on")
+		ns:Print("top bar:", arg)
 	elseif cmd == "feeds" and ns.modules.topbar.enabled then
 		ns.modules.topbar:ListFeeds()
 	elseif cmd == "slot" and tonumber(arg) and arg2 and ns.modules.topbar.enabled then
@@ -1191,6 +1228,18 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "pet" and arg == "reset" and ns.modules.pet.enabled then
 		ns.modules.pet:ResetSpot()
 		ns:Print("pet icon back beside the target of target.")
+	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
+		local target = ns.modules.target
+		if arg == "reset" then
+			target:ResetBarSpot()
+			ns:Print("target bar back in its first place.")
+		else
+			target:SetBarEnabled(arg == "on")
+			ns:Print(arg == "on" and "target bar on: hold Shift and drag it, or move it in Edit Mode." or "target bar off.")
+		end
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
 	elseif cmd == "auras" and ns.modules.target.enabled then
 		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
 			ns:Print(line)

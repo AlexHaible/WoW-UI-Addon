@@ -55,6 +55,11 @@ screen stays free on either side).
   invisible, and the "Reforged UI" Edit Mode layout places it (buffs on
   top) so the icons land there.
   Left-click targets, right-click opens the unit menu.
+  For the target's health nearer the middle of the screen, the options'
+  "Target bar" (or `/rui targetbar on`) adds a small free-standing bar with
+  its name, level, health and power, in either mode. It is click-through
+  until you hold Shift out of combat (or open Edit Mode), then drag it anywhere; its place
+  is saved on its own and never touches the Edit Mode layout.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
@@ -71,7 +76,9 @@ screen stays free on either side).
   console, since it always stands in mid-screen. On 21:9 the chat area
   narrows a little where it needs to for both to fit; on 16:9 they are past
   the screen edges.
-- **Top bar** (Reforged UI): the day/night clock in the middle with
+- **Top bar** (Reforged UI): the day/night clock in the middle (with a
+  capsule under it showing the server or local time, 24 or 12 hour, or
+  hidden, set in the options) with
   Blizzard's micro buttons either side of it (character, professions,
   talents, group finder, collections, ... in Blizzard's order, then Legacy
   and the game menu to close the row; no quest log, social or map buttons,
@@ -81,7 +88,8 @@ screen stays free on either side).
   (right of the clock; hover the gold for every character's gold and a total
   per faction, Horde and Alliance apart). Our ping and FPS feed shows world
   latency on the left of its slot and the framerate on the right (hover it for
-  home latency and bandwidth). Right-click an empty
+  home latency and bandwidth); a zone feed shows where you are, coloured by
+  PvP status like the minimap's. Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),
@@ -89,7 +97,12 @@ screen stays free on either side).
   it, so it opens untainted and in combat too. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and
-  click-through wherever Edit Mode puts it.
+  click-through wherever Edit Mode puts it. **Hide top bar** in the menu (or
+  `/rui topbar off`) takes the bar away, clock and slots too; the micro
+  buttons then stand on the minimap block's wall, the lower row half over
+  it, between the left end cap and the addon compartment's button (in two
+  or three rows where one would make them too small), and the buffs move
+  up to the screen's top edge.
 
 The three action slots beside the minimap are the first three buttons of
 Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
@@ -97,7 +110,8 @@ Action Bars > Action Bar 8). The addon turns on Action Bars 2, 3 and 8 once per
 character; if you turn bar 8 off later, the slots are empty sockets whose
 tooltip says how to turn it back on.
 
-Buffs and debuffs are held in the top-right corner just below the top bar.
+Buffs and debuffs are held in the top-right corner just below the top bar
+(at the screen's top edge with the top bar hidden).
 Other frames that Edit Mode manages (cast bar, focus and party
 frames, quest tracker) stay wherever Edit Mode puts them: place them around
 the console there. Moving them from addon code breaks Blizzard's own code on
@@ -148,9 +162,10 @@ menu keeps the original addon's options, minus the layout ones (the centre modes
 area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
 the chat area upwards, portrait position and scale, low health threshold,
-zone text position, chat input above the
+zone text position, the time under the clock, chat input above the
 chat, health and power as percentages, and hiding the grid texture and chat
-icons. (The micro buttons always live in the top bar now.)
+icons, and hiding the top bar. (The micro buttons live in the top bar, or
+above the minimap without it.)
 
 **Let Edit Mode place action bars 1-3** (off by default) leaves bars 1-3 on
 their own Edit Mode bars instead of in the grid: they are placed once over
@@ -241,7 +256,9 @@ of your faction. Saved themes from earlier versions keep working.
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
+/rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset

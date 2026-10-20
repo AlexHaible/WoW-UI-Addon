@@ -199,6 +199,8 @@ end
 
 UIParent = new("frame", "UIParent")
 UIParent._w, UIParent._h = screenW, screenH
+EditModeManagerFrame = new("frame", "EditModeManagerFrame", UIParent)
+EditModeManagerFrame._shown = false
 Minimap = new("frame", "Minimap", UIParent)
 Minimap.ZoomIn = new("button", nil, Minimap)
 MinimapCluster = new("frame", "MinimapCluster", UIParent)
@@ -344,6 +346,8 @@ PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
 local gameHour = 0
 function GetGameTime() return gameHour, 0 end
+local localClock = { hour = 21, min = 7 }
+function date(fmt) assert(fmt == "*t"); return { hour = localClock.hour, min = localClock.min } end
 function GetMoney() return 1234567 end
 function GetInventoryItemDurability(slot) if slot == 5 then return 20, 100 end end
 ContainerFrame1 = new("frame", "ContainerFrame1", UIParent)
@@ -466,7 +470,8 @@ function hooksecurefunc(a, b, c)
 	end
 end
 function updateContainerFrameAnchors() end
-function RegisterStateDriver() end
+stateDrivers = {}
+function RegisterStateDriver(f, _, v) stateDrivers[f] = v end
 function geterrorhandler() return function(err) error(err, 0) end end
 function GetBindingKey(cmd) if cmd == "ACTIONBUTTON1" then return "1", "SHIFT-1" end end
 local overrides = 0
@@ -928,10 +933,10 @@ assert(iy > 100, "the issue reporter should sit above the console")
 -- Blizzard's micro buttons live in the top bar, either side of the clock:
 -- still Blizzard's (same parent, visible), anchored to UIParent, scaled to
 -- the bar. The quest log, social and map buttons stay hidden.
-local function microAt(b, r, what)
+local function microAt(b, r, what, root)
 	local p = b._points[1]
 	assert(p and #b._points == 1 and p[2] == UIParent and p[1] == "BOTTOMLEFT", what .. " should be anchored to UIParent")
-	local k = b:GetEffectiveScale() / ns.topRoot:GetEffectiveScale()
+	local k = b:GetEffectiveScale() / (root or ns.topRoot):GetEffectiveScale()
 	assert(math.abs(p[4] * k - r.x) < 0.01 and math.abs(p[5] * k - r.y) < 0.01, what .. " in the wrong place")
 	assert(math.abs(b._h * k - r.h) < 0.01 and math.abs(b._w * k - r.w) < 0.01, what .. " has the wrong size")
 	assert(b:GetParent() == MicroMenu, what .. " keeps its parent")
@@ -999,6 +1004,41 @@ checkMicro(MOVED)
 StoreMicroButton._shown = true
 flushTimers()
 checkMicro(MOVED)
+do
+	-- With the top bar hidden (clock, slots and all), the micro buttons
+	-- stand on the minimap block's wall, between the left end cap and the
+	-- addon compartment, clear of the map and the target of target; buffs
+	-- still where we put them move up to the screen's top edge.
+	local buffY = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
+	ns:SetTopBarShown(false)
+	flushTimers()
+	assert(stateDrivers[ns.topRoot] == "hide", "the top bar is hidden")
+	local L, tb = ns.layout, ns.modules.topbar
+	assert(#L.micro == #MOVED, "every micro button gets a place on the console")
+	local cap = L.endcaps.left
+	for i, b in ipairs(MOVED) do
+		local r = L.micro[i]
+		microAt(b, r, b:GetName() .. " (no top bar)", ns.root)
+		assert(r.x >= cap.x + cap.w and r.x + r.w <= L.addonCompartment.x, b:GetName() .. " beside the compartment")
+		assert(r.y >= L.minimap.y + L.minimap.h, b:GetName() .. " above the map")
+		for _, other in ipairs({ L.addonCompartment, L.tot.frame, L.petIcon and L.petIcon.frame or L.tot.frame }) do
+			assert(not ns.Layout.Overlaps(r, other), b:GetName() .. " collides")
+		end
+		for j = i + 1, #MOVED do
+			assert(not ns.Layout.Overlaps(r, L.micro[j]), "micro buttons overlap")
+		end
+	end
+	for _, slot in ipairs(tb.slots) do
+		assert(not slot._shown and not (slot.secure and slot.secure._shown), "no slots without the top bar")
+	end
+	local y = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
+	assert(y > buffY and y < 0, "buffs move up with the top bar hidden")
+	ns:SetTopBarShown(true)
+	flushTimers()
+	assert(stateDrivers[ns.topRoot] == "[petbattle] hide; show", "the top bar is back")
+	checkMicro(MOVED)
+	assert(savedLayouts.layouts[3].systems[7].anchorInfo.offsetY == buffY, "and the buffs under it")
+end
 -- Bars 1-3 in the grid, Action Bar 8 beside the minimap.
 for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButton", bar3 = "MultiBarBottomRightButton" }) do
 	local row = L.bars[key]
@@ -1323,6 +1363,39 @@ do
 		"ping tooltip")
 	SlashCmdList.REFORGEDUI("slot 6 none")
 	assert(not slot.left._shown and slot.text._text == "", "an emptied slot drops the ping")
+end
+do
+	-- The time capsule under the clock: server time on a 24 hour clock by
+	-- default; the options switch it to local time, 12 hours, or hide it.
+	local cap = tb.capsule
+	gameHour = 0
+	tb:UpdateClock()
+	assert(cap._shown ~= false and cap.text._text == "00:00", "server time, 24 hours, by default")
+	local clock = ns.topLayout.clockFrame
+	local _, _, _, cx = cap:GetPoint(1)
+	assert(math.abs(cx + cap._w / 2 - (clock.x + clock.w / 2)) < 0.01, "the capsule is centred under the clock")
+	assert(cap:GetFrameLevel() < tb.clockFrame:GetFrameLevel(), "the clock frame covers the capsule's top")
+	local cfg = ns.modules.config
+	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	assert(cap.text._text == "12:00 AM" and ReforgedUIDB.consoleOpts.clockHours == 12, "12 hours")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	assert(cap.text._text == "9:07 PM" and ReforgedUIDB.consoleOpts.clockTime == "local", "local time")
+	gameHour, localClock.hour, localClock.min = 12, 9, 30
+	tb.clockFrame._scripts.OnUpdate(tb.clockFrame, 1)
+	assert(cap.text._text == "9:30 AM", "the capsule keeps time")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	assert(cap._shown == false and ReforgedUIDB.consoleOpts.clockTime == "off", "hidden")
+	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	assert(cap._shown and cap.text._text == "12:00", "back to server time, 24 hours")
+	assert(tb.FormatTime(13, 5, 12) == "1:05 PM" and tb.FormatTime(12, 0, 12) == "12:00 PM" and tb.FormatTime(9, 5, 24) == "09:05",
+		"time formats")
+	gameHour = 0
+	tb:UpdateClock()
+	-- The zone, coloured like the minimap's.
+	SlashCmdList.REFORGEDUI("slot 8 zone")
+	assert(tb.slots[8].text._text:find("Durotar", 1, true), "zone feed shows the zone")
+	SlashCmdList.REFORGEDUI("slot 8 none")
 end
 do
 	-- Game panels go in slots too: opened by a secure click on Blizzard's
@@ -2036,6 +2109,117 @@ do
 	UnitPowerMax = oldPM
 	fire("UNIT_MAXPOWER", "target")
 	assert(pl.power:IsShown(), "plate: the power bar comes back")
+	-- The target bar: off by default, turned on in combat (not secure), with
+	-- the target's name, level, health and power; click-through until Shift
+	-- is held out of combat or Edit Mode is open, then dragged anywhere.
+	do
+		local bar = target.bar
+		assert(bar and not bar.frame:IsShown(), "the target bar is off by default")
+		assert(bar.frame._kind ~= "secure" and bar.frame:GetParent() == UIParent, "the target bar is a plain frame")
+		SlashCmdList.REFORGEDUI("targetbar on")
+		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "/rui targetbar on shows it, in combat")
+		assert(bar.name._text == "Hogger" and bar.level._text == "11+", "target bar: name, level and elite")
+		assert(bar.health._value == 412 and bar.health.text._text == "412 / 666", "target bar: health")
+		assert(bar.health._color[1] < 0.5 and bar.health._color[2] > 0.5, "target bar: green above the HP warning")
+		local oldH = UnitHealth
+		UnitHealth = function(u) return u == "target" and 100 or 300 end
+		fire("UNIT_HEALTH", "target")
+		assert(bar.health._color[1] > 0.5 and bar.health._color[2] < 0.5, "target bar: red at the HP warning")
+		UnitHealth = oldH
+		fire("UNIT_HEALTH", "target")
+		assert(bar.power.text._text == "30 / 100" and bar.power._color[1] == 1 and bar.power:IsShown(), "target bar: rage")
+		assert(bar.name._fontObject or bar.name._font, "target bar text goes through our font")
+		assert(not bar.frame._mouse, "the target bar is click-through")
+		local p0 = bar.frame._points[1]
+		assert(p0[1] == "CENTER" and p0[2] == UIParent and p0[5] < 0, "the target bar starts below the screen's centre")
+		-- Secret health and level: still on the bar, never compared.
+		secretTarget = true
+		fire("UNIT_HEALTH", "target")
+		assert(type(bar.health._value) == "table" and bar.health._color[2] > 0.5,
+			"target bar: secret health reaches the bar, never compared")
+		secretTarget = false
+		fire("UNIT_HEALTH", "target")
+		local oldLevel = UnitLevel
+		local secretLevel = setmetatable({}, { __lt = function() error("compared a secret value") end,
+			__le = function() error("compared a secret value") end })
+		UnitLevel = function(u) if u == "target" then return secretLevel end return oldLevel(u) end
+		secret = true
+		fire("UNIT_LEVEL", "target")
+		secret = false
+		assert(bar.level._text == "??+", "target bar: a secret level reads ??")
+		UnitLevel = oldLevel
+		fire("UNIT_LEVEL", "target")
+		-- Shift makes it draggable; its new place is saved from the centre.
+		local shift = false
+		IsShiftKeyDown = function() return shift end
+		shift = true
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+		assert(not bar.frame._mouse, "in combat Shift leaves the target bar click-through")
+		inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		assert(bar.frame._mouse and not bar.highlight:IsShown(), "Shift out of combat makes the target bar draggable")
+		bar.frame.GetCenter = function() return screenW / 2 + 40, screenH / 2 + 100 end
+		UIParent.GetCenter = function() return screenW / 2, screenH / 2 end
+		bar.frame._scripts.OnDragStart(bar.frame)
+		shift = false
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(bar.frame._mouse, "letting go of Shift mid-drag keeps the drag")
+		inCombat = true
+		fire("PLAYER_REGEN_DISABLED")
+		assert(bar.frame._mouse, "nor does combat end a drag")
+		bar.frame._scripts.OnDragStop(bar.frame)
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(not bar.frame._mouse, "click-through again after the drag")
+		local spot = ReforgedUIDB.consoleOpts.targetBarPos
+		assert(spot and spot.x == 40 and spot.y == 100, "the dragged place is saved")
+		local p1 = bar.frame._points[1]
+		assert(p1[1] == "CENTER" and p1[4] == 40 and p1[5] == 100, "the target bar stays where it was dragged")
+		-- Its place is its own: the Edit Mode target frame doesn't follow.
+		assert(ns.layout.targetAuras.plate and not ns.layout.targetBar, "the target bar stays out of the layout")
+		-- No target: hidden, unless Edit Mode is open (a stand-in to place).
+		hasTarget = false
+		fire("PLAYER_TARGET_CHANGED")
+		assert(not bar.frame:IsShown(), "no target, no target bar")
+		EditModeManagerFrame._hooks.OnShow()
+		assert(bar.frame:IsShown() and bar.name._text == "Target" and bar.frame._mouse and bar.highlight:IsShown(),
+			"Edit Mode shows a movable stand-in")
+		EditModeManagerFrame._hooks.OnHide()
+		assert(not bar.frame:IsShown() and not bar.frame._mouse, "closing Edit Mode hides it again")
+		-- Edit Mode closed mid-drag: the drag ends with the bar, never stuck.
+		EditModeManagerFrame._hooks.OnShow()
+		bar.frame._scripts.OnDragStart(bar.frame)
+		EditModeManagerFrame._hooks.OnHide()
+		bar.frame._scripts.OnHide(bar.frame) -- the stubs don't fire OnHide
+		assert(not bar.frame.dragging and not bar.frame._mouse, "hidden mid-drag, the drag ends")
+		hasTarget = true
+		fire("PLAYER_TARGET_CHANGED")
+		assert(bar.frame:IsShown() and bar.name._text == "Hogger", "back with the target")
+		SlashCmdList.REFORGEDUI("targetbar reset")
+		local p2 = bar.frame._points[1]
+		assert(not ReforgedUIDB.consoleOpts.targetBarPos and p2[4] == p0[4] and p2[5] == p0[5], "/rui targetbar reset")
+		SlashCmdList.REFORGEDUI("targetbar off")
+		assert(not bar.frame:IsShown() and not ReforgedUIDB.consoleOpts.targetBar, "/rui targetbar off")
+		-- The options menu's checkbox does the same.
+		local box
+		for _, cb in ipairs(config.checks) do
+			if cb.key == "targetBar" then box = cb end
+		end
+		assert(box, "the options menu has a target bar checkbox")
+		box._checked = true
+		box._scripts.OnClick(box)
+		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "the checkbox turns the target bar on")
+		box._checked = false
+		box._scripts.OnClick(box)
+		assert(not bar.frame:IsShown(), "and off")
+		assert(box._enabled and box.label._textColor[1] == 1, "the checkbox is live while the target module is on")
+		target.enabled = false
+		config:Refresh()
+		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
+		target.enabled = true
+		config:Refresh()
+		IsShiftKeyDown = nil
+		bar.frame.GetCenter, UIParent.GetCenter = nil, nil
+	end
 	methods.SetTextColor = oldColor
 	inCombat = false
 	for m, fn in pairs(guarded) do methods[m] = fn end

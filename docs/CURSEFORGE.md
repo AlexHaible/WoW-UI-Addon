@@ -49,6 +49,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 
 **Pet**
 - Your pet gets its own unit icon beside the target's target, in your theme's frame: name, portrait, health and power (focus, mana or energy).
+- Hunters see their pet's happiness on the portrait. Hover it for the details: damage, whether it's gaining or losing loyalty, and its diet.
 - The pet's buffs and debuffs stand above its name, debuffs nearest.
 - Left-click targets your pet, right-click opens its menu. **Shift-drag** moves the icon anywhere (out of combat); `/rui pet reset` puts it back.
 

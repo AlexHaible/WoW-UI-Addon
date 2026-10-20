@@ -2471,7 +2471,7 @@ do
 	checkBags(ns.themeKey)
 end
 -- Pet icon: beside the target of target, in the theme's trim, with its
--- name and auras; Shift-drag moves it.
+-- happiness (hunters) and auras; Shift-drag moves it.
 do
 	local pet, target = ns.modules.pet, ns.modules.target
 	local b = pet.button
@@ -2482,6 +2482,8 @@ do
 	assert(P.power and P.box.h > T.box.h, "the pet icon has a power bar")
 	assert(target.tot.trim and b.trim and b.trim.pieces.tl._tex, "both icons wear the theme's trim")
 	hasPet = true
+	local happiness = 3
+	C_PetInfo = { GetPetHappiness = function() return happiness, 100, 0 end }
 	local auras = { HARMFUL = 2, HELPFUL = 4 }
 	local secretAuras = false
 	local oldAuras = C_UnitAuras
@@ -2493,7 +2495,20 @@ do
 		end
 	end }
 	fire("UNIT_PET", "player")
+	assert(b.happiness:IsShown(), "a hunter's pet shows its happiness")
 	assert(b.name._text and b.name._text ~= "", "the pet's name over its icon")
+	do
+		local lines = {}
+		GameTooltip.AddLine = function(_, t) lines[#lines + 1] = t end
+		C_PetInfo.GetPetHappiness = function() return happiness, 125, -1 end
+		GetPetFoodTypes = function() return "Meat", "Fish" end
+		PET_DAMAGE_PERCENTAGE = "Causes %d%% of normal damage"
+		b.happiness._scripts.OnEnter(b.happiness)
+		assert(lines[1] == "Causes 125% of normal damage" and lines[2] == "Losing Loyalty"
+			and lines[3] == "Diet: Meat, Fish", "the happiness tooltip: damage, loyalty and diet")
+		GameTooltip.AddLine, GetPetFoodTypes, PET_DAMAGE_PERCENTAGE = nil, nil, nil
+		C_PetInfo.GetPetHappiness = function() return happiness, 100, 0 end
+	end
 	local function shown(filter)
 		local n = 0
 		for _, f in ipairs(b.auras[filter]) do
@@ -2507,7 +2522,11 @@ do
 	fire("UNIT_AURA", "pet")
 	assert(shown("HARMFUL") == 0 and shown("HELPFUL") == 0, "unreadable auras leave the rows empty")
 	secretAuras = false
+	happiness = nil
+	fire("UNIT_HAPPINESS", "pet")
+	assert(not b.happiness:IsShown(), "no happiness for other pets")
 	C_UnitAuras = oldAuras
+	C_PetInfo = nil
 	-- Shift-drag saves the spot; in combat it doesn't move; reset puts it back.
 	IsShiftKeyDown = function() return true end
 	local barSpot = ReforgedUIDB.consoleOpts.petSpot

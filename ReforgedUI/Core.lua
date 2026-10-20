@@ -48,7 +48,6 @@ local DEFAULTS = {
 		freeChat = false, -- let the player move and resize the chat window
 		chatPlaced = false, -- (freeChat) put in the chat area once
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
-		addonDrawerOpen = false, -- the minimap's addon compartment
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
@@ -94,6 +93,11 @@ local function migrate(db)
 		-- Version 5 moved Blizzard's micro buttons into the top bar, beside
 		-- the clock: the option to hide them is gone.
 		db.consoleOpts.hideMicro = nil
+	end
+	if type(db.consoleOpts) == "table" then
+		-- The minimap's addon compartment used to remember being open; it
+		-- now always starts closed.
+		db.consoleOpts.addonDrawerOpen = nil
 	end
 	db.version = DEFAULTS.version
 end

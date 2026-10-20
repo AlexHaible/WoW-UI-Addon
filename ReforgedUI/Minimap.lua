@@ -219,13 +219,13 @@ function MinimapModule:CreateCompartment()
 	local shade = drawer.bg:CreateTexture(nil, "BACKGROUND")
 	shade:SetAllPoints()
 	shade:SetColorTexture(0, 0, 0, 0.75)
-	drawer:SetShown(ns.db.consoleOpts.addonDrawerOpen and true or false)
+	-- Closed on every login and reload; the button opens it.
+	drawer:Hide()
 	self.drawer = drawer
 end
 
 function MinimapModule:ToggleDrawer()
 	local open = not self.drawer:IsShown()
-	ns.db.consoleOpts.addonDrawerOpen = open
 	if open then
 		-- Pick up buttons that addons made since the last look.
 		self.buttons, self.addonButtons = collectButtons(self.skip, self.drawer)

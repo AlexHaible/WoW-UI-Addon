@@ -2054,7 +2054,15 @@ do
 	totIsPlayer = true
 	target:UpdateToT()
 	assert(target.tot.kind == "player" and target.tot.reaction.stone._vertex[3] == 1, "ToT: your gem is blue")
+	local gem = target.tot.reaction
+	assert(gem.swords:IsShown() and not gem.stone:IsShown(), "an enemy targeting you shows crossed swords")
+	reaction = 6
+	target:UpdateToT()
+	assert(not gem.swords:IsShown() and gem.stone:IsShown(), "a friend targeting you shows the blue gem")
+	reaction = 2
 	totIsPlayer = false
+	target:UpdateToT()
+	assert(not gem.swords:IsShown(), "no swords when it isn't you")
 	for r, want in pairs({ [2] = "hostile", [6] = "friendly" }) do
 		totReaction = r
 		target:UpdateToT()

@@ -410,6 +410,7 @@ function Target:CreateToT()
 	local b = Target.CreateUnitIcon("ReforgedUITargetTarget", "targettarget", 32)
 	-- Who it is, as Warcraft III's selection circles say it: a gem on the
 	-- trim's top-right corner, red, yellow or green by reaction, blue for you.
+	-- When an enemy has you targeted, crossed swords take the gem's place.
 	local gem = CreateFrame("Frame", nil, b)
 	gem:SetFrameLevel(b:GetFrameLevel() + 4)
 	gem.socket = gem:CreateTexture(nil, "ARTWORK")
@@ -423,6 +424,12 @@ function Target:CreateToT()
 		gem.socket:SetRotation(math.pi / 4)
 		gem.stone:SetRotation(math.pi / 4)
 	end
+	gem.swords = gem:CreateTexture(nil, "OVERLAY", nil, 1)
+	gem.swords:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
+	gem.swords:SetTexCoord(0.5, 1, 0, 0.484375)
+	gem.swords:SetPoint("TOPLEFT", -3, 3)
+	gem.swords:SetPoint("BOTTOMRIGHT", 3, -3)
+	gem.swords:Hide()
 	b.reaction = gem
 	-- The target's target has few events of its own; poll it while shown.
 	local elapsed = 0
@@ -868,7 +875,12 @@ function Target:UpdateToT()
 	local kind = isMe and "player" or reactionKind("targettarget")
 	tot.kind = kind
 	local c = REACTION[kind]
-	tot.reaction.stone:SetVertexColor(c[1], c[2], c[3], 1)
+	local gem = tot.reaction
+	gem.stone:SetVertexColor(c[1], c[2], c[3], 1)
+	local warn = kind == "player" and reactionKind("target") == "hostile"
+	gem.socket:SetShown(not warn)
+	gem.stone:SetShown(not warn)
+	gem.swords:SetShown(warn)
 	tot.health:SetMinMaxValues(0, UnitHealthMax("targettarget"))
 	tot.health:SetValue(UnitHealth("targettarget"))
 end

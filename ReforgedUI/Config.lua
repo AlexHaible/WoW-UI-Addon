@@ -58,6 +58,7 @@ function Config:Check(text, key, x, y, after)
 	fs:ClearAllPoints()
 	fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
 	fs:SetText(text)
+	cb.label = fs
 	cb:SetScript("OnClick", function(b)
 		if key then
 			ns.db.consoleOpts[key] = b:GetChecked() and true or false
@@ -268,6 +269,14 @@ function Config:Build()
 		self.iconButtons[i] = b
 	end
 
+	-- A free-standing target health bar, for nearer the middle of the screen.
+	self.targetBarCheck = self:Check("Target bar (Shift-drag or Edit Mode)", "targetBar", x, -362, function(on)
+		ns.modules.target:SetBarEnabled(on)
+		if on then
+			ns:Print("target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
+		end
+	end)
+
 	label(f, "Right-click a stat icon on the console to change it too, or the experience bar for its rested colour.",
 		20, -388, "GameFontNormalSmall")
 
@@ -338,6 +347,10 @@ function Config:Refresh()
 	for _, b in ipairs(self.targetButtons) do
 		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
+	-- Greyed out like the buttons above while the target module is off.
+	self.targetBarCheck:SetEnabled(target.enabled and true or false)
+	local shade = target.enabled and 1 or 0.5
+	self.targetBarCheck.label:SetTextColor(shade, shade, shade)
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
 	local topbar = ns.modules.topbar
 	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])

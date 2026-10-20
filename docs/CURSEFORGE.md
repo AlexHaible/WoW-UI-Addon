@@ -43,9 +43,15 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall.
-- The target's target appears as a small Warcraft III unit icon.
+- The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it. They work in combat too: they're Blizzard's own aura icons, placed for you.
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
+
+**Pet**
+- Your pet gets its own unit icon beside the target's target, in your theme's frame: name, portrait, health and power (focus, mana or energy).
+- Hunters see their pet's happiness on the portrait. Hover it for the details: damage, whether it's gaining or losing loyalty, and its diet.
+- The pet's buffs and debuffs stand above its name, debuffs nearest.
+- Left-click targets your pet, right-click opens its menu. **Shift-drag** moves the icon anywhere (out of combat); `/rui pet reset` puts it back.
 
 **Action grid**
 - Action bars 1–3, twelve slots each.
@@ -124,6 +130,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui config                      open the options
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
+/rui pet reset                   put the pet icon back beside the target's target
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot

@@ -93,6 +93,8 @@ function methods:GetPoint(i) local p = self._points[i or 1]; if p then return un
 function methods:GetTop() return 100 end
 function methods:GetBottom() return 10 end
 function methods:GetLeft() return 20 end
+function methods:StartMoving() self._moving = true end
+function methods:StopMovingOrSizing() self._moving = false end
 function methods:SetFrameStrata(s) self._strata = s end
 function methods:GetFrameStrata() return self._strata or "MEDIUM" end
 function methods:SetBlendMode() end
@@ -361,8 +363,8 @@ end
 function securecallfunction(fn, ...) return fn(...) end
 function RegisterUnitWatch() end
 -- No target until the target display tests pick one.
-local hasTarget, totIsPlayer = false, false
-function UnitExists(u) return u == "player" or hasTarget end
+local hasTarget, totIsPlayer, hasPet = false, false, false
+function UnitExists(u) if u == "pet" then return hasPet end return u == "player" or hasTarget end
 function UnitIsUnit(a, b) return a == b or (a == "targettarget" and b == "player" and totIsPlayer) end
 function UnitCastingInfo() return nil end
 function UnitChannelInfo() return nil end
@@ -2048,17 +2050,25 @@ do
 			or (want == "friendly" and cr < 0.5 and cg == 1), "name colour for " .. want)
 	end
 	reaction = 2
-	-- Target of target: tinted by who it is.
+	-- Target of target: its gem says who it is.
 	totIsPlayer = true
 	target:UpdateToT()
-	assert(target.tot.kind == "player" and target.tot.glow._vertex[3] == 1, "ToT: you are tinted blue")
+	assert(target.tot.kind == "player" and target.tot.reaction.stone._vertex[3] == 1, "ToT: your gem is blue")
+	local gem = target.tot.reaction
+	assert(gem.swords:IsShown() and not gem.stone:IsShown(), "an enemy targeting you shows crossed swords")
+	reaction = 6
+	target:UpdateToT()
+	assert(not gem.swords:IsShown() and gem.stone:IsShown(), "a friend targeting you shows the blue gem")
+	reaction = 2
 	totIsPlayer = false
+	target:UpdateToT()
+	assert(not gem.swords:IsShown(), "no swords when it isn't you")
 	for r, want in pairs({ [2] = "hostile", [6] = "friendly" }) do
 		totReaction = r
 		target:UpdateToT()
 		assert(target.tot.kind == want, "ToT tint " .. want)
 	end
-	assert(target.tot.glow._vertex[2] == 1 and target.tot.glow._vertex[1] < 0.5, "friendly ToT is green")
+	assert(target.tot.reaction.stone._vertex[2] == 1 and target.tot.reaction.stone._vertex[1] < 0.5, "a friendly ToT's gem is green")
 	-- In instances "is it me" can be secret: never tested, tinted by reaction.
 	do
 		local secretBool = {}
@@ -2191,7 +2201,6 @@ do
 		inCombat = false
 		fire("PLAYER_REGEN_ENABLED")
 		assert(bar.frame._mouse and not bar.highlight:IsShown(), "Shift out of combat makes the target bar draggable")
-		methods.StartMoving, methods.StopMovingOrSizing = noop, noop
 		bar.frame.GetCenter = function() return screenW / 2 + 40, screenH / 2 + 100 end
 		UIParent.GetCenter = function() return screenW / 2, screenH / 2 end
 		bar.frame._scripts.OnDragStart(bar.frame)
@@ -2251,7 +2260,7 @@ do
 		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
 		target.enabled = true
 		config:Refresh()
-		IsShiftKeyDown, methods.StartMoving, methods.StopMovingOrSizing = nil, nil, nil
+		IsShiftKeyDown = nil
 		bar.frame.GetCenter, UIParent.GetCenter = nil, nil
 	end
 	methods.SetTextColor = oldColor
@@ -2461,5 +2470,83 @@ do
 	slash("theme auto")
 	checkBags(ns.themeKey)
 end
+-- Pet icon: beside the target of target, in the theme's trim, with its
+-- happiness (hunters) and auras; Shift-drag moves it.
+do
+	local pet, target = ns.modules.pet, ns.modules.target
+	local b = pet.button
+	assert(b == ReforgedUIPet and b:GetAttribute("unit") == "pet", "pet unit button")
+	local L = ns.layout
+	local P, T = L.petIcon, L.tot
+	assert(P.frame.x + P.frame.w <= T.frame.x and P.frame.x >= 0, "the pet icon stands left of the target of target")
+	assert(P.power and P.box.h > T.box.h, "the pet icon has a power bar")
+	assert(target.tot.trim and b.trim and b.trim.pieces.tl._tex, "both icons wear the theme's trim")
+	hasPet = true
+	local happiness = 3
+	C_PetInfo = { GetPetHappiness = function() return happiness, 100, 0 end }
+	local auras = { HARMFUL = 2, HELPFUL = 4 }
+	local secretAuras = false
+	local oldAuras = C_UnitAuras
+	C_UnitAuras = { GetAuraDataByIndex = function(unit, i, filter)
+		assert(unit == "pet")
+		if secretAuras then error("cannot be accessed when secret") end
+		if i <= auras[filter] then
+			return { icon = 136000 + i, applications = i, duration = 10, expirationTime = 105 }
+		end
+	end }
+	fire("UNIT_PET", "player")
+	assert(b.happiness:IsShown(), "a hunter's pet shows its happiness")
+	assert(b.name._text and b.name._text ~= "", "the pet's name over its icon")
+	do
+		local lines = {}
+		GameTooltip.AddLine = function(_, t) lines[#lines + 1] = t end
+		C_PetInfo.GetPetHappiness = function() return happiness, 125, -1 end
+		GetPetFoodTypes = function() return "Meat", "Fish" end
+		PET_DAMAGE_PERCENTAGE = "Causes %d%% of normal damage"
+		b.happiness._scripts.OnEnter(b.happiness)
+		assert(lines[1] == "Causes 125% of normal damage" and lines[2] == "Losing Loyalty"
+			and lines[3] == "Diet: Meat, Fish", "the happiness tooltip: damage, loyalty and diet")
+		GameTooltip.AddLine, GetPetFoodTypes, PET_DAMAGE_PERCENTAGE = nil, nil, nil
+		C_PetInfo.GetPetHappiness = function() return happiness, 100, 0 end
+	end
+	local function shown(filter)
+		local n = 0
+		for _, f in ipairs(b.auras[filter]) do
+			if f:IsShown() then n = n + 1 end
+		end
+		return n
+	end
+	assert(shown("HARMFUL") == 2 and shown("HELPFUL") == 4, "pet auras shown")
+	assert(b.auras.HARMFUL[2].count._text == 2 and b.auras.HARMFUL[1].count._text == "", "stack counts over 1 only")
+	secretAuras = true
+	fire("UNIT_AURA", "pet")
+	assert(shown("HARMFUL") == 0 and shown("HELPFUL") == 0, "unreadable auras leave the rows empty")
+	secretAuras = false
+	happiness = nil
+	fire("UNIT_HAPPINESS", "pet")
+	assert(not b.happiness:IsShown(), "no happiness for other pets")
+	C_UnitAuras = oldAuras
+	C_PetInfo = nil
+	-- Shift-drag saves the spot; in combat it doesn't move; reset puts it back.
+	IsShiftKeyDown = function() return true end
+	local barSpot = ReforgedUIDB.consoleOpts.petSpot
+	b._scripts.OnDragStart(b)
+	b._scripts.OnDragStop(b)
+	assert(type(ReforgedUIDB.consoleOpts.petIconSpot) == "table", "a Shift-drag saves the pet's spot")
+	assert(ReforgedUIDB.consoleOpts.petSpot == barSpot, "and leaves the pet bar's spot alone")
+	slash("theme orc")
+	slash("pet reset")
+	assert(ReforgedUIDB.consoleOpts.petIconSpot == false, "/rui pet reset")
+	inCombat = true
+	ReforgedUIDB.consoleOpts.petIconSpot = false
+	b._scripts.OnDragStart(b)
+	b._scripts.OnDragStop(b)
+	assert(ReforgedUIDB.consoleOpts.petIconSpot == false, "no moving in combat")
+	inCombat = false
+	IsShiftKeyDown = nil
+	slash("theme auto")
+	hasPet = false
+end
+
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

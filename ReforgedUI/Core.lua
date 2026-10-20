@@ -24,6 +24,7 @@ local DEFAULTS = {
 		blizzard = true,
 		topbar = true,
 		target = true,
+		pet = true,
 		config = true,
 	},
 	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
@@ -60,6 +61,7 @@ local DEFAULTS = {
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		transparency = 0, -- how see-through the console's art is, 0-100 %
+		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 	},
@@ -1256,11 +1258,12 @@ local function usage()
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
 	print("  /rui topbar on||off  (off: the menu buttons stand above the minimap)")
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
-		.. " topbar, config; needs /reload)")
+		.. " pet, topbar, config; needs /reload)")
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
+	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
 end
@@ -1308,6 +1311,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "pet" and arg == "reset" and ns.modules.pet.enabled then
+		ns.modules.pet:ResetSpot()
+		ns:Print("pet icon back beside the target of target.")
 	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
 		local target = ns.modules.target
 		if arg == "reset" then

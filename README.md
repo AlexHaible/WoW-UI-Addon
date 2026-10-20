@@ -298,8 +298,9 @@ the client now does itself:
   minimap buttons.
 - The **chat scroll arrows** option hides the chat buttons beside the window
   instead (the client has no scroll arrows).
-- Blizzard's player and target frames (and its target of target) are
-  hidden: the portrait block and our target display replace them. The focus
+- Blizzard's player and target frames (and their pet and target of target
+  frames) are hidden: the portrait block, our target display and our pet
+  icon (Pet.lua, Shift-drag to move, `/rui pet reset`) replace them. The focus
   frame is left to Edit Mode.
 
 ## Art and licences

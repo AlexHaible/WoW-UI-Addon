@@ -15,10 +15,11 @@
 -- Optionally, in either mode, a small target bar (name, level, health and
 -- power) stands on its own where the player drags it (see "The target bar").
 --
--- In both, the target's target is a small unit icon on the wall above the
--- portrait, and its buffs and debuffs (Blizzard's own icons, see below)
--- beside it, above the plate in plate mode. Clicks go to our own secure unit buttons: left-click targets the
--- unit, right-click opens its menu. Their visibility follows the units
+-- In both, the target's target is a small unit icon in the theme's trim on
+-- the wall above the portrait (your pet's, Pet.lua, stands beside it), and
+-- the target's buffs and debuffs (Blizzard's own icons, see below) beside
+-- it, above the plate in plate mode. Clicks go to our own secure unit
+-- buttons: left-click targets the unit, right-click opens its menu. Their visibility follows the units
 -- through RegisterUnitWatch, so nothing secure is shown, hidden or moved in
 -- combat; the swap itself only changes non-secure visuals.
 --
@@ -363,18 +364,73 @@ function Target:CreatePlate()
 	self.plate = v
 end
 
-function Target:CreateToT()
-	local b = secureButton("ReforgedUITargetTarget", "targettarget", 32)
-	-- Warcraft III unit icon: square portrait in a gold frame, a coloured
-	-- glow behind it, a small health bar underneath.
-	b.glow = b:CreateTexture(nil, "BACKGROUND")
-	b.glow:SetTexture(ns:ArtPath("other\\white_background"))
+-- A Warcraft III unit icon on a secure unit button (target of target,
+-- pet): a square portrait over a small health bar (and a power bar), in the
+-- theme's trim (Trim.lua, thinner than around a window). Its parts are placed relative to the button
+-- (PlaceUnitIcon), so they move with it.
+function Target.CreateUnitIcon(name, unit, level, power)
+	local b = secureButton(name, unit, level)
+	b.back = b:CreateTexture(nil, "BORDER")
+	b.back:SetColorTexture(0, 0, 0, 1)
 	b.portrait = b:CreateTexture(nil, "ARTWORK")
 	b.portrait:SetTexCoord(0.12, 0.88, 0.12, 0.88)
-	b.border = b:CreateTexture(nil, "OVERLAY")
-	b.border:SetTexture(ns:ArtPath("other\\golden_frame"))
-	b.health = makeBar(b, 33)
+	b.health = makeBar(b, level + 1)
 	b.health:SetStatusBarColor(0.1, 0.9, 0.1)
+	if power then
+		b.power = makeBar(b, level + 1)
+		b.power:SetStatusBarColor(0.2, 0.4, 1)
+	end
+	local holder = CreateFrame("Frame", nil, b)
+	holder:SetFrameLevel(level + 2)
+	holder:SetScale(ns.Layout.UNIT_TRIM_SCALE)
+	holder:SetPoint("TOPLEFT", b.back, "TOPLEFT")
+	holder:SetPoint("BOTTOMRIGHT", b.back, "BOTTOMRIGHT")
+	b.trim = ReforgedUI.CreateTrim(holder)
+	return b
+end
+
+-- Places a unit icon's parts from its layout `U` (Layout.lua's unitIcon).
+function Target.PlaceUnitIcon(b, U)
+	local o = U.frame
+	local function at(region, r)
+		region:ClearAllPoints()
+		region:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", r.x - o.x, r.y - o.y)
+		region:SetSize(math.max(r.w, 0.01), math.max(r.h, 0.01))
+	end
+	at(b.back, U.box)
+	at(b.portrait, U.icon)
+	at(b.health, U.health)
+	if b.power and U.power then
+		at(b.power, U.power)
+	end
+	b.trim:Paint()
+end
+
+function Target:CreateToT()
+	local b = Target.CreateUnitIcon("ReforgedUITargetTarget", "targettarget", 32)
+	-- Who it is, as Warcraft III's selection circles say it: a gem on the
+	-- trim's top-right corner, red, yellow or green by reaction, blue for you.
+	-- When an enemy has you targeted, crossed swords take the gem's place.
+	local gem = CreateFrame("Frame", nil, b)
+	gem:SetFrameLevel(b:GetFrameLevel() + 4)
+	gem.socket = gem:CreateTexture(nil, "ARTWORK")
+	gem.socket:SetColorTexture(0, 0, 0, 0.8)
+	gem.socket:SetAllPoints()
+	gem.stone = gem:CreateTexture(nil, "OVERLAY")
+	gem.stone:SetColorTexture(1, 1, 1, 1)
+	gem.stone:SetPoint("TOPLEFT", 1.5, -1.5)
+	gem.stone:SetPoint("BOTTOMRIGHT", -1.5, 1.5)
+	if gem.socket.SetRotation then
+		gem.socket:SetRotation(math.pi / 4)
+		gem.stone:SetRotation(math.pi / 4)
+	end
+	gem.swords = gem:CreateTexture(nil, "OVERLAY", nil, 1)
+	gem.swords:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
+	gem.swords:SetTexCoord(0.5, 1, 0, 0.484375)
+	gem.swords:SetPoint("TOPLEFT", -3, 3)
+	gem.swords:SetPoint("BOTTOMRIGHT", 3, -3)
+	gem.swords:Hide()
+	b.reaction = gem
 	-- The target's target has few events of its own; poll it while shown.
 	local elapsed = 0
 	b:SetScript("OnUpdate", function(_, dt)
@@ -804,8 +860,8 @@ function Target:UpdateCast()
 	end
 end
 
--- Target of target: portrait, health and a tint for who it is: blue for
--- you, else green, yellow or red by reaction.
+-- Target of target: portrait, health and its reaction gem: blue for you,
+-- else green, yellow or red by reaction.
 function Target:UpdateToT()
 	local tot = self.tot
 	if not UnitExists("targettarget") then
@@ -814,13 +870,17 @@ function Target:UpdateToT()
 	SetPortraitTexture(tot.portrait, "targettarget")
 	local isMe = UnitIsUnit and UnitIsUnit("targettarget", "player")
 	if isSecret(isMe) then
-		isMe = false -- not known in instances: tinted by reaction instead
+		isMe = false -- not known in instances: coloured by reaction instead
 	end
 	local kind = isMe and "player" or reactionKind("targettarget")
 	tot.kind = kind
 	local c = REACTION[kind]
-	tot.glow:SetVertexColor(c[1], c[2], c[3], 0.9)
-	tot.border:SetVertexColor(1, 1, 1, 1)
+	local gem = tot.reaction
+	gem.stone:SetVertexColor(c[1], c[2], c[3], 1)
+	local warn = kind == "player" and reactionKind("target") == "hostile"
+	gem.socket:SetShown(not warn)
+	gem.stone:SetShown(not warn)
+	gem.swords:SetShown(warn)
 	tot.health:SetMinMaxValues(0, UnitHealthMax("targettarget"))
 	tot.health:SetValue(UnitHealth("targettarget"))
 end
@@ -1122,11 +1182,14 @@ function Target:OnLayout(L)
 	placeCombo(pl.combo, P.combo)
 	place(pl.cast, P.cast)
 
-	local T, tot = L.tot, self.tot
-	place(tot.glow, { x = T.icon.x - 2, y = T.icon.y - 2, w = T.icon.w + 4, h = T.icon.h + 4 })
-	place(tot.portrait, T.icon)
-	place(tot.border, T.icon)
-	place(tot.health, T.health)
+	-- Its parts follow the button, which PlaceButtons places (out of combat).
+	Target.PlaceUnitIcon(self.tot, L.tot)
+	local T, gem = L.tot, self.tot.reaction
+	local size = 0.25 * T.box.w
+	gem:ClearAllPoints()
+	gem:SetPoint("CENTER", self.tot, "BOTTOMLEFT", T.box.x + T.box.w + 1.5 - T.frame.x,
+		T.box.y + T.box.h + 1.5 - T.frame.y)
+	gem:SetSize(size, size)
 
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
 	self:Refresh()

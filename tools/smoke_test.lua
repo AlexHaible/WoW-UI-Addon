@@ -2496,6 +2496,16 @@ do
 	end }
 	fire("UNIT_PET", "player")
 	assert(b.happiness:IsShown(), "a hunter's pet shows its happiness")
+	assert(b.name._text and b.name._text ~= "", "the pet's name over its icon")
+	do
+		local lines = {}
+		GameTooltip.AddLine = function(_, t) lines[#lines + 1] = t end
+		GetPetHappiness = function() return happiness, 100, -1 end
+		b.happiness._scripts.OnEnter(b.happiness)
+		assert(lines[1] == "Losing Loyalty", "the happiness tooltip says the loyalty trend")
+		GameTooltip.AddLine = nil
+		GetPetHappiness = function() return happiness, 100, 0 end
+	end
 	local function shown(filter)
 		local n = 0
 		for _, f in ipairs(b.auras[filter]) do

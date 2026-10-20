@@ -1,8 +1,9 @@
 -- Your pet's unit icon, like the target of target's (Target.lua): its
 -- portrait in the theme's trim over its health and power bars, standing on
--- the wall beside the target of target. A hunter's pet shows its happiness
--- in the portrait's corner (hover it for the details), and the pet's buffs
--- and debuffs stand in rows above the icon, debuffs nearest. Left-click
+-- the wall beside the target of target, its name above. A hunter's pet shows
+-- its happiness in the portrait's corner (hover it for the details: damage
+-- and loyalty), and the pet's buffs and debuffs stand in rows above the
+-- name, debuffs nearest. Left-click
 -- targets the pet, right-click opens its menu, Shift-drag moves the whole of
 -- it (out of combat; /rui pet reset puts it back).
 --
@@ -15,6 +16,7 @@ local Pet = ns:RegisterModule("pet", {})
 
 local MAX_AURAS = 6 -- per kind, three to a row
 local PER_ROW = 3
+local NAME_H = 11 -- the name's line over the trim
 
 local HAPPINESS_TEXTURE = "Interface\\PetPaperDollFrame\\UI-PetHappiness"
 local HAPPINESS_COORDS = {
@@ -92,7 +94,7 @@ local function makeAura(parent, filter, index)
 end
 
 local function happinessTip(owner)
-	local happiness, damage = _G.GetPetHappiness()
+	local happiness, damage, loyalty = _G.GetPetHappiness()
 	if not plain(happiness) then
 		return
 	end
@@ -100,6 +102,11 @@ local function happinessTip(owner)
 	GameTooltip:SetText(_G["PET_HAPPINESS" .. happiness] or "")
 	if plain(damage) and damage ~= 100 and _G.PET_DAMAGE_PERCENTAGE then
 		GameTooltip:AddLine(_G.PET_DAMAGE_PERCENTAGE:format(damage), 1, 1, 1)
+	end
+	if plain(loyalty) and loyalty ~= 0 then
+		local gaining = loyalty > 0
+		GameTooltip:AddLine(gaining and (_G.GAINING_LOYALTY or "Gaining Loyalty") or (_G.LOSING_LOYALTY or "Losing Loyalty"),
+			gaining and 0.1 or 1, gaining and 1 or 0.1, 0.1)
 	end
 	GameTooltip:Show()
 end
@@ -134,6 +141,13 @@ function Pet:Create()
 		end
 		self:SaveSpot()
 	end)
+
+	b.name = b:CreateFontString(nil, "OVERLAY")
+	if not ns:SetFont(b.name, 10, "OUTLINE") then
+		b.name:SetFontObject("GameFontNormalSmall")
+	end
+	b.name:SetTextColor(1, 0.82, 0)
+	b.name:SetJustifyH("CENTER")
 
 	-- A hunter's pet's happiness, over the portrait's top-right corner.
 	local happy = CreateFrame("Frame", nil, b)
@@ -172,6 +186,7 @@ function Pet:OnEnable()
 	petEvent({ "UNIT_AURA" }, self.UpdateAuras)
 	petEvent({ "UNIT_HAPPINESS" }, self.UpdateHappiness)
 	petEvent({ "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" }, self.UpdatePortrait)
+	petEvent({ "UNIT_NAME_UPDATE" }, self.UpdateName)
 	ns:On("UNIT_PET", function(_, unit)
 		if unit == "player" then
 			self:Update()
@@ -194,6 +209,7 @@ function Pet:Update()
 		return
 	end
 	self:UpdatePortrait()
+	self:UpdateName()
 	self:UpdateHealth()
 	self:UpdatePower()
 	self:UpdateHappiness()
@@ -202,6 +218,10 @@ end
 
 function Pet:UpdatePortrait()
 	SetPortraitTexture(self.button.portrait, "pet")
+end
+
+function Pet:UpdateName()
+	ns:FitText(self.button.name, ns:FullName("pet"))
 end
 
 function Pet:UpdateHealth()
@@ -336,10 +356,14 @@ function Pet:OnLayout(L)
 	b.happiness:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", icon.x + icon.w - size * 0.75 - P.frame.x,
 		icon.y + icon.h - size * 0.75 - P.frame.y)
 	b.happiness:SetSize(size, size)
-	-- Aura rows: three icons across the box, from just above the trim.
+	-- The name just above the trim, a little wider than the icon.
+	b.name:ClearAllPoints()
+	b.name:SetPoint("BOTTOM", b, "TOP", 0, 0)
+	b.name:SetSize(1.6 * P.frame.w, NAME_H)
+	-- Aura rows: three icons across the box, from just above the name.
 	local gap = 2
 	local asize = (P.box.w - (PER_ROW - 1) * gap) / PER_ROW
-	self.auraLayout = { x = P.box.x - P.frame.x, y = P.frame.h + gap, size = asize, step = asize + gap }
+	self.auraLayout = { x = P.box.x - P.frame.x, y = P.frame.h + NAME_H + gap, size = asize, step = asize + gap }
 	ns:RunOutOfCombat("pet-button", function() self:PlaceButton() end)
 	self:Update()
 end

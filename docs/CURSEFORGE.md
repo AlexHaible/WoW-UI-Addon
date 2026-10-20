@@ -48,9 +48,9 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
 
 **Pet**
-- Your pet gets its own unit icon beside the target's target, in your theme's frame: portrait, health and power (focus, mana or energy).
-- Hunters see their pet's happiness on the portrait. Hover it for the details.
-- The pet's buffs and debuffs stand above the icon, debuffs nearest.
+- Your pet gets its own unit icon beside the target's target, in your theme's frame: name, portrait, health and power (focus, mana or energy).
+- Hunters see their pet's happiness on the portrait. Hover it for the details: damage and whether it's gaining or losing loyalty.
+- The pet's buffs and debuffs stand above its name, debuffs nearest.
 - Left-click targets your pet, right-click opens its menu. **Shift-drag** moves the icon anywhere (out of combat); `/rui pet reset` puts it back.
 
 **Action grid**

@@ -2038,15 +2038,22 @@ do
 	assert(pl.power:IsShown(), "plate: the power bar comes back")
 	-- The target bar: off by default, turned on in combat (not secure), with
 	-- the target's name, level, health and power; click-through until Shift
-	-- is held or Edit Mode is open, then dragged anywhere.
+	-- is held out of combat or Edit Mode is open, then dragged anywhere.
 	do
 		local bar = target.bar
 		assert(bar and not bar.frame:IsShown(), "the target bar is off by default")
 		assert(bar.frame._kind ~= "secure" and bar.frame:GetParent() == UIParent, "the target bar is a plain frame")
 		SlashCmdList.REFORGEDUI("targetbar on")
 		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "/rui targetbar on shows it, in combat")
-		assert(bar.name._text == "Hogger" and bar.level._text == "11", "target bar: name and level")
+		assert(bar.name._text == "Hogger" and bar.level._text == "11+", "target bar: name, level and elite")
 		assert(bar.health._value == 412 and bar.health.text._text == "412 / 666", "target bar: health")
+		assert(bar.health._color[1] < 0.5 and bar.health._color[2] > 0.5, "target bar: green above the HP warning")
+		local oldH = UnitHealth
+		UnitHealth = function(u) return u == "target" and 100 or 300 end
+		fire("UNIT_HEALTH", "target")
+		assert(bar.health._color[1] > 0.5 and bar.health._color[2] < 0.5, "target bar: red at the HP warning")
+		UnitHealth = oldH
+		fire("UNIT_HEALTH", "target")
 		assert(bar.power.text._text == "30 / 100" and bar.power._color[1] == 1 and bar.power:IsShown(), "target bar: rage")
 		assert(bar.name._fontObject or bar.name._font, "target bar text goes through our font")
 		assert(not bar.frame._mouse, "the target bar is click-through")
@@ -2055,7 +2062,8 @@ do
 		-- Secret health and level: still on the bar, never compared.
 		secretTarget = true
 		fire("UNIT_HEALTH", "target")
-		assert(type(bar.health._value) == "table", "target bar: secret health reaches the bar")
+		assert(type(bar.health._value) == "table" and bar.health._color[2] > 0.5,
+			"target bar: secret health reaches the bar, never compared")
 		secretTarget = false
 		fire("UNIT_HEALTH", "target")
 		local oldLevel = UnitLevel
@@ -2065,7 +2073,7 @@ do
 		secret = true
 		fire("UNIT_LEVEL", "target")
 		secret = false
-		assert(bar.level._text == "??", "target bar: a secret level reads ??")
+		assert(bar.level._text == "??+", "target bar: a secret level reads ??")
 		UnitLevel = oldLevel
 		fire("UNIT_LEVEL", "target")
 		-- Shift makes it draggable; its new place is saved from the centre.
@@ -2073,7 +2081,10 @@ do
 		IsShiftKeyDown = function() return shift end
 		shift = true
 		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
-		assert(bar.frame._mouse and not bar.highlight:IsShown(), "Shift makes the target bar draggable")
+		assert(not bar.frame._mouse, "in combat Shift leaves the target bar click-through")
+		inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		assert(bar.frame._mouse and not bar.highlight:IsShown(), "Shift out of combat makes the target bar draggable")
 		methods.StartMoving, methods.StopMovingOrSizing = noop, noop
 		bar.frame.GetCenter = function() return screenW / 2 + 40, screenH / 2 + 100 end
 		UIParent.GetCenter = function() return screenW / 2, screenH / 2 end
@@ -2081,6 +2092,9 @@ do
 		shift = false
 		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
 		assert(bar.frame._mouse, "letting go of Shift mid-drag keeps the drag")
+		inCombat = true
+		fire("PLAYER_REGEN_DISABLED")
+		assert(bar.frame._mouse, "nor does combat end a drag")
 		bar.frame._scripts.OnDragStop(bar.frame)
 		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
 		assert(not bar.frame._mouse, "click-through again after the drag")
@@ -2099,6 +2113,12 @@ do
 			"Edit Mode shows a movable stand-in")
 		EditModeManagerFrame._hooks.OnHide()
 		assert(not bar.frame:IsShown() and not bar.frame._mouse, "closing Edit Mode hides it again")
+		-- Edit Mode closed mid-drag: the drag ends with the bar, never stuck.
+		EditModeManagerFrame._hooks.OnShow()
+		bar.frame._scripts.OnDragStart(bar.frame)
+		EditModeManagerFrame._hooks.OnHide()
+		bar.frame._scripts.OnHide(bar.frame) -- the stubs don't fire OnHide
+		assert(not bar.frame.dragging and not bar.frame._mouse, "hidden mid-drag, the drag ends")
 		hasTarget = true
 		fire("PLAYER_TARGET_CHANGED")
 		assert(bar.frame:IsShown() and bar.name._text == "Hogger", "back with the target")
@@ -2119,6 +2139,12 @@ do
 		box._checked = false
 		box._scripts.OnClick(box)
 		assert(not bar.frame:IsShown(), "and off")
+		assert(box._enabled and box.label._textColor[1] == 1, "the checkbox is live while the target module is on")
+		target.enabled = false
+		config:Refresh()
+		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
+		target.enabled = true
+		config:Refresh()
 		IsShiftKeyDown, methods.StartMoving, methods.StopMovingOrSizing = nil, nil, nil
 		bar.frame.GetCenter, UIParent.GetCenter = nil, nil
 	end

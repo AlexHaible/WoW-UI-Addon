@@ -831,12 +831,15 @@ end
 -- can put anywhere, nearer the middle of the screen than the console's
 -- target display. It is shown in both modes, beside that display. Not
 -- secure, so it shows and hides in combat; it is click-through except while
--- Shift is held or Edit Mode is open, when it can be dragged. Its place is
+-- Shift is held out of combat or Edit Mode is open, when it can be dragged
+-- (in combat Shift is left to the player's own keybinds). Its place is
 -- its own (db.consoleOpts.targetBarPos, from the screen's centre) and never
 -- feeds the Edit Mode layout.
 
 local BAR_W, BAR_NAME_H, BAR_HEALTH_H, BAR_POWER_H = 230, 16, 18, 10
 local BAR_SPOT = { x = 0, y = -150 }
+-- After the level, as on Blizzard's own target frames.
+local BAR_CLASS = { elite = "+", rareelite = "R+", rare = "R", worldboss = "" }
 
 function Target:CreateBar()
 	local f = CreateFrame("Frame", "ReforgedUITargetBar", UIParent, "BackdropTemplate")
@@ -861,13 +864,13 @@ function Target:CreateBar()
 	font(v.name, 12)
 	v.name:SetJustifyH("LEFT")
 	v.name:SetPoint("TOPLEFT", 6, -5)
-	v.name:SetPoint("TOPRIGHT", -40, -5)
+	v.name:SetPoint("TOPRIGHT", -50, -5)
 	v.name:SetHeight(BAR_NAME_H - 2)
 	v.level = f:CreateFontString(nil, "OVERLAY")
 	font(v.level, 11)
 	v.level:SetJustifyH("RIGHT")
 	v.level:SetPoint("TOPRIGHT", -6, -5)
-	v.level:SetSize(34, BAR_NAME_H - 2)
+	v.level:SetSize(44, BAR_NAME_H - 2)
 	v.level:SetTextColor(1, 0.82, 0)
 	v.health = makeBar(f, f:GetFrameLevel() + 1, 11)
 	v.health:SetPoint("TOPLEFT", 5, -(BAR_NAME_H + 3))
@@ -892,6 +895,16 @@ function Target:CreateBar()
 		frame:StopMovingOrSizing()
 		self:SaveBarSpot()
 	end)
+	-- Hidden mid-drag (Edit Mode closed, the target lost): end the drag here,
+	-- or it would never let go of the mouse.
+	f:SetScript("OnHide", function(frame)
+		if frame.dragging then
+			frame.dragging = nil
+			frame:StopMovingOrSizing()
+			self:SaveBarSpot()
+			self:UpdateBarMouse()
+		end
+	end)
 	f:SetScript("OnEnter", function(frame)
 		GameTooltip_SetDefaultAnchor(GameTooltip, frame)
 		GameTooltip:SetText("Reforged UI: target bar")
@@ -901,7 +914,9 @@ function Target:CreateBar()
 	f:SetScript("OnLeave", GameTooltip_Hide)
 	self.bar = v
 
-	ns:On("MODIFIER_STATE_CHANGED", function() self:UpdateBarMouse() end)
+	for _, e in ipairs({ "MODIFIER_STATE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+		ns:On(e, function() self:UpdateBarMouse() end)
+	end
 	-- Shown and movable while Edit Mode is open, target or not.
 	local editMode = _G.EditModeManagerFrame
 	if editMode and editMode.HookScript then
@@ -961,7 +976,7 @@ function Target:UpdateBarMouse()
 	if not v then
 		return
 	end
-	local shift = IsShiftKeyDown and IsShiftKeyDown() and true or false
+	local shift = IsShiftKeyDown and IsShiftKeyDown() and not InCombatLockdown() and true or false
 	local movable = self:BarEnabled() and (self.barEditing or shift)
 	if movable or not v.frame.dragging then
 		v.frame:EnableMouse(movable)
@@ -999,6 +1014,18 @@ function Target:RefreshBar()
 	end
 end
 
+-- At or under the options' HP warning threshold (red then, like the hero's
+-- warning). Secret health can't be compared, so it never reads as low.
+function Target:BarLow(cur, max)
+	if isSecret(cur) or isSecret(max) then
+		return false
+	end
+	local ok, low = pcall(function()
+		return max > 0 and cur > 0 and cur / max <= (tonumber(ns.db.consoleOpts.hpWarning) or 25) / 100
+	end)
+	return ok and low or false
+end
+
 -- Name and level, health and power, all as guarded as the console's own.
 function Target:UpdateBar()
 	local v = self.bar
@@ -1014,6 +1041,12 @@ function Target:UpdateBar()
 			level = tostring(n)
 		end
 	end)
+	pcall(function()
+		local class = BAR_CLASS[UnitClassification("target") or ""]
+		if class then
+			level = level .. class
+		end
+	end)
 	v.level:SetText(level)
 
 	local cur, max = UnitHealth("target"), UnitHealthMax("target")
@@ -1022,6 +1055,8 @@ function Target:UpdateBar()
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
 	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
+	elseif self:BarLow(cur, max) then
+		v.health:SetStatusBarColor(0.9, 0.1, 0.1)
 	else
 		v.health:SetStatusBarColor(0.1, 0.85, 0.1)
 	end

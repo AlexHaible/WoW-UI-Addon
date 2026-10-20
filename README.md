@@ -58,7 +58,7 @@ screen stays free on either side).
   For the target's health nearer the middle of the screen, the options'
   "Target bar" (or `/rui targetbar on`) adds a small free-standing bar with
   its name, level, health and power, in either mode. It is click-through
-  until you hold Shift (or open Edit Mode), then drag it anywhere; its place
+  until you hold Shift out of combat (or open Edit Mode), then drag it anywhere; its place
   is saved on its own and never touches the Edit Mode layout.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,

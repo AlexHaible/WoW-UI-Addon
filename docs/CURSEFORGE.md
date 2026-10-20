@@ -45,7 +45,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall.
 - The target's target appears as a small Warcraft III unit icon.
 - The target's buffs and debuffs show next to it. They work in combat too: they're Blizzard's own aura icons, placed for you.
-- Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power. Hold Shift and drag it anywhere, or move it in Edit Mode. It works alongside either target display.
+- Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
 
 **Action grid**
 - Action bars 1–3, twelve slots each.

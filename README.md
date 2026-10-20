@@ -55,6 +55,11 @@ screen stays free on either side).
   invisible, and the "Reforged UI" Edit Mode layout places it (buffs on
   top) so the icons land there.
   Left-click targets, right-click opens the unit menu.
+  For the target's health nearer the middle of the screen, the options'
+  "Target bar" (or `/rui targetbar on`) adds a small free-standing bar with
+  its name, level, health and power, in either mode. It is click-through
+  until you hold Shift (or open Edit Mode), then drag it anywhere; its place
+  is saved on its own and never touches the Edit Mode layout.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
@@ -242,6 +247,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset

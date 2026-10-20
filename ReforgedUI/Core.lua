@@ -52,6 +52,8 @@ local DEFAULTS = {
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
+		targetBar = false, -- a movable target health and power bar, besides the target display
+		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
 		barsEnabled = {}, -- characters whose bars 2, 3 and 8 were turned on once
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
 		editModeBars = false, -- bars 1-3 stay on their Edit Mode bars, pre-placed once, not in the grid
@@ -1142,6 +1144,7 @@ local function usage()
 	print("  /rui auras  (where your target's buff and debuff icons are)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
+	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
 end
 
@@ -1185,6 +1188,18 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
+		local target = ns.modules.target
+		if arg == "reset" then
+			target:ResetBarSpot()
+			ns:Print("target bar back in its first place.")
+		else
+			target:SetBarEnabled(arg == "on")
+			ns:Print(arg == "on" and "target bar on: hold Shift and drag it, or move it in Edit Mode." or "target bar off.")
+		end
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
 	elseif cmd == "auras" and ns.modules.target.enabled then
 		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
 			ns:Print(line)

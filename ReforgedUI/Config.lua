@@ -236,6 +236,14 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
+	-- A free-standing target health bar, for nearer the middle of the screen.
+	self:Check("Target bar (Shift-drag or Edit Mode)", "targetBar", x, -282, function(on)
+		ns.modules.target:SetBarEnabled(on)
+		if on then
+			ns:Print("target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
+		end
+	end)
+
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
 	label(f, "Stat icons (this class)", x, -318)

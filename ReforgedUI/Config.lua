@@ -21,6 +21,7 @@ local THEME_BUTTONS = {
 }
 local THEME_COLUMNS = 7
 local ZONE_TEXT = { "Zone text: bottom", "Zone text: top", "Zone text: hidden" }
+local CLOCK_TIME = { server = "Clock time: server", ["local"] = "Clock time: local", off = "Clock time: hidden" }
 
 local function relayout()
 	if ns.ready then
@@ -236,6 +237,24 @@ function Config:Build()
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
 
+	-- The time in the capsule under the top bar's clock: server, local or
+	-- none, on a 24 or 12 hour clock.
+	local topbar = ns.modules.topbar
+	self.clockTimeButton = button(f, CLOCK_TIME.server, 150, x, -280, function()
+		local modes, mode = topbar.TIME_MODES, topbar:TimeMode()
+		for i, m in ipairs(modes) do
+			if m == mode then
+				topbar:SetTimeMode(modes[i % #modes + 1])
+				break
+			end
+		end
+		self:Refresh()
+	end)
+	self.clockHoursButton = button(f, "24-hour", 90, x + 154, -280, function()
+		topbar:SetTimeHours(topbar:TimeHours() == 12 and 24 or 12)
+		self:Refresh()
+	end)
+
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
 	label(f, "Stat icons (this class)", x, -318)
@@ -318,6 +337,11 @@ function Config:Refresh()
 		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
+	local topbar = ns.modules.topbar
+	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])
+	self.clockTimeButton:SetEnabled(topbar.enabled and true or false)
+	self.clockHoursButton:SetText(topbar:TimeHours() == 12 and "12-hour" or "24-hour")
+	self.clockHoursButton:SetEnabled(topbar.enabled and topbar:TimeMode() ~= "off" or false)
 	local hero = ns.modules.hero
 	local choices = hero:IconChoices()
 	for i, b in ipairs(self.iconButtons) do

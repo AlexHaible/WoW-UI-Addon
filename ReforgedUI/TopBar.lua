@@ -3,12 +3,12 @@
 -- midnight) with Blizzard's own micro buttons (character, talents, group
 -- finder, ..., game menu) either side of it, and slots for LibDataBroker
 -- feeds, like Titan Panel, everywhere else. Gold, bag space and durability
--- are feeds of our own and fill the first three slots by default; so is
--- ping and framerate, for any slot. A slot
+-- are feeds of our own and fill the first three slots by default; so are
+-- ping and framerate, and the zone, for any slot. A slot
 -- can also hold one of the game's own panels (quest log, map, game menu,
 -- ...), opened by a click.
 -- Right-click an empty slot, or Alt-right-click a filled one, to choose its
--- feed.
+-- feed. A capsule under the clock shows the server or local time.
 
 local _, ns = ...
 local TopBar = ns:RegisterModule("topbar", {})
@@ -16,6 +16,7 @@ local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
 
 local FEED_GOLD, FEED_BAGS, FEED_REPAIR = "Reforged: Gold", "Reforged: Bags", "Reforged: Durability"
 local FEED_PING = "Reforged: Ping & FPS"
+local FEED_ZONE = "Reforged: Zone"
 local DEFAULT_SLOTS = { FEED_GOLD, FEED_BAGS, FEED_REPAIR } -- slot 1 is nearest the clock, on its right
 
 local Container = C_Container or {}
@@ -105,6 +106,51 @@ function TopBar:PingTooltip(tip)
 	tip:AddDoubleLine("Framerate", ("%.0f fps"):format(GetFramerate and GetFramerate() or 0), 0.8, 0.8, 0.8, 1, 1, 1)
 end
 
+-- The zone (subzone where there is one), coloured by PvP status like the
+-- minimap's.
+local function zonePvP()
+	if C_PvP and C_PvP.GetZonePVPInfo then
+		return C_PvP.GetZonePVPInfo()
+	end
+	if GetZonePVPInfo then
+		return GetZonePVPInfo()
+	end
+end
+
+local ZONE_COLORS = {
+	sanctuary = "68ccef", arena = "ff1a1a", hostile = "ff1a1a", friendly = "1aff1a", contested = "ffb300",
+}
+
+function TopBar:UpdateZone()
+	local feed = self.feeds and self.feeds.zone
+	if not feed then
+		return
+	end
+	local text = GetMinimapZoneText and GetMinimapZoneText() or ""
+	if text == "" then
+		text = GetZoneText and GetZoneText() or ""
+	end
+	feed.text = ("|cff%s%s|r"):format(ZONE_COLORS[zonePvP() or ""] or "ffd100", text)
+end
+
+function TopBar:ZoneTooltip(tip)
+	local zone = GetRealZoneText and GetRealZoneText() or GetZoneText and GetZoneText() or ""
+	local sub = GetSubZoneText and GetSubZoneText() or ""
+	tip:AddLine(zone ~= "" and zone or (ZONE or "Zone"), 1, 1, 1)
+	if sub ~= "" and sub ~= zone then
+		tip:AddLine(sub, 1, 0.82, 0)
+	end
+	local pvp, _, faction = zonePvP()
+	if pvp == "contested" then
+		tip:AddLine("Contested territory", 1, 0.7, 0)
+	elseif pvp == "friendly" or pvp == "hostile" then
+		tip:AddLine(("%s territory"):format(faction or (pvp == "friendly" and "Friendly" or "Hostile")),
+			pvp == "friendly" and 0.1 or 1, pvp == "friendly" and 1 or 0.1, 0.1)
+	elseif pvp == "sanctuary" then
+		tip:AddLine("Sanctuary", 0.41, 0.8, 0.94)
+	end
+end
+
 function TopBar:CreateFeeds()
 	if not LDB then
 		return
@@ -136,6 +182,10 @@ function TopBar:CreateFeeds()
 			type = "data source", label = "Ping & FPS", text = "- ms  0 fps",
 			OnTooltipShow = function(tip) TopBar:PingTooltip(tip) end,
 		}),
+		zone = LDB:NewDataObject(FEED_ZONE, {
+			type = "data source", label = "Zone", text = "",
+			OnTooltipShow = function(tip) TopBar:ZoneTooltip(tip) end,
+		}),
 	}
 	-- The framerate changes all the time: once a second is enough.
 	local elapsed = 1
@@ -147,6 +197,10 @@ function TopBar:CreateFeeds()
 			self:UpdatePing()
 		end
 	end)
+	for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD" }) do
+		ns:On(e, function() self:UpdateZone() end)
+	end
+	self:UpdateZone()
 	for _, e in ipairs({ "PLAYER_MONEY", "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED",
 		"UPDATE_INVENTORY_DURABILITY", "PLAYER_EQUIPMENT_CHANGED" }) do
 		ns:On(e, function() self:UpdateFeeds() end)
@@ -714,10 +768,12 @@ function TopBar:OnEnable()
 		GameTooltip:Show()
 	end)
 	self.clockFrame:SetScript("OnLeave", GameTooltip_Hide)
+	self:CreateCapsule()
+	-- The capsule's minutes should turn over on time: once a second.
 	local elapsed = 10
 	self.clockFrame:SetScript("OnUpdate", function(_, dt)
 		elapsed = elapsed + dt
-		if elapsed >= 5 then
+		if elapsed >= 1 then
 			elapsed = 0
 			self:UpdateClock()
 		end
@@ -944,12 +1000,126 @@ function TopBar:PlaceMicro()
 	end
 end
 
+----------------------------------------------------------------------------
+-- The time capsule: a pill hanging under the clock with the server or local
+-- time (consoleOpts.clockTime: "server", "local" or "off") on a 24 or 12
+-- hour clock (consoleOpts.clockHours), so the time reads without hovering
+-- the dial. Its pill is tinted like the slot plates.
+
+local function serverTime()
+	local h, m = GetGameTime()
+	return h or 0, m or 0
+end
+
+local function localTime()
+	local t = date and date("*t")
+	if not t then
+		return serverTime()
+	end
+	return t.hour, t.min
+end
+
+local function formatTime(h, m, hours)
+	if hours == 12 then
+		return ("%d:%02d %s"):format((h - 1) % 12 + 1, m, h < 12 and "AM" or "PM")
+	end
+	return ("%02d:%02d"):format(h, m)
+end
+TopBar.FormatTime = formatTime
+
+TopBar.TIME_MODES = { "server", "local", "off" }
+
+function TopBar:TimeMode()
+	local mode = ns.db.consoleOpts.clockTime
+	return (mode == "local" or mode == "off") and mode or "server"
+end
+
+function TopBar:TimeHours()
+	return ns.db.consoleOpts.clockHours == 12 and 12 or 24
+end
+
+function TopBar:SetTimeMode(mode)
+	ns.db.consoleOpts.clockTime = mode
+	self:UpdateCapsule()
+end
+
+function TopBar:SetTimeHours(hours)
+	ns.db.consoleOpts.clockHours = hours
+	self:UpdateCapsule()
+end
+
+function TopBar:CreateCapsule()
+	-- Under the clock frame, which covers its top edge.
+	local f = CreateFrame("Frame", "ReforgedUIClockTime", ns.topRoot)
+	f:SetFrameLevel(44)
+	f:EnableMouse(true)
+	f.fill = f:CreateTexture(nil, "BACKGROUND")
+	f.fill:SetAllPoints()
+	f.fill:SetTexture(ns.MEDIA .. "Common\\capsule")
+	f.rim = f:CreateTexture(nil, "BORDER")
+	f.rim:SetAllPoints()
+	f.rim:SetTexture(ns.MEDIA .. "Common\\capsule_rim")
+	f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	f.text:SetPoint("CENTER", 0, 0)
+	f.text:SetWordWrap(false)
+	f:SetScript("OnEnter", function(owner)
+		GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+		GameTooltip:SetText(TIMEMANAGER_TOOLTIP_TITLE or "Time", 1, 1, 1)
+		local hours = self:TimeHours()
+		local h, m = serverTime()
+		GameTooltip:AddDoubleLine("Server time", formatTime(h, m, hours), 0.8, 0.8, 0.8, 1, 1, 1)
+		h, m = localTime()
+		GameTooltip:AddDoubleLine("Local time", formatTime(h, m, hours), 0.8, 0.8, 0.8, 1, 1, 1)
+		GameTooltip:AddLine("Change it in the options (/rui config).", 0.6, 0.6, 0.6)
+		GameTooltip:Show()
+	end)
+	f:SetScript("OnLeave", GameTooltip_Hide)
+	self.capsule = f
+end
+
+function TopBar:UpdateCapsule()
+	local f = self.capsule
+	if not f then
+		return
+	end
+	local mode = self:TimeMode()
+	f:SetShown(mode ~= "off")
+	if mode == "off" then
+		return
+	end
+	local h, m
+	if mode == "local" then
+		h, m = localTime()
+	else
+		h, m = serverTime()
+	end
+	f.text:SetText(formatTime(h, m, self:TimeHours()))
+end
+
+-- Centred under the clock frame's ring, its top tucked behind the frame.
+local CAPSULE_W, CAPSULE_H, CAPSULE_DROP = 64, 16, 76
+function TopBar:PlaceCapsule()
+	local c = ns.topLayout.clockFrame
+	place(self.capsule, { x = c.x + (c.w - CAPSULE_W) / 2, y = c.y + c.h - CAPSULE_DROP, w = CAPSULE_W, h = CAPSULE_H })
+end
+
+function TopBar:PaintCapsule(theme)
+	local f = self.capsule
+	f.fill:SetVertexColor(unpack(theme.inset))
+	f.rim:SetVertexColor(unpack(theme.insetLine))
+	if not (theme.font and ns:SetFont(f.text, 10, "", theme.font)) then
+		f.text:SetFontObject("GameFontNormalSmall")
+	end
+	f.text:SetTextColor(unpack(theme.title or { 1, 0.82, 0 }))
+end
+
 function TopBar:UpdateClock()
 	local h, m = GetGameTime()
 	local hours = (h or 12) + (m or 0) / 60
 	-- Noon puts the sun at the bottom of the window; the dial turns
 	-- anticlockwise so the sun rises on the left and sets on the right.
 	self.dial:SetRotation((hours - 12) / 24 * 2 * math.pi)
+	self:UpdateCapsule()
 end
 
 function TopBar:OnLayout()
@@ -960,6 +1130,7 @@ function TopBar:OnLayout()
 	self.dial:SetPoint("CENTER", ns.topRoot, "BOTTOMLEFT", c.cx, c.cy)
 	self.dial:SetSize(c.radius * 2, c.radius * 2)
 	place(self.clockFrame, L.clockFrame)
+	self:PlaceCapsule()
 	self:PlaceMicro()
 	for i, r in ipairs(L.topSlots) do
 		local slot = self:GetSlot(i)
@@ -979,6 +1150,7 @@ end
 function TopBar:OnTheme(theme)
 	ns.Art.PaintPanel(self.panel, theme)
 	self.clockArt:SetTexture(ns:Media("clockframe", theme))
+	self:PaintCapsule(theme)
 	for _, slot in ipairs(self.slots) do
 		ns.Art.PaintInset(slot.plate, theme)
 	end

@@ -29,7 +29,7 @@ read_globals = {
 	"AMMOSLOT", "ARMOR", "BAGSLOT", "BLOCK", "BOSS", "C_Item", "C_PaperDollInfo", "C_Timer", "DAMAGE", "DURABILITY",
 	"ELITE", "Enum", "FACTION_BAR_COLORS", "GetBlockChance", "GetCoinTextureString", "GetComboPoints",
 	"GetInventoryItemCount", "GetInventoryItemID", "GetItemInfoInstant", "GetShieldBlock", "GetSpellBonusDamage",
-	"GetSpellBonusHealing", "IsAltKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
+	"GetSpellBonusHealing", "IsAltKeyDown", "IsShiftKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
 	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "ToggleCharacter", "ToggleQuestLog", "ToggleFriendsFrame", "ToggleWorldMap", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",

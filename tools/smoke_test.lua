@@ -93,6 +93,8 @@ function methods:GetPoint(i) local p = self._points[i or 1]; if p then return un
 function methods:GetTop() return 100 end
 function methods:GetBottom() return 10 end
 function methods:GetLeft() return 20 end
+function methods:StartMoving() self._moving = true end
+function methods:StopMovingOrSizing() self._moving = false end
 function methods:SetFrameStrata(s) self._strata = s end
 function methods:GetFrameStrata() return self._strata or "MEDIUM" end
 function methods:SetBlendMode() end
@@ -357,8 +359,8 @@ end
 function securecallfunction(fn, ...) return fn(...) end
 function RegisterUnitWatch() end
 -- No target until the target display tests pick one.
-local hasTarget, totIsPlayer = false, false
-function UnitExists(u) return u == "player" or hasTarget end
+local hasTarget, totIsPlayer, hasPet = false, false, false
+function UnitExists(u) if u == "pet" then return hasPet end return u == "player" or hasTarget end
 function UnitIsUnit(a, b) return a == b or (a == "targettarget" and b == "player" and totIsPlayer) end
 function UnitCastingInfo() return nil end
 function UnitChannelInfo() return nil end
@@ -2241,5 +2243,68 @@ do
 	slash("theme auto")
 	checkBags(ns.themeKey)
 end
+-- Pet icon: beside the target of target, in the theme's trim, with its
+-- happiness (hunters) and auras; Shift-drag moves it.
+do
+	local pet, target = ns.modules.pet, ns.modules.target
+	local b = pet.button
+	assert(b == ReforgedUIPet and b:GetAttribute("unit") == "pet", "pet unit button")
+	local L = ns.layout
+	local P, T = L.petIcon, L.tot
+	assert(P.frame.x + P.frame.w <= T.frame.x and P.frame.x >= 0, "the pet icon stands left of the target of target")
+	assert(P.power and P.box.h > T.box.h, "the pet icon has a power bar")
+	assert(target.tot.trim and b.trim and b.trim.pieces.tl._tex, "both icons wear the theme's trim")
+	hasPet = true
+	local happiness = 3
+	GetPetHappiness = function() return happiness, 100, 0 end
+	local auras = { HARMFUL = 2, HELPFUL = 4 }
+	local secretAuras = false
+	local oldAuras = C_UnitAuras
+	C_UnitAuras = { GetAuraDataByIndex = function(unit, i, filter)
+		assert(unit == "pet")
+		if secretAuras then error("cannot be accessed when secret") end
+		if i <= auras[filter] then
+			return { icon = 136000 + i, applications = i, duration = 10, expirationTime = 105 }
+		end
+	end }
+	fire("UNIT_PET", "player")
+	assert(b.happiness:IsShown(), "a hunter's pet shows its happiness")
+	local function shown(filter)
+		local n = 0
+		for _, f in ipairs(b.auras[filter]) do
+			if f:IsShown() then n = n + 1 end
+		end
+		return n
+	end
+	assert(shown("HARMFUL") == 2 and shown("HELPFUL") == 4, "pet auras shown")
+	assert(b.auras.HARMFUL[2].count._text == 2 and b.auras.HARMFUL[1].count._text == "", "stack counts over 1 only")
+	secretAuras = true
+	fire("UNIT_AURA", "pet")
+	assert(shown("HARMFUL") == 0 and shown("HELPFUL") == 0, "unreadable auras leave the rows empty")
+	secretAuras = false
+	happiness = nil
+	fire("UNIT_HAPPINESS", "pet")
+	assert(not b.happiness:IsShown(), "no happiness for other pets")
+	C_UnitAuras = oldAuras
+	GetPetHappiness = nil
+	-- Shift-drag saves the spot; in combat it doesn't move; reset puts it back.
+	IsShiftKeyDown = function() return true end
+	b._scripts.OnDragStart(b)
+	b._scripts.OnDragStop(b)
+	assert(type(ReforgedUIDB.consoleOpts.petSpot) == "table", "a Shift-drag saves the pet's spot")
+	slash("theme orc")
+	slash("pet reset")
+	assert(ReforgedUIDB.consoleOpts.petSpot == false, "/rui pet reset")
+	inCombat = true
+	ReforgedUIDB.consoleOpts.petSpot = false
+	b._scripts.OnDragStart(b)
+	b._scripts.OnDragStop(b)
+	assert(ReforgedUIDB.consoleOpts.petSpot == false, "no moving in combat")
+	inCombat = false
+	IsShiftKeyDown = nil
+	slash("theme auto")
+	hasPet = false
+end
+
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

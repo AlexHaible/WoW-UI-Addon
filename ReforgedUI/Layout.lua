@@ -428,6 +428,29 @@ local HERO_WALL = { human = 0.543, orc = 0.53, undead = 0.578, nightelf = 0.56, 
 -- The target's aura icons stand on the highest of those walls on every theme.
 local AURA_WALL = 0.578
 
+-- How far the theme's trim (Trim.lua, at UNIT_TRIM_SCALE) reaches past a
+-- unit icon's box, in console units.
+local UNIT_TRIM_SCALE = 0.5
+local UNIT_TRIM = 10 * UNIT_TRIM_SCALE
+Layout.UNIT_TRIM_SCALE = UNIT_TRIM_SCALE
+
+-- A small unit icon (target of target, pet) standing on the wall at `y`:
+-- a square portrait over a health bar (and a power bar), all in one box
+-- the trim goes around. `frame` is the whole of it, trim included (the
+-- secure button); the rest are relative to the console, as everything here.
+local function unitIcon(x, y, size, power)
+	local hh, ph = 5, power and 4 or 0
+	local by = y + UNIT_TRIM
+	local box = rect(x, by, size, size + hh + ph)
+	return {
+		frame = rect(x - UNIT_TRIM, y, size + 2 * UNIT_TRIM, box.h + 2 * UNIT_TRIM),
+		box = box,
+		icon = rect(x, by + hh + ph, size, size),
+		health = rect(x, by + ph, size, hh),
+		power = power and rect(x, by, size, ph) or nil,
+	}
+end
+
 local function buildTarget(L, s, t, MT, xp)
 	-- Swap mode (Warcraft III): the hero screen shows the target. Its name and
 	-- level take the experience bar's place; its health and power bars,
@@ -451,16 +474,14 @@ local function buildTarget(L, s, t, MT, xp)
 	L.heroWallTop = wall
 
 	-- Target of target: a small unit icon standing on the wall above the
-	-- hero's portrait, its health bar underneath.
+	-- hero's portrait, its health bar underneath, in the theme's trim. Your
+	-- pet's icon stands beside it, to the left, with its power bar too and
+	-- its buffs and debuffs above it (the player can move it).
 	do
 		local size = 0.13 * s
 		local cx = MT.x + 0.995 * s
-		local x = cx - size / 2
-		L.tot = {
-			frame = rect(x - 3, wall - 3, size + 6, size + 12),
-			icon = rect(x, wall + 6, size, size),
-			health = rect(x, wall - 1, size, 5),
-		}
+		L.tot = unitIcon(cx - size / 2, wall, size, false)
+		L.petIcon = unitIcon(L.tot.frame.x - 0.02 * s - size - UNIT_TRIM, wall, size, true)
 	end
 
 	-- Wall plate: a miniature hero screen standing on the wall above the stats

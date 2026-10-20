@@ -39,6 +39,7 @@ Console.lua
 TopBar.lua
 Hero.lua
 Target.lua
+Pet.lua
 ActionBars.lua
 Minimap.lua
 Chat.lua

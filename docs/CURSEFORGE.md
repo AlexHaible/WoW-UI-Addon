@@ -43,8 +43,14 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall.
-- The target's target appears as a small Warcraft III unit icon.
+- The target's target appears as a small Warcraft III unit icon in your theme's frame.
 - The target's buffs and debuffs show next to it. They work in combat too: they're Blizzard's own aura icons, placed for you.
+
+**Pet**
+- Your pet gets its own unit icon beside the target's target, in your theme's frame: portrait, health and power (focus, mana or energy).
+- Hunters see their pet's happiness on the portrait. Hover it for the details.
+- The pet's buffs and debuffs stand above the icon, debuffs nearest.
+- Left-click targets your pet, right-click opens its menu. **Shift-drag** moves the icon anywhere (out of combat); `/rui pet reset` puts it back.
 
 **Action grid**
 - Action bars 1–3, twelve slots each.
@@ -118,6 +124,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui config                      open the options
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
+/rui pet reset                   put the pet icon back beside the target's target
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui scale 0.5-1.5               top bar scale

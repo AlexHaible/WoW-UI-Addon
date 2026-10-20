@@ -63,8 +63,9 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Prefer it elsewhere? Turn on **Let me move and resize the chat window**, then drag and resize it as you like.
 
 **Top bar**
-- The **day/night clock** in the middle, with Blizzard's menu buttons either side of it.
-- **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold, with Horde and Alliance listed and totalled apart (gold can't cross factions). A **Ping & FPS** feed shows your world latency on the left of its slot (green, yellow or red) and your framerate on the right; hover it for home latency and bandwidth. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons, or one of the game's own panels: character, spellbook, talents, skills, quest log, social, guild, world map, game menu and the rest your client has. Panels show by name in the theme's menu font; click one to open it, in combat too.
+- The **day/night clock** in the middle, with Blizzard's menu buttons either side of it. A capsule under it shows the time, so you can read it without hovering: server or local time, on a 24 or 12 hour clock, or hidden, from the options.
+- Rather not have it? Tick **Hide top bar** in the options (or type `/rui topbar off`): the menu buttons move to just above the minimap, beside the addon button drawer, and your buffs move up to the top edge of the screen.
+- **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold, with Horde and Alliance listed and totalled apart (gold can't cross factions). A **Ping & FPS** feed shows your world latency on the left of its slot (green, yellow or red) and your framerate on the right; hover it for home latency and bandwidth. A **Zone** feed shows where you are, coloured by PvP status like the minimap's. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons, or one of the game's own panels: character, spellbook, talents, skills, quest log, social, guild, world map, game menu and the rest your client has. Panels show by name in the theme's menu font; click one to open it, in combat too.
 
 **Damage meter**
 - The game's built-in damage meter wears your theme: the top bar's trim around each window, a dark inset, the theme's rail under the header and every bar, and Warcraft III's bar texture and font. The breakdown window that opens on click matches.
@@ -84,7 +85,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - The cast bar is above the console.
 - Party frames use the raid-style frames, with class colours, power bars, debuffs, aggro highlight and incoming heals turned on.
 - The target frame is placed so its buff and debuff icons sit next to the target display.
-- Your buffs and debuffs start in the top-right corner, just below the top bar.
+- Your buffs and debuffs start in the top-right corner, just below the top bar (or at the very top with the top bar hidden).
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
 
@@ -107,8 +108,10 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - portrait position
 - low-health warning threshold
 - zone text position
+- the time under the clock: server, local or hidden, 24 or 12 hour
 - health and power as percentages
 - moving and resizing the chat window yourself
+- hiding the top bar
 - letting Edit Mode place action bars 1-3
 - the four stat icons
 - and a few more.
@@ -124,6 +127,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
+/rui topbar on|off               show or hide the top bar
 /rui status                      show current settings
 /rui reset                       reset settings
 ```

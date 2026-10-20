@@ -914,14 +914,15 @@ function ns:TopBarMicroRatios()
 	return ratios
 end
 
--- Scales `b` so its art is `r.h` top bar units tall and anchors it to
--- UIParent (never to our frames) at `r`, keeping its parent.
-local function placeMicro(b, r)
+-- Scales `b` so its art is `r.h` units of `root` (the top bar's, or the
+-- console's with the top bar hidden) tall and anchors it to UIParent (never
+-- to our frames) at `r`, keeping its parent.
+local function placeMicro(b, r, root)
 	local h, bottom = artHeight(b)
 	if not h then
 		return
 	end
-	local rootScale = ns.topRoot:GetEffectiveScale()
+	local rootScale = root:GetEffectiveScale()
 	local parent = b:GetParent() or UIParent
 	b:SetScale(r.h * rootScale / (h * parent:GetEffectiveScale()))
 	local s = rootScale / b:GetEffectiveScale()
@@ -932,14 +933,18 @@ end
 -- The micro menu lays its buttons out again now and then; the lock puts
 -- them back.
 function TopBar:PlaceMicro()
-	local rects = ns.topLayout and ns.topLayout.micro
+	local L, root = ns.topLayout, ns.topRoot
+	if not ns:TopBarShown() then
+		L, root = ns.layout, ns.root
+	end
+	local rects = L and L.micro
 	if not rects then
 		return
 	end
 	for i, b in ipairs(self.microShown or {}) do
 		local r = rects[i]
 		if r then
-			ns:Lock(b, function(f) placeMicro(f, r) end, { "SetScale" })
+			ns:Lock(b, function(f) placeMicro(f, r, root) end, { "SetScale" })
 		end
 	end
 end
@@ -961,13 +966,15 @@ function TopBar:OnLayout()
 	self.dial:SetSize(c.radius * 2, c.radius * 2)
 	place(self.clockFrame, L.clockFrame)
 	self:PlaceMicro()
-	for i, r in ipairs(L.topSlots) do
+	-- Hidden (Core.lua hides its root), the bar has no slots.
+	local slots = ns:TopBarShown() and L.topSlots or {}
+	for i, r in ipairs(slots) do
 		local slot = self:GetSlot(i)
 		place(slot, r)
 		slot.rect = r
 		slot:Show()
 	end
-	for i = #L.topSlots + 1, #self.slots do
+	for i = #slots + 1, #self.slots do
 		self.slots[i]:Hide()
 		self:UpdateSecure(self.slots[i])
 	end

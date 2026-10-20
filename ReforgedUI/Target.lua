@@ -38,6 +38,7 @@ local REACTION = {
 	hostile = { 1, 0.2, 0.15 },
 	neutral = { 1, 0.9, 0 },
 	friendly = { 0.2, 1, 0.2 },
+	player = { 0.25, 0.55, 1 }, -- the target of target is you
 }
 local TAPPED = { 0.6, 0.6, 0.6 }
 local CLASSIFICATION = {
@@ -407,6 +408,22 @@ end
 
 function Target:CreateToT()
 	local b = Target.CreateUnitIcon("ReforgedUITargetTarget", "targettarget", 32)
+	-- Who it is, as Warcraft III's selection circles say it: a gem on the
+	-- trim's top-right corner, red, yellow or green by reaction, blue for you.
+	local gem = CreateFrame("Frame", nil, b)
+	gem:SetFrameLevel(b:GetFrameLevel() + 4)
+	gem.socket = gem:CreateTexture(nil, "ARTWORK")
+	gem.socket:SetColorTexture(0, 0, 0, 0.8)
+	gem.socket:SetAllPoints()
+	gem.stone = gem:CreateTexture(nil, "OVERLAY")
+	gem.stone:SetColorTexture(1, 1, 1, 1)
+	gem.stone:SetPoint("TOPLEFT", 1.5, -1.5)
+	gem.stone:SetPoint("BOTTOMRIGHT", -1.5, 1.5)
+	if gem.socket.SetRotation then
+		gem.socket:SetRotation(math.pi / 4)
+		gem.stone:SetRotation(math.pi / 4)
+	end
+	b.reaction = gem
 	-- The target's target has few events of its own; poll it while shown.
 	local elapsed = 0
 	b:SetScript("OnUpdate", function(_, dt)
@@ -836,13 +853,22 @@ function Target:UpdateCast()
 	end
 end
 
--- Target of target: portrait and health.
+-- Target of target: portrait, health and its reaction gem: blue for you,
+-- else green, yellow or red by reaction.
 function Target:UpdateToT()
 	local tot = self.tot
 	if not UnitExists("targettarget") then
 		return
 	end
 	SetPortraitTexture(tot.portrait, "targettarget")
+	local isMe = UnitIsUnit and UnitIsUnit("targettarget", "player")
+	if isSecret(isMe) then
+		isMe = false -- not known in instances: coloured by reaction instead
+	end
+	local kind = isMe and "player" or reactionKind("targettarget")
+	tot.kind = kind
+	local c = REACTION[kind]
+	tot.reaction.stone:SetVertexColor(c[1], c[2], c[3], 1)
 	tot.health:SetMinMaxValues(0, UnitHealthMax("targettarget"))
 	tot.health:SetValue(UnitHealth("targettarget"))
 end
@@ -1146,6 +1172,12 @@ function Target:OnLayout(L)
 
 	-- Its parts follow the button, which PlaceButtons places (out of combat).
 	Target.PlaceUnitIcon(self.tot, L.tot)
+	local T, gem = L.tot, self.tot.reaction
+	local size = 0.25 * T.box.w
+	gem:ClearAllPoints()
+	gem:SetPoint("CENTER", self.tot, "BOTTOMLEFT", T.box.x + T.box.w + 1.5 - T.frame.x,
+		T.box.y + T.box.h + 1.5 - T.frame.y)
+	gem:SetSize(size, size)
 
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
 	self:Refresh()

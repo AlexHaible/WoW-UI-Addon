@@ -197,6 +197,8 @@ end
 
 UIParent = new("frame", "UIParent")
 UIParent._w, UIParent._h = screenW, screenH
+EditModeManagerFrame = new("frame", "EditModeManagerFrame", UIParent)
+EditModeManagerFrame._shown = false
 Minimap = new("frame", "Minimap", UIParent)
 Minimap.ZoomIn = new("button", nil, Minimap)
 MinimapCluster = new("frame", "MinimapCluster", UIParent)
@@ -2105,6 +2107,118 @@ do
 	UnitPowerMax = oldPM
 	fire("UNIT_MAXPOWER", "target")
 	assert(pl.power:IsShown(), "plate: the power bar comes back")
+	-- The target bar: off by default, turned on in combat (not secure), with
+	-- the target's name, level, health and power; click-through until Shift
+	-- is held out of combat or Edit Mode is open, then dragged anywhere.
+	do
+		local bar = target.bar
+		assert(bar and not bar.frame:IsShown(), "the target bar is off by default")
+		assert(bar.frame._kind ~= "secure" and bar.frame:GetParent() == UIParent, "the target bar is a plain frame")
+		SlashCmdList.REFORGEDUI("targetbar on")
+		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "/rui targetbar on shows it, in combat")
+		assert(bar.name._text == "Hogger" and bar.level._text == "11+", "target bar: name, level and elite")
+		assert(bar.health._value == 412 and bar.health.text._text == "412 / 666", "target bar: health")
+		assert(bar.health._color[1] < 0.5 and bar.health._color[2] > 0.5, "target bar: green above the HP warning")
+		local oldH = UnitHealth
+		UnitHealth = function(u) return u == "target" and 100 or 300 end
+		fire("UNIT_HEALTH", "target")
+		assert(bar.health._color[1] > 0.5 and bar.health._color[2] < 0.5, "target bar: red at the HP warning")
+		UnitHealth = oldH
+		fire("UNIT_HEALTH", "target")
+		assert(bar.power.text._text == "30 / 100" and bar.power._color[1] == 1 and bar.power:IsShown(), "target bar: rage")
+		assert(bar.name._fontObject or bar.name._font, "target bar text goes through our font")
+		assert(not bar.frame._mouse, "the target bar is click-through")
+		local p0 = bar.frame._points[1]
+		assert(p0[1] == "CENTER" and p0[2] == UIParent and p0[5] < 0, "the target bar starts below the screen's centre")
+		-- Secret health and level: still on the bar, never compared.
+		secretTarget = true
+		fire("UNIT_HEALTH", "target")
+		assert(type(bar.health._value) == "table" and bar.health._color[2] > 0.5,
+			"target bar: secret health reaches the bar, never compared")
+		secretTarget = false
+		fire("UNIT_HEALTH", "target")
+		local oldLevel = UnitLevel
+		local secretLevel = setmetatable({}, { __lt = function() error("compared a secret value") end,
+			__le = function() error("compared a secret value") end })
+		UnitLevel = function(u) if u == "target" then return secretLevel end return oldLevel(u) end
+		secret = true
+		fire("UNIT_LEVEL", "target")
+		secret = false
+		assert(bar.level._text == "??+", "target bar: a secret level reads ??")
+		UnitLevel = oldLevel
+		fire("UNIT_LEVEL", "target")
+		-- Shift makes it draggable; its new place is saved from the centre.
+		local shift = false
+		IsShiftKeyDown = function() return shift end
+		shift = true
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+		assert(not bar.frame._mouse, "in combat Shift leaves the target bar click-through")
+		inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		assert(bar.frame._mouse and not bar.highlight:IsShown(), "Shift out of combat makes the target bar draggable")
+		methods.StartMoving, methods.StopMovingOrSizing = noop, noop
+		bar.frame.GetCenter = function() return screenW / 2 + 40, screenH / 2 + 100 end
+		UIParent.GetCenter = function() return screenW / 2, screenH / 2 end
+		bar.frame._scripts.OnDragStart(bar.frame)
+		shift = false
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(bar.frame._mouse, "letting go of Shift mid-drag keeps the drag")
+		inCombat = true
+		fire("PLAYER_REGEN_DISABLED")
+		assert(bar.frame._mouse, "nor does combat end a drag")
+		bar.frame._scripts.OnDragStop(bar.frame)
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(not bar.frame._mouse, "click-through again after the drag")
+		local spot = ReforgedUIDB.consoleOpts.targetBarPos
+		assert(spot and spot.x == 40 and spot.y == 100, "the dragged place is saved")
+		local p1 = bar.frame._points[1]
+		assert(p1[1] == "CENTER" and p1[4] == 40 and p1[5] == 100, "the target bar stays where it was dragged")
+		-- Its place is its own: the Edit Mode target frame doesn't follow.
+		assert(ns.layout.targetAuras.plate and not ns.layout.targetBar, "the target bar stays out of the layout")
+		-- No target: hidden, unless Edit Mode is open (a stand-in to place).
+		hasTarget = false
+		fire("PLAYER_TARGET_CHANGED")
+		assert(not bar.frame:IsShown(), "no target, no target bar")
+		EditModeManagerFrame._hooks.OnShow()
+		assert(bar.frame:IsShown() and bar.name._text == "Target" and bar.frame._mouse and bar.highlight:IsShown(),
+			"Edit Mode shows a movable stand-in")
+		EditModeManagerFrame._hooks.OnHide()
+		assert(not bar.frame:IsShown() and not bar.frame._mouse, "closing Edit Mode hides it again")
+		-- Edit Mode closed mid-drag: the drag ends with the bar, never stuck.
+		EditModeManagerFrame._hooks.OnShow()
+		bar.frame._scripts.OnDragStart(bar.frame)
+		EditModeManagerFrame._hooks.OnHide()
+		bar.frame._scripts.OnHide(bar.frame) -- the stubs don't fire OnHide
+		assert(not bar.frame.dragging and not bar.frame._mouse, "hidden mid-drag, the drag ends")
+		hasTarget = true
+		fire("PLAYER_TARGET_CHANGED")
+		assert(bar.frame:IsShown() and bar.name._text == "Hogger", "back with the target")
+		SlashCmdList.REFORGEDUI("targetbar reset")
+		local p2 = bar.frame._points[1]
+		assert(not ReforgedUIDB.consoleOpts.targetBarPos and p2[4] == p0[4] and p2[5] == p0[5], "/rui targetbar reset")
+		SlashCmdList.REFORGEDUI("targetbar off")
+		assert(not bar.frame:IsShown() and not ReforgedUIDB.consoleOpts.targetBar, "/rui targetbar off")
+		-- The options menu's checkbox does the same.
+		local box
+		for _, cb in ipairs(config.checks) do
+			if cb.key == "targetBar" then box = cb end
+		end
+		assert(box, "the options menu has a target bar checkbox")
+		box._checked = true
+		box._scripts.OnClick(box)
+		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "the checkbox turns the target bar on")
+		box._checked = false
+		box._scripts.OnClick(box)
+		assert(not bar.frame:IsShown(), "and off")
+		assert(box._enabled and box.label._textColor[1] == 1, "the checkbox is live while the target module is on")
+		target.enabled = false
+		config:Refresh()
+		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
+		target.enabled = true
+		config:Refresh()
+		IsShiftKeyDown, methods.StartMoving, methods.StopMovingOrSizing = nil, nil, nil
+		bar.frame.GetCenter, UIParent.GetCenter = nil, nil
+	end
 	methods.SetTextColor = oldColor
 	inCombat = false
 	for m, fn in pairs(guarded) do methods[m] = fn end

@@ -422,7 +422,7 @@ Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
 Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
-Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3 }
+Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3, PetActionBar = 13 }
 Enum.EditModeActionBarSetting = { IconSize = 3, IconPadding = 4, HideBarArt = 6, HideBarScrolling = 7,
 	AlwaysShowButtons = 8 }
 Enum.EditModeLayoutType = { Account = 1 }
@@ -446,10 +446,13 @@ C_EditMode = {
 			{ system = 0, systemIndex = 2, settings = { { setting = 3, value = 100 } } },
 			{ system = 6, systemIndex = 1, isInDefaultPosition = true },
 			{ system = 6, systemIndex = 2, isInDefaultPosition = true },
+			{ system = 0, systemIndex = 13, isInDefaultPosition = true },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 			{ system = 6, systemIndex = 1, isInDefaultPosition = false, anchorInfo = { point = "TOPLEFT",
 				relativeTo = "UIParent", relativePoint = "TOPLEFT", offsetX = 300, offsetY = -200 } },
+			{ system = 0, systemIndex = 13, isInDefaultPosition = false, anchorInfo = { point = "CENTER",
+				relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
@@ -692,7 +695,7 @@ end
 -- key then.
 ReforgedUIDB = { scale = 1, theme = "auto",
 	wiii = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true,
-		targetMode = "plate" } }
+		targetMode = "plate", addonDrawerOpen = true } }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
 assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 5, "old default scale not migrated")
@@ -743,6 +746,30 @@ do
 	assert(L[2].systems[2].anchorInfo.offsetX == 300, "buffs the player moved stay put")
 	assert(ns.db.consoleOpts.buffSpot and ns.db.consoleOpts.buffSpot.y == ours.systems[7].anchorInfo.offsetY,
 		"the buffs' place is remembered")
+	-- The pet bar starts just above the stance row in the layouts (Edit Mode
+	-- moves it from there); a player's own place is kept.
+	local petSpot = ns:PetBarSpot()
+	for _, layout in ipairs({ L[1], ours }) do
+		local pet = layout.systems[9]
+		assert(pet.systemIndex == 13 and not pet.isInDefaultPosition and pet.anchorInfo.point == "BOTTOMLEFT"
+			and pet.anchorInfo.relativeTo == "UIParent" and pet.anchorInfo.offsetX == petSpot.x
+			and pet.anchorInfo.offsetY == petSpot.y, "pet bar placed above the stance row")
+	end
+	assert(L[2].systems[3].anchorInfo.point == "CENTER", "a pet bar the player moved stays put")
+	assert(ns.db.consoleOpts.petSpot and ns.db.consoleOpts.petSpot.y == petSpot.y, "the pet bar's place is remembered")
+	-- It starts at about the stance buttons' size (in 10% steps), padding
+	-- at least 2.
+	local petSettings = {}
+	for _, entry in ipairs(L[1].systems[9].settings or {}) do
+		petSettings[entry.setting] = entry.value
+	end
+	local petPct = math.floor(petSpot.size / 30 * 10 + 0.5) * 10
+	assert(petSettings[3] == math.max(50, math.min(200, petPct)) and petSettings[4] >= 2, "pet bar icon size")
+	-- Without stance buttons the pet bar takes the stance row.
+	assert(ns:PetRow() == ns.layout.pet, "pet row above the stance row")
+	GetNumShapeshiftForms = function() return 0 end
+	assert(ns:PetRow() == ns.layout.stance and ns:PetBarSpot().y < petSpot.y, "pet bar on the stance row")
+	GetNumShapeshiftForms = nil
 	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
 	-- target aura spot: above the plate (the mode at login), then beside the
 	-- target of target once swap mode is picked.
@@ -915,13 +942,13 @@ do
 	local strata = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4 }
 	assert(strata[mm.drawer.bg:GetFrameStrata()] < strata[addonButton:GetFrameStrata()],
 		"the drawer's background sits a strata below its buttons")
-	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
+	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed, even if it was left open")
 	local toggleTop = mm.toggle._points[1][5] * unit(mm.toggle) + L.addonCompartment.h
 	assert(mm.drawer._points[1][5] * unit(mm.drawer) > toggleTop and addonButton._points[1][5] * unit(addonButton) > toggleTop,
 		"the flyout opens upwards from its button")
 	assert(L.addonCompartment.y >= L.minimap.y + L.minimap.h, "the compartment's button sits above the map")
 	mm.toggle:GetScript("OnClick")(mm.toggle)
-	assert(mm.drawer:IsShown() and ReforgedUIDB.consoleOpts.addonDrawerOpen, "clicking opens the drawer")
+	assert(mm.drawer:IsShown(), "clicking opens the drawer")
 	mm.toggle:GetScript("OnClick")(mm.toggle)
 	assert(not mm.drawer:IsShown(), "and closes it")
 	for _, b in ipairs(mm.buttons) do
@@ -1090,13 +1117,19 @@ methods.SetText = oldSetText
 MultiBar7:Show()
 bars:UpdateSockets()
 assert(not ReforgedUIBar8Socket1:IsShown(), "sockets hide again when Action Bar 8 is on")
--- Stance (aura) and pet buttons: Blizzard's, on the wall over the grid,
--- anchored to UIParent; their Edit Mode bars stay put.
+-- Stance (aura) buttons: Blizzard's, on the wall over the grid, anchored to
+-- UIParent; their Edit Mode bar stays put. The pet buttons stay on their
+-- Edit Mode bar, which the layout places (see above) so it can be moved.
 for i = 1, 10 do
 	at(_G["StanceButton" .. i], L.stance.x + (i - 1) * L.stance.step, L.stance.y, "stance button " .. i)
-	at(_G["PetActionButton" .. i], L.pet.x + (i - 1) * L.pet.step, L.pet.y, "pet button " .. i)
 	assert(_G["StanceButton" .. i]:GetParent() == StanceBar, "stance buttons keep their parent")
+	assert(#_G["PetActionButton" .. i]._points == 0 and _G["PetActionButton" .. i]:GetParent() == PetActionBar,
+		"pet buttons stay on their Edit Mode bar")
 end
+-- The pet row (the pet bar's first place) clears the stance row and ends
+-- before the inventory and chat area.
+assert(L.pet.y >= L.stanceTop and L.pet.x + 9 * L.pet.step + L.pet.size < L.inventory[1].x
+	and L.pet.y + L.pet.size <= L.consoleTop, "pet row over the grid, clear of the chat area")
 assert(math.abs(StanceButton1._w * unit(StanceButton1) - L.stance.size) < 0.01, "stance button size")
 assert(L.stance.y >= 0.55 * L.s and L.stance.x > L.portraitArt.x + L.portraitArt.w - 0.2 * L.s,
 	"stance row sits on the wall over the grid")
@@ -1818,6 +1851,8 @@ for _, key in ipairs(ns.THEME_ORDER) do
 			local where = ("%s %s %d"):format(key, W, s)
 			assert(covered(LL, "filler_top", "br_top", fill.top, fill.cornerTop), "notch in the chat wall: " .. where)
 			assert(covered(LL, "filler_bottom", "br_bottom", fill.bottom, 0), "notch in the chat floor: " .. where)
+			assert(LL.pet.y >= LL.stanceTop and LL.pet.x + 9 * LL.pet.step + LL.pet.size < LL.inventory[1].x
+				and LL.pet.y + LL.pet.size <= LL.consoleTop, "pet row clear of the chat area: " .. where)
 		end
 	end
 end

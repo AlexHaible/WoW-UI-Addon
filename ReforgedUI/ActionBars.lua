@@ -4,8 +4,11 @@
 -- (MultiBar7): enable it in Edit Mode, and its key bindings are the original addon's
 -- "custom action button" bindings. While it is off the slots stay empty
 -- sockets whose tooltip says so. (The 2x3 inventory holds the bags, see
--- Inventory.lua.) The stance (aura, form) buttons and the pet bar stand in
--- a row on the wall over the grid.
+-- Inventory.lua.) The stance (aura, form) buttons stand in a row on the
+-- wall over the grid. The pet bar keeps its buttons where Edit Mode has one:
+-- it is placed just above the stance row once (on it, for classes without
+-- stances), then moved in Edit Mode (see ns:PetBarSpot); on clients without,
+-- its buttons get that row (ns:PetRow).
 --
 -- These are Blizzard's own buttons, moved (and the action buttons
 -- reskinned): they keep their bindings, paging, cooldowns and spell
@@ -192,9 +195,10 @@ function ActionBars:OnEnable()
 	-- Stance and pet buttons keep Blizzard's own look: they sit on the
 	-- wall, not in the grid art.
 	self.rows = {}
+	local petInEditMode = ns:PetBarInEditMode()
 	for _, spec in ipairs(ROWS) do
 		local list = {}
-		for _, prefix in ipairs(spec.prefixes) do
+		for _, prefix in ipairs(spec.key == "pet" and petInEditMode and {} or spec.prefixes) do
 			if _G[prefix .. "1"] then
 				for i = 1, spec.count do
 					local btn = _G[prefix .. i]
@@ -210,7 +214,8 @@ function ActionBars:OnEnable()
 	self:CreateSockets()
 
 	-- The bars' own frames stay where Edit Mode put them (now empty, at the
-	-- bottom of the screen); stop them catching clicks meant for the console.
+	-- bottom of the screen, except an Edit Mode pet bar, which keeps its
+	-- buttons); stop them catching clicks meant for the console.
 	ns:RunOutOfCombat("actionbar-frames", function()
 		for _, name in ipairs(own and { "MultiBar7", "StanceBar", "StanceBarFrame", "ShapeshiftBarFrame",
 			"PetActionBar", "PetActionBarFrame" } or BAR_FRAMES) do
@@ -380,9 +385,9 @@ function ActionBars:OnLayout(L)
 		ns.modules.console.Place(socket, L.minimapSlots[i])
 	end
 	self:UpdateSockets()
-	-- Stance and pet buttons in a row on the wall over the grid.
+	-- Stance (and, without Edit Mode, pet) buttons in rows over the grid.
 	for key, list in pairs(self.rows) do
-		local row = L[key]
+		local row = key == "pet" and ns:PetRow(L) or L[key]
 		for i, btn in pairs(list) do
 			ns:Lock(btn, function(b)
 				placeButton(b, row.x + (i - 1) * row.step, row.y, row.size)

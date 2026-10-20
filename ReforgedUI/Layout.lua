@@ -1019,13 +1019,15 @@ local function build(W, H, o, X0, chatW)
 	L.bars = { main = row(barY + 5), bar2 = row(row2), bar3 = row(row2 + size + 0.04444 * s) }
 
 	-- Stance (aura, form) buttons on top of the wall over the action grid,
-	-- from its left end, as Warcraft III and WoW 1.12 put them; the pet bar
-	-- follows on the same row.
+	-- from its left end, as Warcraft III and WoW 1.12 put them. The pet bar
+	-- starts in a row just above them: beside them ten of each run past the
+	-- grid into the chat area. (Where Edit Mode has a pet bar, this is only
+	-- where it is first placed, see ns:PetBarSpot.)
 	local barSize = 0.1 * s
 	local barStep = barSize + 3
 	local wallTop = (t == "nightelf" and 0.6 or 0.55) * s
 	L.stance = { x = g[1].x + 0.04 * s, y = wallTop, size = barSize, step = barStep }
-	L.pet = { x = L.stance.x + 10 * barStep + 0.1 * s, y = wallTop, size = barSize, step = barStep }
+	L.pet = { x = L.stance.x, y = wallTop + barSize + 3, size = barSize, step = barStep }
 	L.stanceTop = wallTop + barSize
 	buildTarget(L, s, t, MT, L.xp)
 

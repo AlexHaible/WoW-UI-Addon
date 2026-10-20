@@ -690,7 +690,7 @@ end
 -- key then.
 ReforgedUIDB = { scale = 1, theme = "auto",
 	wiii = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true,
-		targetMode = "plate" } }
+		targetMode = "plate", addonDrawerOpen = true } }
 fire("PLAYER_LOGIN")
 assert(ns.ready, "init did not finish")
 assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 5, "old default scale not migrated")
@@ -913,13 +913,13 @@ do
 	local strata = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4 }
 	assert(strata[mm.drawer.bg:GetFrameStrata()] < strata[addonButton:GetFrameStrata()],
 		"the drawer's background sits a strata below its buttons")
-	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed")
+	assert(mm.toggle:IsShown() and not mm.drawer:IsShown(), "the compartment starts closed, even if it was left open")
 	local toggleTop = mm.toggle._points[1][5] * unit(mm.toggle) + L.addonCompartment.h
 	assert(mm.drawer._points[1][5] * unit(mm.drawer) > toggleTop and addonButton._points[1][5] * unit(addonButton) > toggleTop,
 		"the flyout opens upwards from its button")
 	assert(L.addonCompartment.y >= L.minimap.y + L.minimap.h, "the compartment's button sits above the map")
 	mm.toggle:GetScript("OnClick")(mm.toggle)
-	assert(mm.drawer:IsShown() and ReforgedUIDB.consoleOpts.addonDrawerOpen, "clicking opens the drawer")
+	assert(mm.drawer:IsShown(), "clicking opens the drawer")
 	mm.toggle:GetScript("OnClick")(mm.toggle)
 	assert(not mm.drawer:IsShown(), "and closes it")
 	for _, b in ipairs(mm.buttons) do

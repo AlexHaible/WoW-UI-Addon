@@ -1064,9 +1064,9 @@ function TopBar:SetTimeHours(hours)
 end
 
 function TopBar:CreateCapsule()
-	-- Under the clock frame, which covers its top edge.
+	-- Over the clock frame: its top edge sits on the bottom of the ring.
 	local f = CreateFrame("Frame", "ReforgedUIClockTime", ns.topRoot)
-	f:SetFrameLevel(44)
+	f:SetFrameLevel(self.clockFrame:GetFrameLevel() + 1)
 	f:EnableMouse(true)
 	f.fill = f:CreateTexture(nil, "BACKGROUND")
 	f.fill:SetAllPoints()
@@ -1111,7 +1111,7 @@ function TopBar:UpdateCapsule()
 	f.text:SetText(formatTime(h, m, self:TimeHours()))
 end
 
--- Centred under the clock frame's ring, its top tucked behind the frame.
+-- Centred under the clock frame's ring, its top over the ring's bottom.
 local CAPSULE_W, CAPSULE_H, CAPSULE_DROP = 64, 16, 76
 function TopBar:PlaceCapsule()
 	local c = ns.topLayout.clockFrame

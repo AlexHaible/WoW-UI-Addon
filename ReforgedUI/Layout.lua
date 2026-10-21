@@ -943,6 +943,14 @@ local function build(W, H, o, X0, chatW)
 	-- The addon compartment's button, just above the map's top-right corner;
 	-- its flyout opens upwards from there.
 	L.addonCompartment = rect(right(mm) - 0.07 * s, top(mm) + 2, 0.07 * s, 0.07 * s)
+	-- The group finder's eye in the block's bottom-left corner, over the
+	-- frame and the corner of the map (clear of the zone name in the middle).
+	local eye = 0.11 * s
+	L.queueEye = rect(MT.x + 1, 1, eye, eye)
+	-- Where the leave vehicle / request stop button's bottom-left corner
+	-- starts (Core.lua places it in the Edit Mode layout): just above the
+	-- map's top-left corner, across the map from the compartment.
+	L.leaveButton = { x = mm.x, y = top(mm) + 2 }
 
 	-- Portrait.
 	local px, py = o.portraitX or 100, o.portraitY or 100
@@ -1184,6 +1192,11 @@ function Layout.Compute(W, H, o)
 	L.shift = dx
 	if o.micro then
 		buildMicro(L, o.micro)
+		-- Above the menu buttons, which stand over the map's top edge.
+		local span = L.microSpan
+		if span.w > 0 then
+			L.leaveButton.y = max(L.leaveButton.y, top(span) + 2)
+		end
 	end
 	local ref = o.theme == AURA_THEME and dx or placement(W, H, setmetatable({ theme = AURA_THEME }, { __index = o }))
 	local T = L.targetAuras

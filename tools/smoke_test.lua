@@ -218,6 +218,12 @@ forbiddenFrame._forbidden = true
 function forbiddenFrame:GetName() error("Attempt to access forbidden object") end
 local strayButton = new("button", "ForeverMinimapThing", Minimap)
 strayButton._w, strayButton._h = 24, 24
+-- The group finder's eye, hidden until queued, on the map.
+QueueStatusButton = new("button", "QueueStatusButton", Minimap)
+QueueStatusButton._w, QueueStatusButton._h, QueueStatusButton._shown = 45, 45, false
+-- The leave vehicle button: an Edit Mode frame.
+MainMenuBarVehicleLeaveButton = new("button", "MainMenuBarVehicleLeaveButton", UIParent)
+MainMenuBarVehicleLeaveButton._w, MainMenuBarVehicleLeaveButton._h = 32, 32
 -- Another addon's minimap button (LibDBIcon): it goes in the drawer.
 local addonButton = new("button", "LibDBIcon10_SomeAddon", Minimap)
 addonButton._w, addonButton._h = 31, 31
@@ -417,7 +423,7 @@ FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local savedLayouts
 Enum = Enum or {}
-Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6 }
+Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6, VehicleLeaveButton = 9 }
 Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
@@ -447,12 +453,15 @@ C_EditMode = {
 			{ system = 6, systemIndex = 1, isInDefaultPosition = true },
 			{ system = 6, systemIndex = 2, isInDefaultPosition = true },
 			{ system = 0, systemIndex = 13, isInDefaultPosition = true },
+			{ system = 9, isInDefaultPosition = true },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 			{ system = 6, systemIndex = 1, isInDefaultPosition = false, anchorInfo = { point = "TOPLEFT",
 				relativeTo = "UIParent", relativePoint = "TOPLEFT", offsetX = 300, offsetY = -200 } },
 			{ system = 0, systemIndex = 13, isInDefaultPosition = false, anchorInfo = { point = "CENTER",
 				relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
+			{ system = 9, isInDefaultPosition = false, anchorInfo = { point = "TOP",
+				relativeTo = "UIParent", relativePoint = "TOP", offsetX = 0, offsetY = -100 } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
@@ -770,6 +779,22 @@ do
 	GetNumShapeshiftForms = function() return 0 end
 	assert(ns:PetRow() == ns.layout.stance and ns:PetBarSpot().y < petSpot.y, "pet bar on the stance row")
 	GetNumShapeshiftForms = nil
+	-- The leave vehicle (flight stop) button starts just above the minimap's
+	-- top-left corner, clear of the top bar; a player's own place is kept.
+	local leaveSpot = ns:LeaveButtonSpot()
+	local mmTop = ns.layout.minimap.y + ns.layout.minimap.h
+	assert(leaveSpot and leaveSpot.y >= mmTop and math.abs(leaveSpot.x - ns.layout.minimap.x) < 1,
+		"leave button spot above the map's top-left corner")
+	for _, layout in ipairs({ L[1], ours }) do
+		local leave = layout.systems[10]
+		assert(leave.system == 9 and not leave.isInDefaultPosition and leave.anchorInfo.point == "BOTTOMLEFT"
+			and leave.anchorInfo.relativeTo == "UIParent" and leave.anchorInfo.offsetX == leaveSpot.x
+			and leave.anchorInfo.offsetY == leaveSpot.y, "leave button placed above the minimap")
+	end
+	assert(L[2].systems[4].anchorInfo.point == "TOP", "a leave button the player moved stays put")
+	assert(ns.db.consoleOpts.leaveSpot and ns.db.consoleOpts.leaveSpot.y == leaveSpot.y,
+		"the leave button's place is remembered")
+	assert(#MainMenuBarVehicleLeaveButton._points == 0, "the leave button is only moved through Edit Mode")
 	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
 	-- target aura spot: above the plate (the mode at login), then beside the
 	-- target of target once swap mode is picked.
@@ -930,6 +955,11 @@ local function at(f, x, y, what)
 	assert(math.abs(p[4] * unit(f) - x) < 0.01 and math.abs(p[5] * unit(f) - y) < 0.01, what .. " in the wrong place")
 end
 at(Minimap, L.minimap.x, L.minimap.y, "minimap")
+assert(QueueStatusButton._points[1][1] == "BOTTOMLEFT", "the queue eye sits in the corner")
+at(QueueStatusButton, L.queueEye.x, L.queueEye.y, "queue eye")
+assert(L.queueEye.x < L.minimap.x and L.queueEye.y < L.minimap.y, "the eye starts on the frame, left of and below the map")
+assert(QueueStatusButton._w * QueueStatusButton:GetEffectiveScale() / ns.root:GetEffectiveScale()
+	- L.queueEye.w < 0.01, "the eye is fitted to its corner")
 assert(strayButton._points[1][2] == UIParent and strayButton:GetParent() == Minimap,
 	"stray minimap buttons should line up along the map")
 assert(MinimapCluster.Tracking._points[1][1] == "CENTER", "tracking button should sit in its slot")
@@ -1407,7 +1437,7 @@ do
 	local clock = ns.topLayout.clockFrame
 	local _, _, _, cx = cap:GetPoint(1)
 	assert(math.abs(cx + cap._w / 2 - (clock.x + clock.w / 2)) < 0.01, "the capsule is centred under the clock")
-	assert(cap:GetFrameLevel() < tb.clockFrame:GetFrameLevel(), "the clock frame covers the capsule's top")
+	assert(cap:GetFrameLevel() > tb.clockFrame:GetFrameLevel(), "the capsule's top draws over the clock frame's ring")
 	local cfg = ns.modules.config
 	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
 	assert(cap.text._text == "12:00 AM" and ReforgedUIDB.consoleOpts.clockHours == 12, "12 hours")

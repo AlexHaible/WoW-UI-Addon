@@ -60,6 +60,7 @@ local DEFAULTS = {
 		barsPlaced = false, -- those bars were pre-placed in the Reforged UI layout
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
+		leaveSpot = false, -- where the leave vehicle button was last placed in Edit Mode layouts ({ x, y })
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
@@ -968,6 +969,42 @@ local function placePetBar(layout, spot, last)
 	return true
 end
 
+-- The leave vehicle button (also the flight path's "request stop") starts
+-- just above the minimap's top-left corner (Layout.lua); Blizzard's default
+-- place is under the top bar, over its slots. Placed like the pet bar: in
+-- every layout where it is still in its default place, or still where we
+-- put it last.
+function ns:LeaveButtonSpot()
+	local button = _G.MainMenuBarVehicleLeaveButton
+	local spot = self.layout and self.layout.leaveButton
+	local systems = Enum and Enum.EditModeSystem
+	if not (spot and button and not forbidden(button) and systems and systems.VehicleLeaveButton) then
+		return nil
+	end
+	local u = self:UnitsFor(button)
+	return { x = math.floor(spot.x * u + 0.5), y = math.floor(spot.y * u + 0.5) }
+end
+
+local function placeLeaveButton(layout, spot, last)
+	local entry = spot and findSystem(layout, Enum.EditModeSystem.VehicleLeaveButton)
+	if not entry then
+		return false
+	end
+	local a = entry.anchorInfo or {}
+	local atOurs = a.point == "BOTTOMLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
+		and a.relativePoint == "BOTTOMLEFT"
+	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
+	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
+	if not (entry.isInDefaultPosition or (ours and not inPlace)) then
+		return false
+	end
+	entry.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+		offsetX = spot.x, offsetY = spot.y }
+	entry.anchorInfo2 = nil
+	entry.isInDefaultPosition = false
+	return true
+end
+
 local function setCVar(name, value)
 	local cvars = _G.C_CVar
 	local get = cvars and cvars.GetCVar or _G.GetCVar
@@ -1131,9 +1168,10 @@ function ns:SetupEditMode()
 	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
 	placed = placed or barsPlaced
 
-	local raised, buffsMoved, petMoved = 0, 0, 0
+	local raised, buffsMoved, petMoved, leaveMoved = 0, 0, 0, 0
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
 	local petSpot, petLast = self:PetBarSpot(), self.db.consoleOpts.petSpot
+	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
 	for _, layout in ipairs(info.layouts) do
 		if raiseCastBar(layout, castY) then
 			raised = raised + 1
@@ -1144,8 +1182,11 @@ function ns:SetupEditMode()
 		if placePetBar(layout, petSpot, petLast or nil) then
 			petMoved = petMoved + 1
 		end
+		if placeLeaveButton(layout, leaveSpot, leaveLast or nil) then
+			leaveMoved = leaveMoved + 1
+		end
 	end
-	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0)
+	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
 		and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
@@ -1154,6 +1195,9 @@ function ns:SetupEditMode()
 	end
 	if petSpot then
 		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
+	end
+	if leaveSpot then
+		self.db.consoleOpts.leaveSpot = leaveSpot
 	end
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true
@@ -1180,6 +1224,9 @@ function ns:SetupEditMode()
 	elseif petMoved > 0 then
 		self:AskReload(("placed the pet bar on the console wall in %d Edit Mode layout(s); move it there as"
 			.. " you like."):format(petMoved))
+	elseif leaveMoved > 0 then
+		self:AskReload(("placed the leave vehicle (and flight path stop) button above the minimap in %d Edit Mode"
+			.. " layout(s); move it there as you like."):format(leaveMoved))
 	elseif barsPlaced then
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))

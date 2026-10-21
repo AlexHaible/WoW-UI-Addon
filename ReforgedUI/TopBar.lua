@@ -1064,18 +1064,22 @@ function TopBar:SetTimeHours(hours)
 end
 
 function TopBar:CreateCapsule()
-	-- Under the clock frame, which covers its top edge.
+	-- The pill is drawn on the clock frame itself, in the layers below its
+	-- art, so the frame's ring always covers its top edge: a frame of its
+	-- own under the clock frame could still end up drawn over the ring.
+	-- Its own frame only takes the mouse, for the tooltip.
+	local clock = self.clockFrame
 	local f = CreateFrame("Frame", "ReforgedUIClockTime", ns.topRoot)
-	f:SetFrameLevel(44)
+	f:SetFrameLevel(clock:GetFrameLevel() - 1)
 	f:EnableMouse(true)
-	f.fill = f:CreateTexture(nil, "BACKGROUND")
-	f.fill:SetAllPoints()
+	f.fill = clock:CreateTexture(nil, "BACKGROUND")
+	f.fill:SetAllPoints(f)
 	f.fill:SetTexture(ns.MEDIA .. "Common\\capsule")
-	f.rim = f:CreateTexture(nil, "BORDER")
-	f.rim:SetAllPoints()
+	f.rim = clock:CreateTexture(nil, "BORDER")
+	f.rim:SetAllPoints(f)
 	f.rim:SetTexture(ns.MEDIA .. "Common\\capsule_rim")
-	f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	f.text:SetPoint("CENTER", 0, 0)
+	f.text = clock:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	f.text:SetPoint("CENTER", f, "CENTER", 0, 0)
 	f.text:SetWordWrap(false)
 	f:SetScript("OnEnter", function(owner)
 		GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
@@ -1098,8 +1102,13 @@ function TopBar:UpdateCapsule()
 		return
 	end
 	local mode = self:TimeMode()
-	f:SetShown(mode ~= "off")
-	if mode == "off" then
+	-- Its pill lives on the clock frame, so it hides with the capsule here.
+	local shown = mode ~= "off"
+	f:SetShown(shown)
+	f.fill:SetShown(shown)
+	f.rim:SetShown(shown)
+	f.text:SetShown(shown)
+	if not shown then
 		return
 	end
 	local h, m

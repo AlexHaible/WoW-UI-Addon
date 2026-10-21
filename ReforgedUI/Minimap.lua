@@ -1,7 +1,8 @@
 -- The original addon's minimap: a square map in the bottom-left block, the tracking
 -- button in the round slot under it, the mail slot beside it (a grey letter
 -- when there is no mail), the zone name on the bottom (or top) edge of the
--- map and zooming with the mouse wheel. Blizzard's other minimap buttons
+-- map, the group finder's eye in the block's bottom-left corner and zooming
+-- with the mouse wheel. Blizzard's other minimap buttons
 -- line up along the top edge of the map; other addons' minimap buttons are
 -- gathered in a compartment whose button sits just above the map and opens
 -- a flyout upwards. The day/night (or
@@ -168,8 +169,10 @@ function MinimapModule:OnEnable()
 		MiniMapTrackingButton)
 	self.mail = find(cluster.IndicatorFrame, MiniMapMailFrame)
 	self.difficulty = find(cluster.InstanceDifficulty, cluster.InstanceDifficultyFrame, MiniMapInstanceDifficulty)
+	-- The group finder's eye (only shown while queued).
+	self.queue = find(QueueStatusButton, QueueStatusMinimapButton, MiniMapLFGFrame)
 	local skip = {}
-	each(function(f) skip[f] = true end, self.tracking, self.mail, self.difficulty, cluster.ZoneTextButton,
+	each(function(f) skip[f] = true end, self.tracking, self.mail, self.difficulty, self.queue, cluster.ZoneTextButton,
 		cluster.BorderTop, MinimapZoneTextButton, MiniMapWorldMapButton, TimeManagerClockButton)
 	for _, f in ipairs(self.timeFrames) do
 		skip[f] = true
@@ -364,6 +367,14 @@ function MinimapModule:OnLayout(L)
 		ns:Lock(self.difficulty, function(f)
 			ns:Anchor(f, "TOPLEFT", m.x + 2, m.y + m.h - 2)
 		end)
+	end
+
+	local eye = L.queueEye
+	if self.queue then
+		ns:Lock(self.queue, function(f)
+			fit(f, eye.w)
+			ns:Anchor(f, "BOTTOMLEFT", eye.x, eye.y)
+		end, { "SetScale" })
 	end
 
 	-- Blizzard's other buttons in a row along the top edge of the map,

@@ -111,6 +111,7 @@ Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, part
 
 Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui config`, or go to **Options → AddOns → Reforged UI**, where the menu opens right inside the game's options. Options include:
 - theme and UI scale
+- UI size, which makes the console and top bar smaller (70-100%, also `/rui size 85`)
 - console transparency, which fades the console's art so the world shows through while buttons, icons, text and the portrait stay solid
 - chat width and height
 - portrait position
@@ -134,6 +135,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
+/rui size 70-100                 console and top bar size, in %
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
 /rui topbar on|off               show or hide the top bar

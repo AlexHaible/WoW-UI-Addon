@@ -779,9 +779,11 @@ function TopBar:OnEnable()
 	end)
 	self.clockFrame:SetScript("OnLeave", GameTooltip_Hide)
 	self:CreateCapsule()
-	-- The capsule's minutes should turn over on time: once a second.
+	-- The capsule's minutes should turn over on time: once a second (from
+	-- a frame of its own, as the capsule outlives a hidden top bar).
 	local elapsed = 10
-	self.clockFrame:SetScript("OnUpdate", function(_, dt)
+	self.ticker = CreateFrame("Frame", nil, UIParent)
+	self.ticker:SetScript("OnUpdate", function(_, dt)
 		elapsed = elapsed + dt
 		if elapsed >= 1 then
 			elapsed = 0
@@ -1019,7 +1021,8 @@ end
 -- The time capsule: a pill hanging under the clock with the server or local
 -- time (consoleOpts.clockTime: "server", "local" or "off") on a 24 or 12
 -- hour clock (consoleOpts.clockHours), so the time reads without hovering
--- the dial. Its pill is tinted like the slot plates.
+-- the dial. Its pill is tinted like the slot plates. With the top bar
+-- hidden it sits above the minimap instead.
 
 local function serverTime()
 	local h, m = GetGameTime()
@@ -1112,10 +1115,26 @@ function TopBar:UpdateCapsule()
 end
 
 -- Centred under the clock frame's ring, its top over the ring's bottom.
+-- With the top bar hidden it moves to the console, over the micro buttons
+-- above the minimap (Layout's clockTime), so the time still shows.
 local CAPSULE_W, CAPSULE_H, CAPSULE_DROP = 64, 16, 76
 function TopBar:PlaceCapsule()
+	local f = self.capsule
+	local r = ns.layout and ns.layout.clockTime
+	if not ns:TopBarShown() and r then
+		f:SetParent(ns.root)
+		f:SetFrameStrata("LOW")
+		f:SetFrameLevel(30)
+		f:ClearAllPoints()
+		f:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x, r.y)
+		f:SetSize(r.w, r.h)
+		return
+	end
+	f:SetParent(ns.topRoot)
+	f:SetFrameStrata("BACKGROUND")
+	f:SetFrameLevel(self.clockFrame:GetFrameLevel() + 1)
 	local c = ns.topLayout.clockFrame
-	place(self.capsule, { x = c.x + (c.w - CAPSULE_W) / 2, y = c.y + c.h - CAPSULE_DROP, w = CAPSULE_W, h = CAPSULE_H })
+	place(f, { x = c.x + (c.w - CAPSULE_W) / 2, y = c.y + c.h - CAPSULE_DROP, w = CAPSULE_W, h = CAPSULE_H })
 end
 
 function TopBar:PaintCapsule(theme)

@@ -1088,11 +1088,21 @@ do
 	for _, slot in ipairs(tb.slots) do
 		assert(not slot._shown and not (slot.secure and slot.secure._shown), "no slots without the top bar")
 	end
+	-- The time capsule stays: on the console, over the micro buttons.
+	local cap, ct = tb.capsule, L.clockTime
+	assert(ct and cap._parent == ns.root, "the time capsule moves to the console")
+	local _, rel, _, cx, cy = cap:GetPoint(1)
+	assert(rel == ns.root and cx == ct.x and cy == ct.y, "the time capsule at its console spot")
+	assert(ct.y >= L.microSpan.y + L.microSpan.h, "the time capsule above the micro buttons")
+	for _, other in ipairs({ L.addonCompartment, L.tot.frame, L.petIcon and L.petIcon.frame or L.tot.frame }) do
+		assert(not ns.Layout.Overlaps(ct, other), "the time capsule collides")
+	end
 	local y = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
 	assert(y > buffY and y < 0, "buffs move up with the top bar hidden")
 	ns:SetTopBarShown(true)
 	flushTimers()
 	assert(stateDrivers[ns.topRoot] == "[petbattle] hide; show", "the top bar is back")
+	assert(tb.capsule._parent == ns.topRoot, "the time capsule goes back under the clock")
 	checkMicro(MOVED)
 	assert(savedLayouts.layouts[3].systems[7].anchorInfo.offsetY == buffY, "and the buffs under it")
 end
@@ -1444,7 +1454,7 @@ do
 	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
 	assert(cap.text._text == "9:07 PM" and ReforgedUIDB.consoleOpts.clockTime == "local", "local time")
 	gameHour, localClock.hour, localClock.min = 12, 9, 30
-	tb.clockFrame._scripts.OnUpdate(tb.clockFrame, 1)
+	tb.ticker._scripts.OnUpdate(tb.ticker, 1)
 	assert(cap.text._text == "9:30 AM", "the capsule keeps time")
 	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
 	assert(cap._shown == false and ReforgedUIDB.consoleOpts.clockTime == "off", "hidden")

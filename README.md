@@ -104,8 +104,8 @@ screen stays free on either side).
   `/rui topbar off`) takes the bar away, clock and slots too; the micro
   buttons then stand on the minimap block's wall, the lower row half over
   it, between the left end cap and the addon compartment's button (in two
-  or three rows where one would make them too small), and the buffs move
-  up to the screen's top edge.
+  or three rows where one would make them too small), the time capsule
+  sits on top of them, and the buffs move up to the screen's top edge.
 
 The three action slots beside the minimap are the first three buttons of
 Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >

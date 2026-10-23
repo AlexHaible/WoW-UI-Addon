@@ -240,8 +240,9 @@ function Config:Build()
 
 	-- No top bar: the menu buttons stand above the minimap instead.
 	self:Check("Hide top bar", "hideTopBar", x, y - 178, function(on) ns:SetTopBarShown(not on) end)
-	-- On the same row, the time in the capsule under the top bar's clock:
-	-- server, local or none, on a 24 or 12 hour clock.
+	-- On the same row, the time in the capsule under the top bar's clock
+	-- (above the minimap without the bar): server, local or none, on a 24
+	-- or 12 hour clock.
 	local topbar = ns.modules.topbar
 	self.clockTimeButton = button(f, CLOCK_TIME.server, 110, x + 116, y - 179, function()
 		local modes, mode = topbar.TIME_MODES, topbar:TimeMode()
@@ -354,9 +355,9 @@ function Config:Refresh()
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
 	local topbar = ns.modules.topbar
 	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])
-	self.clockTimeButton:SetEnabled(topbar.enabled and ns:TopBarShown() or false)
+	self.clockTimeButton:SetEnabled(topbar.enabled or false)
 	self.clockHoursButton:SetText(topbar:TimeHours() == 12 and "12-hour" or "24-hour")
-	self.clockHoursButton:SetEnabled(topbar.enabled and ns:TopBarShown() and topbar:TimeMode() ~= "off" or false)
+	self.clockHoursButton:SetEnabled(topbar.enabled and topbar:TimeMode() ~= "off" or false)
 	local hero = ns.modules.hero
 	local choices = hero:IconChoices()
 	for i, b in ipairs(self.iconButtons) do

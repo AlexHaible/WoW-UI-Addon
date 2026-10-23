@@ -71,7 +71,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 
 **Top bar**
 - The **day/night clock** in the middle, with Blizzard's menu buttons either side of it. A capsule under it shows the time, so you can read it without hovering: server or local time, on a 24 or 12 hour clock, or hidden, from the options.
-- Rather not have it? Tick **Hide top bar** in the options (or type `/rui topbar off`): the menu buttons move to just above the minimap, beside the addon button drawer, and your buffs move up to the top edge of the screen.
+- Rather not have it? Tick **Hide top bar** in the options (or type `/rui topbar off`): the menu buttons move to just above the minimap, beside the addon button drawer, with the time capsule on top of them, and your buffs move up to the top edge of the screen.
 - **Data broker slots** (LibDataBroker) out to the screen edges. Gold (in gold, silver and copper coins), bag space and durability are filled in by default; hover the gold to see every character's gold, with Horde and Alliance listed and totalled apart (gold can't cross factions). A **Ping & FPS** feed shows your world latency on the left of its slot (green, yellow or red) and your framerate on the right; hover it for home latency and bandwidth. A **Zone** feed shows where you are, coloured by PvP status like the minimap's. Right-click an empty slot (Alt-right-click a filled one) to show any feed from your other addons, or one of the game's own panels: character, spellbook, talents, skills, quest log, social, guild, world map, game menu and the rest your client has. Panels show by name in the theme's menu font; click one to open it, in combat too.
 
 **Damage meter**

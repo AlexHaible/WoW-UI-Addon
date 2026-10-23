@@ -65,6 +65,7 @@ local DEFAULTS = {
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
+		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 	},
 }
 
@@ -606,9 +607,18 @@ function ns:ConsoleMinWidth()
 	return base + (full - base) * p
 end
 
+-- The "UI size" option (70-100 %) as a factor: the console and top bar
+-- shrink by it, keeping their place at the bottom and top of the screen.
+ns.UI_SIZE_MIN, ns.UI_SIZE_MAX = 70, 100
+
+function ns:UISize()
+	local p = math.floor(tonumber(self.db.consoleOpts.uiSize) or 100)
+	return math.max(self.UI_SIZE_MIN, math.min(self.UI_SIZE_MAX, p)) / 100
+end
+
 -- UIParent units per console unit.
 function ns:ConsoleScale()
-	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / self:ConsoleMinWidth())
+	return math.min(UIParent:GetHeight() / 768, UIParent:GetWidth() / self:ConsoleMinWidth()) * self:UISize()
 end
 
 -- Whether the top bar is shown ("Hide top bar" in the menu). Without it,
@@ -639,9 +649,10 @@ function ns:Relayout()
 		root:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
 		root:SetSize(W, UIParent:GetHeight() / scale)
 
-		-- The top bar keeps Reforged UI's own scale setting (/rui scale).
+		-- The top bar keeps Reforged UI's own scale setting (/rui scale),
+		-- times the "UI size" option.
 		local topRoot = self.topRoot
-		local topScale = self.db.scale * UIParent:GetHeight() / 768
+		local topScale = self.db.scale * self:UISize() * UIParent:GetHeight() / 768
 		topRoot:SetScale(topScale)
 		local TW, TH = UIParent:GetWidth() / topScale, UIParent:GetHeight() / topScale
 		topRoot:ClearAllPoints()
@@ -1301,6 +1312,7 @@ local function usage()
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
 	print("  /rui slot <number> <feed or panel name>||none")
+	print("  /rui size 70-100  (console and top bar, in %)")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
 	print("  /rui topbar on||off  (off: the menu buttons stand above the minimap)")
@@ -1341,6 +1353,14 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.scale = math.max(0.5, math.min(1.5, tonumber(arg)))
 		ns:Relayout()
 		ns:Print("top bar scale:", ns.db.scale)
+	elseif cmd == "size" and tonumber(arg) then
+		ns.db.consoleOpts.uiSize = math.max(ns.UI_SIZE_MIN, math.min(ns.UI_SIZE_MAX, math.floor(tonumber(arg))))
+		ns:Relayout()
+		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print("UI size:", ns.db.consoleOpts.uiSize .. "%")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)

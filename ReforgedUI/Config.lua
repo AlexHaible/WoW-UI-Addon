@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 542
+local W, H = 650, 568
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -298,9 +298,12 @@ function Config:Build()
 	-- area (and the cast bar above it, when let go), in console units.
 	local height = self:Slider("Chat height", "chatUp", 0, 150, 20, -470, 300, relayout, "")
 	height:SetScript("OnMouseUp", placeEditMode)
+	-- A smaller console and top bar; Edit Mode's places follow when let go.
+	local size = self:Slider("UI size", "uiSize", ns.UI_SIZE_MIN, ns.UI_SIZE_MAX, 20, -496, 300, relayout)
+	size:SetScript("OnMouseUp", placeEditMode)
 
-	button(f, "Apply", 120, 20, -502, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -502, ReloadUI)
+	button(f, "Apply", 120, 20, -528, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -528, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).

@@ -192,6 +192,12 @@ visible without losing the look. Only the art fades; action buttons, icons,
 the portrait, the minimap and the chat stay fully opaque. It is saved for the
 whole account.
 
+**UI size** (100% by default, down to 70%) makes the console and the top bar
+smaller. The console stays on the bottom edge and spans the screen's width,
+so on a smaller setting it simply takes up less of the screen's height. Edit
+Mode's places for the target's auras and the cast bar follow when the slider
+is let go. `/rui size 85` does the same. It is saved for the whole account.
+
 | 21:9 Night Elf | 32:9 Orc |
 | --- | --- |
 | ![21:9](docs/previews/21x9-nightelf.png) | ![32:9](docs/previews/32x9-orc.png) |
@@ -262,6 +268,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
+/rui size 70-100                 console and top bar size, in %
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
 /rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)

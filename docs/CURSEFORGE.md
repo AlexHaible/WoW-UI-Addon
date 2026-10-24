@@ -20,7 +20,9 @@ The theme follows your character's race automatically, and you can pick any them
 - **Gnome**: Gnomeregan machinery: steel housing, brass cogs, copper pipes and gauges
 - **Tauren**: Thunder Bluff timber, coral tent hides, hexagon-painted totem posts and a kodo-head totem
 - **Troll**: Darkspear poles bound in crimson rope, tiki masks, tusks and straw cones
-- **Skyborne**: wind-swept teal and rose foliage, pale Highborne stone and floating wind-pylons, in two variants: **High Order** (silver and violet) and **Windshapers** (gold and cyan)
+- **Skyborne**: the Night Elf console reworked with blossom-laden foliage, wind-swirl roundels and floating wind-pylons, in one theme per faction, coloured by its class. Skyborne characters get their faction's theme, and picking **Skyborne** follows your faction.
+  - **High Order** (Alliance mages): arcane violet leaves, frost-white blossoms, silver-lilac stone and pale silvered wood
+  - **Windshapers** (Horde shamans): deep storm-blue leaves, ember-gold blossoms, slate stone and dark warm wood
 
 Each theme has its own top bar, clock frame, target plate, end caps, damage meter frame and bag frame.
 

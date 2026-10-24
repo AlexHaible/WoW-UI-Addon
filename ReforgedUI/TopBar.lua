@@ -779,9 +779,11 @@ function TopBar:OnEnable()
 	end)
 	self.clockFrame:SetScript("OnLeave", GameTooltip_Hide)
 	self:CreateCapsule()
-	-- The capsule's minutes should turn over on time: once a second.
+	-- The capsule's minutes should turn over on time: once a second (from
+	-- a frame of its own, as the capsule outlives a hidden top bar).
 	local elapsed = 10
-	self.clockFrame:SetScript("OnUpdate", function(_, dt)
+	self.ticker = CreateFrame("Frame", nil, UIParent)
+	self.ticker:SetScript("OnUpdate", function(_, dt)
 		elapsed = elapsed + dt
 		if elapsed >= 1 then
 			elapsed = 0
@@ -1019,7 +1021,8 @@ end
 -- The time capsule: a pill hanging under the clock with the server or local
 -- time (consoleOpts.clockTime: "server", "local" or "off") on a 24 or 12
 -- hour clock (consoleOpts.clockHours), so the time reads without hovering
--- the dial. Its pill is tinted like the slot plates.
+-- the dial. Its pill is tinted like the slot plates. With the top bar
+-- hidden it sits above the minimap instead.
 
 local function serverTime()
 	local h, m = GetGameTime()
@@ -1077,6 +1080,26 @@ function TopBar:CreateCapsule()
 	f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	f.text:SetPoint("CENTER", 0, 0)
 	f.text:SetWordWrap(false)
+	f.highlight = f:CreateTexture(nil, "OVERLAY", nil, 1)
+	f.highlight:SetAllPoints()
+	f.highlight:SetColorTexture(0.25, 0.55, 1, 0.4)
+	f.highlight:Hide()
+	f:SetMovable(true)
+	f:SetClampedToScreen(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", function(frame)
+		if self:CapsuleMovable() then
+			frame.dragging = true
+			frame:StartMoving()
+		end
+	end)
+	f:SetScript("OnDragStop", function(frame)
+		if frame.dragging then
+			frame.dragging = nil
+			frame:StopMovingOrSizing()
+			self:SaveCapsuleSpot()
+		end
+	end)
 	f:SetScript("OnEnter", function(owner)
 		GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
 		GameTooltip:SetText(TIMEMANAGER_TOOLTIP_TITLE or "Time", 1, 1, 1)
@@ -1086,10 +1109,18 @@ function TopBar:CreateCapsule()
 		h, m = localTime()
 		GameTooltip:AddDoubleLine("Local time", formatTime(h, m, hours), 0.8, 0.8, 0.8, 1, 1, 1)
 		GameTooltip:AddLine("Change it in the options (/rui config).", 0.6, 0.6, 0.6)
+		if self:CapsuleOnConsole() then
+			GameTooltip:AddLine("Shift-drag or Edit Mode moves it; /rui clock reset puts it back.", 0.6, 0.6, 0.6, true)
+		end
 		GameTooltip:Show()
 	end)
 	f:SetScript("OnLeave", GameTooltip_Hide)
 	self.capsule = f
+	local editMode = _G.EditModeManagerFrame
+	if editMode and editMode.HookScript then
+		editMode:HookScript("OnShow", function() self:SetCapsuleEditing(true) end)
+		editMode:HookScript("OnHide", function() self:SetCapsuleEditing(false) end)
+	end
 end
 
 function TopBar:UpdateCapsule()
@@ -1112,10 +1143,85 @@ function TopBar:UpdateCapsule()
 end
 
 -- Centred under the clock frame's ring, its top over the ring's bottom.
+-- With the top bar hidden it moves to the console, over the micro buttons
+-- above the minimap (Layout's clockTime), so the time still shows; there
+-- it can be dragged while Edit Mode is open, or with Shift held out of
+-- combat (consoleOpts.clockSpot, console units from the screen's centre).
 local CAPSULE_W, CAPSULE_H, CAPSULE_DROP = 64, 16, 76
+
+-- Whether the capsule stands on the console (the top bar is hidden).
+function TopBar:CapsuleOnConsole()
+	return not ns:TopBarShown() and ns.layout and ns.layout.clockTime and true or false
+end
+
 function TopBar:PlaceCapsule()
-	local c = ns.topLayout.clockFrame
-	place(self.capsule, { x = c.x + (c.w - CAPSULE_W) / 2, y = c.y + c.h - CAPSULE_DROP, w = CAPSULE_W, h = CAPSULE_H })
+	local f = self.capsule
+	if self:CapsuleOnConsole() then
+		local r, spot = ns.layout.clockTime, ns.db.consoleOpts.clockSpot
+		f:SetParent(ns.root)
+		f:SetFrameStrata("LOW")
+		f:SetFrameLevel(30)
+		f:ClearAllPoints()
+		if type(spot) == "table" and type(spot.x) == "number" and type(spot.y) == "number" then
+			f:SetPoint("CENTER", ns.root, "CENTER", spot.x, spot.y)
+		else
+			f:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x, r.y)
+		end
+		f:SetSize(r.w, r.h)
+	else
+		f:SetParent(ns.topRoot)
+		f:SetFrameStrata("BACKGROUND")
+		f:SetFrameLevel(self.clockFrame:GetFrameLevel() + 1)
+		local c = ns.topLayout.clockFrame
+		place(f, { x = c.x + (c.w - CAPSULE_W) / 2, y = c.y + c.h - CAPSULE_DROP, w = CAPSULE_W, h = CAPSULE_H })
+	end
+	self:UpdateCapsuleMouse()
+end
+
+-- After a drag: kept as an offset from the console's centre (the screen's),
+-- in console units, so it stays put through resolution changes.
+function TopBar:SaveCapsuleSpot()
+	local f = self.capsule
+	local x, y = f:GetCenter()
+	local cx, cy = ns.root:GetCenter()
+	if x and cx then
+		ns.db.consoleOpts.clockSpot = { x = math.floor(x - cx + 0.5), y = math.floor(y - cy + 0.5) }
+	end
+	if f.SetUserPlaced then
+		f:SetUserPlaced(false) -- ours to save, not the client's layout cache
+	end
+	self:PlaceCapsule()
+end
+
+function TopBar:ResetCapsuleSpot()
+	ns.db.consoleOpts.clockSpot = false
+	self:PlaceCapsule()
+end
+
+function TopBar:SetCapsuleEditing(on)
+	self.capsuleEditing = on and true or false
+	local f = self.capsule
+	-- Edit Mode closed mid-drag: let go here, or it would follow the mouse.
+	if not on and f.dragging then
+		f.dragging = nil
+		f:StopMovingOrSizing()
+		self:SaveCapsuleSpot()
+	end
+	self:UpdateCapsuleMouse()
+end
+
+-- Draggable on the console while Edit Mode is open or Shift is held out of
+-- combat; Edit Mode's blue over it while it is open.
+function TopBar:CapsuleMovable()
+	local shift = IsShiftKeyDown and IsShiftKeyDown() and not InCombatLockdown() and true or false
+	return self:CapsuleOnConsole() and (self.capsuleEditing or shift) or false
+end
+
+function TopBar:UpdateCapsuleMouse()
+	local f = self.capsule
+	if f then
+		f.highlight:SetShown(self:CapsuleOnConsole() and self.capsuleEditing or false)
+	end
 end
 
 function TopBar:PaintCapsule(theme)

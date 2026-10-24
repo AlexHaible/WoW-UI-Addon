@@ -104,8 +104,10 @@ screen stays free on either side).
   `/rui topbar off`) takes the bar away, clock and slots too; the micro
   buttons then stand on the minimap block's wall, the lower row half over
   it, between the left end cap and the addon compartment's button (in two
-  or three rows where one would make them too small), and the buffs move
-  up to the screen's top edge.
+  or three rows where one would make them too small), the time capsule
+  sits on top of them (move it in Edit Mode, or Shift-drag it out of
+  combat; `/rui clock reset` puts it back), and the buffs move up to the
+  screen's top edge.
 
 The three action slots beside the minimap are the first three buttons of
 Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
@@ -270,6 +272,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui scale 0.5-1.5               top bar scale
 /rui layout auto|16:9|21:9|32:9  top bar layout
 /rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
+/rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)

@@ -65,6 +65,7 @@ local DEFAULTS = {
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
+		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 	},
 }
@@ -1316,6 +1317,7 @@ local function usage()
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
 	print("  /rui topbar on||off  (off: the menu buttons stand above the minimap)")
+	print("  /rui clock reset  (put the time back above the minimap; with the top bar hidden, Shift-drag or Edit Mode moves it)")
 	print("  /rui module <name> on||off  (console, hero, actionbars, minimap, chat, inventory, blizzard, target,"
 		.. " pet, topbar, config; needs /reload)")
 	print("  /rui status")
@@ -1378,6 +1380,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "clock" and arg == "reset" and ns.modules.topbar.enabled then
+		ns.modules.topbar:ResetCapsuleSpot()
+		ns:Print("time back above the minimap.")
 	elseif cmd == "pet" and arg == "reset" and ns.modules.pet.enabled then
 		ns.modules.pet:ResetSpot()
 		ns:Print("pet icon back beside the target of target.")

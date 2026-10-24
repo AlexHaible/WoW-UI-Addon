@@ -1133,6 +1133,8 @@ local AURA_THEME = "human"
 -- big as on the top bar (CONSOLE_MICRO_H, a share of s), centred in the
 -- room; the first row is on top.
 local CONSOLE_MICRO_H, CONSOLE_MICRO_GAP = 0.085, 1
+-- The time capsule's size on the console with the top bar hidden.
+local CONSOLE_TIME_W, CONSOLE_TIME_H = 64, 16
 
 local function buildMicro(L, micro)
 	local s, c, mm = L.s, L.addonCompartment, L.minimap
@@ -1185,7 +1187,7 @@ local function buildMicro(L, micro)
 end
 
 -- The layout for `o` (see above). `o.micro`, when set, places Blizzard's
--- micro buttons on the console (the top bar is hidden).
+-- micro buttons and the time capsule on the console (the top bar is hidden).
 function Layout.Compute(W, H, o)
 	local dx, chatW = placement(W, H, o)
 	local L = build(W, H, o, dx, chatW)
@@ -1194,9 +1196,15 @@ function Layout.Compute(W, H, o)
 		buildMicro(L, o.micro)
 		-- Above the menu buttons, which stand over the map's top edge.
 		local span = L.microSpan
+		-- The top bar's time capsule (TopBar.lua) goes on top of them,
+		-- centred over them (or over the map's top edge without any).
+		local mm = L.minimap
+		local cx, y = mm.x + mm.w / 2, top(mm) + 2
 		if span.w > 0 then
-			L.leaveButton.y = max(L.leaveButton.y, top(span) + 2)
+			cx, y = span.x + span.w / 2, top(span) + 2
 		end
+		L.clockTime = rect(cx - CONSOLE_TIME_W / 2, y, CONSOLE_TIME_W, CONSOLE_TIME_H)
+		L.leaveButton.y = max(L.leaveButton.y, top(L.clockTime) + 2)
 	end
 	local ref = o.theme == AURA_THEME and dx or placement(W, H, setmetatable({ theme = AURA_THEME }, { __index = o }))
 	local T = L.targetAuras

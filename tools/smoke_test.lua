@@ -98,7 +98,12 @@ function methods:StopMovingOrSizing() self._moving = false end
 function methods:SetFrameStrata(s) self._strata = s end
 function methods:GetFrameStrata() return self._strata or "MEDIUM" end
 function methods:SetBlendMode() end
-function methods:HookScript(k, fn) self._hooks = self._hooks or {}; self._hooks[k] = fn end
+function methods:HookScript(k, fn)
+	-- Hooks chain, as in the game: each runs after the ones before it.
+	self._hooks = self._hooks or {}
+	local prev = self._hooks[k]
+	self._hooks[k] = prev and function(...) prev(...); fn(...) end or fn
+end
 function methods:SetShown(v) self._shown = not not v end
 function methods:Show() self._shown = true end
 function methods:Hide() self._shown = false end
@@ -1088,11 +1093,48 @@ do
 	for _, slot in ipairs(tb.slots) do
 		assert(not slot._shown and not (slot.secure and slot.secure._shown), "no slots without the top bar")
 	end
+	-- The time capsule stays: on the console, over the micro buttons.
+	local cap, ct = tb.capsule, L.clockTime
+	assert(ct and cap._parent == ns.root, "the time capsule moves to the console")
+	local _, rel, _, cx, cy = cap:GetPoint(1)
+	assert(rel == ns.root and cx == ct.x and cy == ct.y, "the time capsule at its console spot")
+	assert(ct.y >= L.microSpan.y + L.microSpan.h, "the time capsule above the micro buttons")
+	for _, other in ipairs({ L.addonCompartment, L.tot.frame, L.petIcon and L.petIcon.frame or L.tot.frame }) do
+		assert(not ns.Layout.Overlaps(ct, other), "the time capsule collides")
+	end
+	-- It can be moved there: in Edit Mode (blue while it is open), and kept
+	-- from the console's centre; /rui clock reset puts it back.
+	assert(not cap.highlight:IsShown(), "no Edit Mode blue outside Edit Mode")
+	cap._scripts.OnDragStart(cap)
+	assert(not cap.dragging, "the time capsule stays put without Edit Mode or Shift")
+	EditModeManagerFrame._hooks.OnShow()
+	assert(cap.highlight:IsShown(), "Edit Mode shows the time capsule can move")
+	cap.GetCenter = function() return 500, 300 end
+	ns.root.GetCenter = function() return 400, 384 end
+	cap._scripts.OnDragStart(cap)
+	assert(cap.dragging and cap._moving, "Edit Mode lets the time capsule be dragged")
+	cap._scripts.OnDragStop(cap)
+	local spot = ReforgedUIDB.consoleOpts.clockSpot
+	assert(spot and spot.x == 100 and spot.y == -84, "the time capsule's new place is saved")
+	local p = cap._points[1]
+	assert(p[1] == "CENTER" and p[2] == ns.root and p[4] == 100 and p[5] == -84, "the time capsule stays where it was dragged")
+	-- Edit Mode closed mid-drag lets go.
+	cap._scripts.OnDragStart(cap)
+	EditModeManagerFrame._hooks.OnHide()
+	assert(not cap.dragging and not cap._moving and not cap.highlight:IsShown(), "closing Edit Mode ends the drag")
+	ns:Relayout()
+	flushTimers()
+	assert(cap._points[1][1] == "CENTER", "the dragged place survives a relayout")
+	SlashCmdList.REFORGEDUI("clock reset")
+	local _, _, _, rx, ry = cap:GetPoint(1)
+	assert(not ReforgedUIDB.consoleOpts.clockSpot and rx == ct.x and ry == ct.y, "/rui clock reset")
+	cap.GetCenter, ns.root.GetCenter = nil, nil
 	local y = savedLayouts.layouts[3].systems[7].anchorInfo.offsetY
 	assert(y > buffY and y < 0, "buffs move up with the top bar hidden")
 	ns:SetTopBarShown(true)
 	flushTimers()
 	assert(stateDrivers[ns.topRoot] == "[petbattle] hide; show", "the top bar is back")
+	assert(tb.capsule._parent == ns.topRoot, "the time capsule goes back under the clock")
 	checkMicro(MOVED)
 	assert(savedLayouts.layouts[3].systems[7].anchorInfo.offsetY == buffY, "and the buffs under it")
 end
@@ -1444,7 +1486,7 @@ do
 	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
 	assert(cap.text._text == "9:07 PM" and ReforgedUIDB.consoleOpts.clockTime == "local", "local time")
 	gameHour, localClock.hour, localClock.min = 12, 9, 30
-	tb.clockFrame._scripts.OnUpdate(tb.clockFrame, 1)
+	tb.ticker._scripts.OnUpdate(tb.ticker, 1)
 	assert(cap.text._text == "9:30 AM", "the capsule keeps time")
 	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
 	assert(cap._shown == false and ReforgedUIDB.consoleOpts.clockTime == "off", "hidden")

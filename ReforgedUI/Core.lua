@@ -1132,10 +1132,38 @@ function ns:PlaceActionBars(layout)
 	return changed
 end
 
+-- Until Blizzard's Edit Mode has its layouts (EDIT_MODE_LAYOUTS_UPDATED,
+-- which can come after PLAYER_LOGIN), the game may hand us an incomplete
+-- list: our layout looks missing and gets made again, and what we save is
+-- overwritten when Blizzard's own list arrives. So wait for it.
+local function editModeReady()
+	local manager = _G.EditModeManagerFrame
+	if not (manager and manager.IsInitialized) or forbidden(manager) then
+		return true
+	end
+	local ok, ready = pcall(manager.IsInitialized, manager)
+	return not ok or ready
+end
+
 function ns:SetupEditMode()
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
 		and self.layout) then
+		return
+	end
+	if not editModeReady() then
+		if not self.editModeWaiting then
+			self.editModeWaiting = true
+			-- After Blizzard's own handler has taken the layouts in.
+			hooksecurefunc(_G.EditModeManagerFrame, "UpdateLayoutInfo", function()
+				if self.editModeWaiting then
+					self.editModeWaiting = false
+					C_Timer.After(0, function()
+						self:RunOutOfCombat("edit-mode", function() self:SetupEditMode() end)
+					end)
+				end
+			end)
+		end
 		return
 	end
 	local ok, info = pcall(C_EditMode.GetLayouts)
@@ -1161,7 +1189,7 @@ function ns:SetupEditMode()
 
 	local index, made
 	for i, layout in ipairs(info.layouts) do
-		if layout.layoutName == ns.EDIT_LAYOUT then
+		if layout.layoutName == ns.EDIT_LAYOUT and not index then
 			index = i
 		end
 	end
@@ -1183,8 +1211,21 @@ function ns:SetupEditMode()
 				cast.isInDefaultPosition = true
 				setSetting(cast, Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame, 0)
 			end
-			info.layouts[#info.layouts + 1] = layout
-			index, made = #info.layouts, true
+			-- After the other account-wide layouts, before the character's
+			-- own, where the game itself keeps account layouts.
+			index = #info.layouts + 1
+			local character = Enum.EditModeLayoutType and Enum.EditModeLayoutType.Character
+			for i, other in ipairs(info.layouts) do
+				if character ~= nil and other.layoutType == character then
+					index = i
+					break
+				end
+			end
+			table.insert(info.layouts, index, layout)
+			if type(info.activeLayout) == "number" and info.activeLayout >= presets + index then
+				info.activeLayout = info.activeLayout + 1 -- the same layout, one further down
+			end
+			made = true
 		end
 	end
 

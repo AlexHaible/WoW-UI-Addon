@@ -894,6 +894,39 @@ do
 	table.remove(savedLayouts.layouts)
 	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
 		"the layout is set up once")
+
+	-- Until Blizzard's Edit Mode has its layouts, the game's list may be
+	-- incomplete: nothing is made or saved before then. Our layout goes
+	-- after the account layouts, before the character's own, and the
+	-- character's active layout stays the active one.
+	local before, keptSwitched = savedLayouts, ns.db.consoleOpts.editLayout
+	Enum.EditModeLayoutType.Character = 2
+	savedLayouts = { activeLayout = 4, layouts = { { layoutName = "Shared", layoutType = 1, systems = {} },
+		{ layoutName = "Mine here", layoutType = 2, systems = {} } } }
+	local mineHere = savedLayouts.layouts[2]
+	ns.db.consoleOpts.editLayout = { [(UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")] = true }
+	local ready, wasInit, wasUpdate = false, EditModeManagerFrame.IsInitialized, EditModeManagerFrame.UpdateLayoutInfo
+	EditModeManagerFrame.IsInitialized = function() return ready end
+	EditModeManagerFrame.UpdateLayoutInfo = function() end
+	ns:SetupEditMode()
+	ns:SetupEditMode()
+	assert(#savedLayouts.layouts == 2, "waits for Blizzard's layouts")
+	ready = true
+	EditModeManagerFrame:UpdateLayoutInfo()
+	EditModeManagerFrame:UpdateLayoutInfo()
+	assert(#savedLayouts.layouts == 2, "and for its own handler to finish")
+	flushTimers()
+	local made = savedLayouts.layouts
+	assert(#made == 3 and made[2].layoutName == ns.EDIT_LAYOUT and made[3] == mineHere,
+		"made once, between the account and the character layouts")
+	assert(savedLayouts.activeLayout == 5, "the character's active layout stays active")
+	-- Two with our name (from an older version): the first is used, no third.
+	table.insert(made, 3, { layoutName = ns.EDIT_LAYOUT, layoutType = 1, systems = {} })
+	ns:SetupEditMode()
+	assert(#savedLayouts.layouts == 4, "no layout made while one has our name")
+	EditModeManagerFrame.IsInitialized, EditModeManagerFrame.UpdateLayoutInfo = wasInit, wasUpdate
+	savedLayouts, ns.db.consoleOpts.editLayout = before, keptSwitched
+	Enum.EditModeLayoutType.Character = nil
 end
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 for key, mod in pairs(ns.modules) do

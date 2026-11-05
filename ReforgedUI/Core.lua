@@ -1132,10 +1132,40 @@ function ns:PlaceActionBars(layout)
 	return changed
 end
 
+-- Until Blizzard's Edit Mode has its layouts (EDIT_MODE_LAYOUTS_UPDATED,
+-- which can come after PLAYER_LOGIN), the game may hand us an incomplete
+-- list: our layout looks missing and gets made again, and what we save is
+-- overwritten when Blizzard's own list arrives. So wait for it.
+local function editModeReady()
+	local manager = _G.EditModeManagerFrame
+	if not (manager and manager.IsInitialized) or forbidden(manager) then
+		return true
+	end
+	local ok, ready = pcall(manager.IsInitialized, manager)
+	return not ok or ready
+end
+
 function ns:SetupEditMode()
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
 		and self.layout) then
+		return
+	end
+	if not editModeReady() then
+		if self.editModeWaiting == nil then
+			-- A frame after the event, so after Blizzard's own handler has
+			-- taken the layouts in (or failed to: it can raise an error
+			-- part way, e.g. on a negative right bar scale).
+			self:On("EDIT_MODE_LAYOUTS_UPDATED", function()
+				if self.editModeWaiting then
+					self.editModeWaiting = false
+					C_Timer.After(0, function()
+						self:RunOutOfCombat("edit-mode", function() self:SetupEditMode() end)
+					end)
+				end
+			end)
+		end
+		self.editModeWaiting = true
 		return
 	end
 	local ok, info = pcall(C_EditMode.GetLayouts)
@@ -1160,9 +1190,26 @@ function ns:SetupEditMode()
 	local castY = math.floor((self.layout.consoleTop * self:ConsoleScale() + CAST_BAR_GAP) / scale + 0.5)
 
 	local index, made
+	-- Older versions could make the layout more than once. Layout names
+	-- are meant to be unique (Edit Mode errors on two alike), so the first
+	-- keeps the name and the others are renamed, keeping what is in them.
+	local names, renamed = {}, 0
+	for _, layout in ipairs(info.layouts) do
+		names[layout.layoutName or ""] = true
+	end
 	for i, layout in ipairs(info.layouts) do
 		if layout.layoutName == ns.EDIT_LAYOUT then
-			index = i
+			if not index then
+				index = i
+			else
+				local n = 2
+				while names[ns.EDIT_LAYOUT .. " " .. n] do
+					n = n + 1
+				end
+				layout.layoutName = ns.EDIT_LAYOUT .. " " .. n
+				names[layout.layoutName] = true
+				renamed = renamed + 1
+			end
 		end
 	end
 	if not index then
@@ -1183,8 +1230,21 @@ function ns:SetupEditMode()
 				cast.isInDefaultPosition = true
 				setSetting(cast, Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame, 0)
 			end
-			info.layouts[#info.layouts + 1] = layout
-			index, made = #info.layouts, true
+			-- After the other account-wide layouts, before the character's
+			-- own, where the game itself keeps account layouts.
+			index = #info.layouts + 1
+			local character = Enum.EditModeLayoutType and Enum.EditModeLayoutType.Character
+			for i, other in ipairs(info.layouts) do
+				if character ~= nil and other.layoutType == character then
+					index = i
+					break
+				end
+			end
+			table.insert(info.layouts, index, layout)
+			if type(info.activeLayout) == "number" and info.activeLayout >= presets + index then
+				info.activeLayout = info.activeLayout + 1 -- the same layout, one further down
+			end
+			made = true
 		end
 	end
 
@@ -1221,7 +1281,7 @@ function ns:SetupEditMode()
 			newlyPlaced[#newlyPlaced + 1] = key
 		end
 	end
-	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
+	if (made or placed or renamed > 0 or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
 		and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
@@ -1270,6 +1330,9 @@ function ns:SetupEditMode()
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))
 	elseif made or placed then
 		self:AskReload("updated the target frame's place in the Edit Mode layout.")
+	elseif renamed > 0 then
+		self:AskReload(("renamed %d extra %q Edit Mode layout(s) (delete them in Edit Mode if you don't use them).")
+			:format(renamed, ns.EDIT_LAYOUT))
 	end
 end
 

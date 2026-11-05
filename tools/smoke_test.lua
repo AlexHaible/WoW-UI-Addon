@@ -877,6 +877,21 @@ do
 	ns:SetupEditMode()
 	assert(main.anchorInfo.offsetX == 7, "the player's own placement is kept")
 	ns.db.consoleOpts.editModeBars = false
+	-- Some players' games hand a layout back with the cast bar (or buffs, pet
+	-- bar, leave button) in its default place again: moved once, then left,
+	-- so a login doesn't save layouts and ask for a reload every time.
+	local cast = savedLayouts.layouts[1].systems[3]
+	assert(cast.system == 1 and not cast.isInDefaultPosition, "the cast bar was raised")
+	cast.isInDefaultPosition = true
+	savedLayouts.layouts[1].systems[9].isInDefaultPosition = true
+	offered = #popups
+	ns:SetupEditMode()
+	assert(#popups == offered and cast.isInDefaultPosition, "a layout is only moved out of its defaults once")
+	savedLayouts.layouts[#savedLayouts.layouts + 1] = { layoutName = "Fresh", systems = {
+		{ system = 1, isInDefaultPosition = true } } }
+	ns:SetupEditMode()
+	assert(not savedLayouts.layouts[4].systems[1].isInDefaultPosition, "a new layout still gets its cast bar raised")
+	table.remove(savedLayouts.layouts)
 	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
 		"the layout is set up once")
 end

@@ -97,7 +97,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - Your buffs and debuffs start in the top-right corner, just below the top bar (or at the very top with the top bar hidden).
 - The pet bar starts on the console wall, just above the stance buttons (in your other layouts too, unless you've moved it).
 
-When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly.
+When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly. It moves each frame out of its default place only once per layout, so if you put one back, it stays there and you won't be asked again at every login.
 
 Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
 

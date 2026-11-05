@@ -61,6 +61,7 @@ local DEFAULTS = {
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		leaveSpot = false, -- where the leave vehicle button was last placed in Edit Mode layouts ({ x, y })
+		editPlaced = {}, -- per Edit Mode layout: frames already moved out of their default place once
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
@@ -831,10 +832,21 @@ local function findSystem(layout, system, index)
 	end
 end
 
+-- What a layout is remembered by in consoleOpts.editPlaced: its name, and
+-- for a character's own layout, the character too.
+local function layoutKey(layout)
+	local name = tostring(layout.layoutName or "?")
+	local character = Enum.EditModeLayoutType and Enum.EditModeLayoutType.Character
+	if character ~= nil and layout.layoutType == character then
+		name = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?") .. ":" .. name
+	end
+	return name
+end
+
 -- Moves a default-placed cast bar (not locked to the player frame) to `y`.
-local function raiseCastBar(layout, y)
+local function raiseCastBar(layout, y, fresh)
 	local sys = findSystem(layout, Enum.EditModeSystem.CastBar)
-	if not (sys and sys.isInDefaultPosition) then
+	if not (sys and sys.isInDefaultPosition and fresh) then
 		return false
 	end
 	local lock = Enum.EditModeCastBarSetting and Enum.EditModeCastBarSetting.LockToPlayerFrame
@@ -870,7 +882,7 @@ function ns:BuffSpot()
 	return { x = math.floor(-BUFF_RIGHT * s + 0.5), y = math.floor(-(barH + BUFF_GAP) * s + 0.5) }
 end
 
-local function placeBuffs(layout, spot, last)
+local function placeBuffs(layout, spot, last, fresh)
 	local sys, indices = Enum.EditModeSystem, Enum.EditModeAuraFrameSystemIndices
 	local buffs = sys.AuraFrame and indices and findSystem(layout, sys.AuraFrame, indices.BuffFrame)
 	if not (buffs and spot) then
@@ -882,7 +894,7 @@ local function placeBuffs(layout, spot, last)
 		and a.relativePoint == "TOPRIGHT"
 	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
 	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	if buffs.isInDefaultPosition or (ours and not inPlace) then
+	if (buffs.isInDefaultPosition and fresh) or (ours and not inPlace) then
 		buffs.anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT",
 			offsetX = spot.x, offsetY = spot.y }
 		buffs.anchorInfo2 = nil
@@ -890,7 +902,7 @@ local function placeBuffs(layout, spot, last)
 		changed = true
 	end
 	local debuffs = findSystem(layout, sys.AuraFrame, indices.DebuffFrame)
-	if debuffs and debuffs.isInDefaultPosition then
+	if debuffs and debuffs.isInDefaultPosition and fresh then
 		debuffs.anchorInfo = { point = "TOPRIGHT", relativeTo = "BuffFrame", relativePoint = "BOTTOMRIGHT",
 			offsetX = 0, offsetY = -BUFF_GAP }
 		debuffs.anchorInfo2 = nil
@@ -953,7 +965,7 @@ local function setIconSize(entry, settings, scale, padding)
 	setSetting(entry, settings.IconPadding, indexed and padding - 2 or padding)
 end
 
-local function placePetBar(layout, spot, last)
+local function placePetBar(layout, spot, last, fresh)
 	local sys, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
 	local pet = spot and sys.ActionBar and indices and indices.PetActionBar
 		and findSystem(layout, sys.ActionBar, indices.PetActionBar)
@@ -965,7 +977,7 @@ local function placePetBar(layout, spot, last)
 		and a.relativePoint == "BOTTOMLEFT"
 	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
 	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	if not (pet.isInDefaultPosition or (ours and not inPlace)) then
+	if not ((pet.isInDefaultPosition and fresh) or (ours and not inPlace)) then
 		return false
 	end
 	-- Placed the first time at about the stance buttons' size, so the row
@@ -997,7 +1009,7 @@ function ns:LeaveButtonSpot()
 	return { x = math.floor(spot.x * u + 0.5), y = math.floor(spot.y * u + 0.5) }
 end
 
-local function placeLeaveButton(layout, spot, last)
+local function placeLeaveButton(layout, spot, last, fresh)
 	local entry = spot and findSystem(layout, Enum.EditModeSystem.VehicleLeaveButton)
 	if not entry then
 		return false
@@ -1007,7 +1019,7 @@ local function placeLeaveButton(layout, spot, last)
 		and a.relativePoint == "BOTTOMLEFT"
 	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
 	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	if not (entry.isInDefaultPosition or (ours and not inPlace)) then
+	if not ((entry.isInDefaultPosition and fresh) or (ours and not inPlace)) then
 		return false
 	end
 	entry.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
@@ -1184,23 +1196,37 @@ function ns:SetupEditMode()
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
 	local petSpot, petLast = self:PetBarSpot(), self.db.consoleOpts.petSpot
 	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
+	-- Frames still in their default place are moved once per layout. Should
+	-- the game hand the layout back unchanged (it does for some players),
+	-- they are left there instead of being moved, saved and offered a reload
+	-- at every login: saving layouts from addon code taints Blizzard's frames
+	-- for the session (see AskReload).
+	local placedOnce, newlyPlaced = self.db.consoleOpts.editPlaced, {}
 	for _, layout in ipairs(info.layouts) do
-		if raiseCastBar(layout, castY) then
+		local key = layoutKey(layout)
+		local fresh = not placedOnce[key]
+		if raiseCastBar(layout, castY, fresh) then
 			raised = raised + 1
 		end
-		if placeBuffs(layout, spot, last or nil) then
+		if placeBuffs(layout, spot, last or nil, fresh) then
 			buffsMoved = buffsMoved + 1
 		end
-		if placePetBar(layout, petSpot, petLast or nil) then
+		if placePetBar(layout, petSpot, petLast or nil, fresh) then
 			petMoved = petMoved + 1
 		end
-		if placeLeaveButton(layout, leaveSpot, leaveLast or nil) then
+		if placeLeaveButton(layout, leaveSpot, leaveLast or nil, fresh) then
 			leaveMoved = leaveMoved + 1
+		end
+		if fresh then
+			newlyPlaced[#newlyPlaced + 1] = key
 		end
 	end
 	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
 		and not pcall(C_EditMode.SaveLayouts, info) then
 		return
+	end
+	for _, key in ipairs(newlyPlaced) do
+		placedOnce[key] = true
 	end
 	if spot then
 		self.db.consoleOpts.buffSpot = spot

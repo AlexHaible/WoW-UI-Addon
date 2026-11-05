@@ -1190,9 +1190,26 @@ function ns:SetupEditMode()
 	local castY = math.floor((self.layout.consoleTop * self:ConsoleScale() + CAST_BAR_GAP) / scale + 0.5)
 
 	local index, made
+	-- Older versions could make the layout more than once. Layout names
+	-- are meant to be unique (Edit Mode errors on two alike), so the first
+	-- keeps the name and the others are renamed, keeping what is in them.
+	local names, renamed = {}, 0
+	for _, layout in ipairs(info.layouts) do
+		names[layout.layoutName or ""] = true
+	end
 	for i, layout in ipairs(info.layouts) do
-		if layout.layoutName == ns.EDIT_LAYOUT and not index then
-			index = i
+		if layout.layoutName == ns.EDIT_LAYOUT then
+			if not index then
+				index = i
+			else
+				local n = 2
+				while names[ns.EDIT_LAYOUT .. " " .. n] do
+					n = n + 1
+				end
+				layout.layoutName = ns.EDIT_LAYOUT .. " " .. n
+				names[layout.layoutName] = true
+				renamed = renamed + 1
+			end
 		end
 	end
 	if not index then
@@ -1264,7 +1281,7 @@ function ns:SetupEditMode()
 			newlyPlaced[#newlyPlaced + 1] = key
 		end
 	end
-	if (made or placed or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
+	if (made or placed or renamed > 0 or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
 		and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
@@ -1313,6 +1330,9 @@ function ns:SetupEditMode()
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))
 	elseif made or placed then
 		self:AskReload("updated the target frame's place in the Edit Mode layout.")
+	elseif renamed > 0 then
+		self:AskReload(("renamed %d extra %q Edit Mode layout(s) (delete them in Edit Mode if you don't use them).")
+			:format(renamed, ns.EDIT_LAYOUT))
 	end
 end
 

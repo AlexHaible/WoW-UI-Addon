@@ -923,6 +923,9 @@ do
 	table.insert(made, 3, { layoutName = ns.EDIT_LAYOUT, layoutType = 1, systems = {} })
 	ns:SetupEditMode()
 	assert(#savedLayouts.layouts == 4, "no layout made while one has our name")
+	assert(made[2].layoutName == ns.EDIT_LAYOUT and made[3].layoutName == ns.EDIT_LAYOUT .. " 2",
+		"the extra one is renamed")
+	assert(popups[#popups].text:find("renamed 1 extra"), "reload offered after the rename")
 	EditModeManagerFrame.IsInitialized = wasInit
 	savedLayouts, ns.db.consoleOpts.editLayout = before, keptSwitched
 	Enum.EditModeLayoutType.Character = nil
@@ -1015,6 +1018,13 @@ assert(QueueStatusButton._w * QueueStatusButton:GetEffectiveScale() / ns.root:Ge
 assert(strayButton._points[1][2] == UIParent and strayButton:GetParent() == Minimap,
 	"stray minimap buttons should line up along the map")
 assert(MinimapCluster.Tracking._points[1][1] == "CENTER", "tracking button should sit in its slot")
+-- Blizzard sizes the cluster around its children; with the tracking button on
+-- the console that reached the screen's bottom (and Edit Mode then scaled the
+-- right action bars below zero). It keeps its own size.
+MinimapCluster:SetSize(256, 1200)
+MinimapCluster:SetHeight(900)
+assert(MinimapCluster._w == ns.modules.minimap.clusterSize.w and MinimapCluster._h == ns.modules.minimap.clusterSize.h
+	and MinimapCluster._h <= 400, "the minimap cluster keeps its size")
 do
 	local mm = ns.modules.minimap
 	assert(addonButton:GetParent() == mm.drawer and addonButton._points[1][2] == UIParent,

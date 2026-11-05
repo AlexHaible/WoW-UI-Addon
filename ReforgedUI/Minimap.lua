@@ -97,6 +97,46 @@ local function collectButtons(skip, drawer)
 	return row, list
 end
 
+-- Blizzard sizes the cluster around its children (a ResizeLayoutFrame), and
+-- some of them (tracking, the indicators) are placed on the console. It then
+-- reached down to the bottom of the screen, and Edit Mode, which fits the
+-- right action bars between the cluster's bottom and the bag bar, gave them
+-- a negative scale and failed to load the layouts at login. Keep the
+-- cluster at its own size (only the size: it stays where Edit Mode puts it).
+local function plainSize(v)
+	return type(v) == "number" and not (issecretvalue and issecretvalue(v)) and v > 0 and v <= 400
+end
+
+function MinimapModule:KeepClusterSize()
+	local cluster = MinimapCluster
+	if self.clusterSize or not (cluster and cluster.SetSize and cluster.GetSize) or ns.IsForbidden(cluster) then
+		return
+	end
+	local w, h = cluster:GetSize()
+	if not (plainSize(w) and plainSize(h)) then
+		w, h = 256, 256
+	end
+	self.clusterSize = { w = w, h = h }
+	local busy
+	local function keep(f)
+		if busy then
+			return
+		end
+		local cw, ch = f:GetSize()
+		if cw ~= w or ch ~= h then
+			busy = true
+			f:SetSize(w, h)
+			busy = false
+		end
+	end
+	for _, method in ipairs({ "SetSize", "SetWidth", "SetHeight" }) do
+		if cluster[method] then
+			hooksecurefunc(cluster, method, keep)
+		end
+	end
+	keep(cluster)
+end
+
 function MinimapModule:OnEnable()
 	local map = Minimap
 	map:SetMaskTexture(SQUARE_MASK)
@@ -127,6 +167,7 @@ function MinimapModule:OnEnable()
 			f:EnableMouse(false)
 		end
 	end, cluster.MinimapContainer, MinimapCluster)
+	self:KeepClusterSize()
 	self.timeFrames = self:FindTimeFrames()
 	for _, f in ipairs(self.timeFrames) do
 		ns:Conceal(f)

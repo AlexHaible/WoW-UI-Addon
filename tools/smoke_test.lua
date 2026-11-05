@@ -905,15 +905,14 @@ do
 		{ layoutName = "Mine here", layoutType = 2, systems = {} } } }
 	local mineHere = savedLayouts.layouts[2]
 	ns.db.consoleOpts.editLayout = { [(UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")] = true }
-	local ready, wasInit, wasUpdate = false, EditModeManagerFrame.IsInitialized, EditModeManagerFrame.UpdateLayoutInfo
+	local ready, wasInit = false, EditModeManagerFrame.IsInitialized
 	EditModeManagerFrame.IsInitialized = function() return ready end
-	EditModeManagerFrame.UpdateLayoutInfo = function() end
 	ns:SetupEditMode()
 	ns:SetupEditMode()
 	assert(#savedLayouts.layouts == 2, "waits for Blizzard's layouts")
 	ready = true
-	EditModeManagerFrame:UpdateLayoutInfo()
-	EditModeManagerFrame:UpdateLayoutInfo()
+	fire("EDIT_MODE_LAYOUTS_UPDATED")
+	fire("EDIT_MODE_LAYOUTS_UPDATED")
 	assert(#savedLayouts.layouts == 2, "and for its own handler to finish")
 	flushTimers()
 	local made = savedLayouts.layouts
@@ -924,7 +923,7 @@ do
 	table.insert(made, 3, { layoutName = ns.EDIT_LAYOUT, layoutType = 1, systems = {} })
 	ns:SetupEditMode()
 	assert(#savedLayouts.layouts == 4, "no layout made while one has our name")
-	EditModeManagerFrame.IsInitialized, EditModeManagerFrame.UpdateLayoutInfo = wasInit, wasUpdate
+	EditModeManagerFrame.IsInitialized = wasInit
 	savedLayouts, ns.db.consoleOpts.editLayout = before, keptSwitched
 	Enum.EditModeLayoutType.Character = nil
 end

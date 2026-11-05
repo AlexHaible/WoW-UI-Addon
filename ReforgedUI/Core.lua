@@ -1152,10 +1152,11 @@ function ns:SetupEditMode()
 		return
 	end
 	if not editModeReady() then
-		if not self.editModeWaiting then
-			self.editModeWaiting = true
-			-- After Blizzard's own handler has taken the layouts in.
-			hooksecurefunc(_G.EditModeManagerFrame, "UpdateLayoutInfo", function()
+		if self.editModeWaiting == nil then
+			-- A frame after the event, so after Blizzard's own handler has
+			-- taken the layouts in (or failed to: it can raise an error
+			-- part way, e.g. on a negative right bar scale).
+			self:On("EDIT_MODE_LAYOUTS_UPDATED", function()
 				if self.editModeWaiting then
 					self.editModeWaiting = false
 					C_Timer.After(0, function()
@@ -1164,6 +1165,7 @@ function ns:SetupEditMode()
 				end
 			end)
 		end
+		self.editModeWaiting = true
 		return
 	end
 	local ok, info = pcall(C_EditMode.GetLayouts)

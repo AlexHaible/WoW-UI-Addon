@@ -198,14 +198,13 @@ end)
 -- theme (it resolves a new copy every time). A Reforged UI theme change
 -- refreshes it and, while it is the Next theme in use, applies it again.
 --
--- The look: the panel's body in the theme's dark inset, the trim all round
--- it as ornaments (Next's art pieces anchored to the body's sides and
--- corners, mirrored on the bank's left-hand panel): join.tga in the corners,
--- beam.tga tiled along the top and bottom and post.tga down the sides, both
--- from make_bb_frame.py. The trim sits inside the body, so the tabs down its
--- inner side stay clear of it; the fill stops under the trim as the windows'
--- does. The rail under the title, gold titles in our font, and Next's
--- sparkles, ribbon and title cloud left out.
+-- The look: the panel's body in the theme's dark inset, the trim as
+-- ornaments (Next's art pieces anchored to the body's sides and corners,
+-- mirrored on the bank's left-hand panel): all round a small panel (join.tga
+-- in the corners, beam.tga and post.tga tiled between, from
+-- make_bb_frame.py), only down the inner side of a full one. The rail under
+-- the title, gold titles in our font, and the race's particles from Next's
+-- sparkle emitters in place of its ribbon and title cloud.
 --
 -- Older BetterBags (no Next themes) just skips this.
 
@@ -234,23 +233,40 @@ end
 
 -- The pieces drawn for the backpack, whose inner side is the left one; Next
 -- mirrors them on panels whose inner side is the right one.
+--
+-- A small panel floats: the whole trim goes round it. A full panel stands
+-- against the screen's edges, so, as BetterBags' own ornamented themes do,
+-- only its inner side (the one facing the middle of the screen) is dressed:
+-- a post twice the trim's thickness down its whole height, straddling the
+-- edge over the feather. Corners and beams are the small panel's only.
+local SMALL = "Small"
+local function small(o)
+	o.Sizes = SMALL
+	return o
+end
 local CORNERS = {
-	piece("TOPINNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
-	piece("TOPOUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
-	piece("BOTTOMINNER", { 0, 1, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
-	piece("BOTTOMOUTER", { 1, 0, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
+	small(piece("TOPINNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE })),
+	small(piece("TOPOUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE })),
+	small(piece("BOTTOMINNER", { 0, 1, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE })),
+	small(piece("BOTTOMOUTER", { 1, 0, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE })),
 }
+for _, o in ipairs(CORNERS) do
+	o.SubLevel = 2 -- over the beams and posts where they meet
+end
 local BEAMS = {
-	piece("TOP", { 0, 1, 0, 1 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE }),
-	piece("BOTTOM", { 0, 1, 1, 0 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE }),
+	small(piece("TOP", { 0, 1, 0, 1 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE })),
+	small(piece("BOTTOM", { 0, 1, 1, 0 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE })),
 }
 -- post.tga has its outer side on the left.
 local POSTS = {
-	piece("INNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE }),
-	piece("OUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE }),
+	small(piece("INNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE })),
+	small(piece("OUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE })),
 }
+-- The full panel's post: half outside the body (X is toward its middle).
+local PILLAR_SCALE = 2
+local PILLAR = piece("INNER", { 0, 1, 0, 1 }, { Width = PILLAR_SCALE * TRIM_EDGE, X = -TRIM_EDGE, Sizes = "Full" })
 -- The rail under the title, between the title row and the search box.
-local NEXT_RAIL = piece("TOP", nil, { Height = RAIL_H, Start = TRIM_EDGE + 4, End = TRIM_EDGE + 4, Y = 58 })
+local NEXT_RAIL = piece("TOP", nil, { Height = RAIL_H, Start = PILLAR_SCALE * TRIM_EDGE, End = TRIM_EDGE + 4, Y = 58 })
 
 local ornaments = {}
 for _, list in ipairs({ CORNERS, BEAMS, POSTS }) do
@@ -258,7 +274,64 @@ for _, list in ipairs({ CORNERS, BEAMS, POSTS }) do
 		ornaments[#ornaments + 1] = o
 	end
 end
+ornaments[#ornaments + 1] = PILLAR
 ornaments[#ornaments + 1] = NEXT_RAIL
+
+-- Each race's particles, BetterBags' own sparkle emitters in its colours:
+-- drifting out of the inner side (Edge) and round the title (Cloud). Texture
+-- is one of Next's (Sparkle: the cooldown star; Glow: a soft round light);
+-- Rise is up, Speed outwards, both in units a second.
+local MOTES = { Texture = "Glow", Size = { 3, 7 }, Speed = { 6, 18 }, Rise = { 4, 14 } }
+local STARS = { Texture = "Sparkle", Size = { 4, 9 }, Speed = { 10, 30 }, Rise = { -4, 8 } }
+local function particles(base, colors, more)
+	local t = { Colors = colors }
+	for k, v in pairs(base) do
+		t[k] = v
+	end
+	for k, v in pairs(more or {}) do
+		t[k] = v
+	end
+	return t
+end
+local PARTICLES = {
+	-- The Light: gold stars.
+	human = particles(STARS, { { 1, 0.9, 0.55 }, { 1, 1, 0.85 }, { 1, 0.78, 0.3 } }),
+	-- Embers rising off a fire.
+	orc = particles(MOTES, { { 1, 0.45, 0.1 }, { 1, 0.7, 0.25 }, { 0.9, 0.22, 0.05 } },
+		{ Size = { 2, 5 }, Speed = { 8, 26 }, Rise = { 8, 22 }, Rate = 4 }),
+	-- Plague motes, slow.
+	undead = particles(MOTES, { { 0.45, 1, 0.3 }, { 0.7, 1, 0.5 }, { 0.3, 0.75, 0.2 } }, { Speed = { 3, 10 } }),
+	forsaken = particles(MOTES, { { 0.7, 0.5, 1 }, { 0.5, 0.95, 0.4 }, { 0.85, 0.75, 1 } }, { Speed = { 3, 10 } }),
+	-- Wisps: soft blue lights, drifting.
+	nightelf = particles(MOTES, { { 0.45, 0.85, 1 }, { 0.75, 0.95, 1 }, { 0.75, 0.6, 1 } },
+		{ Size = { 5, 10 }, Speed = { 3, 9 }, Rise = { 2, 8 } }),
+	-- Forge sparks: quick, hot.
+	dwarf = particles(STARS, { { 1, 0.6, 0.2 }, { 1, 0.85, 0.5 }, { 1, 1, 0.8 } },
+		{ Size = { 3, 6 }, Speed = { 20, 50 }, Rise = { 6, 20 }, Rate = 4 }),
+	-- Electric sparks.
+	gnome = particles(STARS, { { 0.5, 0.85, 1 }, { 1, 1, 1 }, { 1, 0.85, 0.4 } }, { Size = { 3, 7 }, Speed = { 14, 40 } }),
+	-- Dust on the plains wind.
+	tauren = particles(MOTES, { { 0.9, 0.78, 0.55 }, { 0.75, 0.62, 0.42 }, { 1, 0.92, 0.7 } },
+		{ Speed = { 10, 26 }, Rise = { -2, 4 } }),
+	-- Voodoo.
+	troll = particles(MOTES, { { 0.4, 1, 0.55 }, { 0.75, 0.4, 1 }, { 0.6, 1, 0.8 } }),
+	-- Skyborne: arcane, and the wind.
+	highorder = particles(STARS, { { 0.8, 0.7, 1 }, { 1, 1, 1 }, { 0.6, 0.8, 1 } }),
+	windshapers = particles(MOTES, { { 0.6, 0.9, 1 }, { 1, 0.95, 0.75 }, { 0.85, 1, 1 } }, { Speed = { 14, 34 } }),
+}
+-- What the emitters keep whatever the race (Next's Edge and Cloud
+-- emitters); the race's look is laid over them by refresh().
+local EDGE_SPARKS = { Rate = 2.5, Max = 14, Life = { 2.6, 4.4 }, Wobble = 3, Spin = 1, Alpha = 0.75, Reach = 30 }
+local CLOUD = { Rate = 1.2, Max = 6, Life = { 1.6, 2.8 }, Wobble = 2, Spin = 1, Alpha = 0.6 }
+local sparkles = {
+	BlendMode = "ADD",
+	Colors = { "Spark1", "Spark2", "Spark3" },
+	Edge = EDGE_SPARKS,
+	Cloud = CLOUD,
+	-- No ribbon or braid to carry them.
+	Ribbon = false,
+	Knot = false,
+}
 
 local palette = {
 	White = { 1, 1, 1, 1 },
@@ -285,8 +358,10 @@ local nextTheme = {
 		SettingsTitle = nextFont(24, "Gold", true),
 	},
 
-	-- Room for the trim: the footer's text up off the bottom beam.
+	-- Room for the trim: the footer's text up off the bottom beam; a
+	-- narrower feather than Default's past the post.
 	Layout = {
+		Feather = 64,
 		Footer = 46,
 		FooterText = 20,
 		FooterMoney = 18,
@@ -297,9 +372,9 @@ local nextTheme = {
 	Motion = { Ease = { Open = "outCubic", Enter = "outCubic" } },
 
 	Panel = {
-		-- The fill stops under the trim, as the windows' inset does.
-		Fill = { Color = "Body", Inset = around(OUT) },
-		Feather = false,
+		Fill = { Color = "Body" },
+		-- A full panel fades out past its inner post.
+		Feather = { Color = "Body" },
 		Edge = false,
 		Wash = { Height = 200, BlendMode = "ADD" },
 		DropGlow = { Color = "Gold", Alpha = 0.12, BlendMode = "ADD" },
@@ -314,7 +389,7 @@ local nextTheme = {
 		Buttons = { Color = "ButtonIcon", HoverColor = "White", ArtColor = "White", ArtHoverColor = "White" },
 	},
 
-	Sparkles = false,
+	Sparkles = sparkles,
 	Chain = { Braid = false },
 
 	-- Solid tabs edged in the inset line, the selected one in gold.
@@ -342,7 +417,7 @@ end
 -- Writes the current Reforged UI theme into the Next theme: its colours, its
 -- trim's art and the post's period.
 local function refresh()
-	local _, theme = ReforgedUI.GetTheme()
+	local key, theme = ReforgedUI.GetTheme()
 	local inset = theme and theme.inset or DEFAULT_INSET
 	local line = theme and theme.insetLine or DEFAULT_LINE
 	local title = theme and theme.title or { 1, 0.82, 0 }
@@ -375,6 +450,18 @@ local function refresh()
 		o.Texture = post
 		o.Tile = period
 	end
+	PILLAR.Texture = post
+	PILLAR.Tile = PILLAR_SCALE * period
+
+	local motes = PARTICLES[key] or PARTICLES.human
+	for i = 1, 3 do
+		palette["Spark" .. i] = shade(motes.Colors[i], 0)
+	end
+	sparkles.Texture = motes.Texture
+	for _, emitter in ipairs({ EDGE_SPARKS, CLOUD }) do
+		emitter.Size, emitter.Speed, emitter.Rise = motes.Size, motes.Speed, motes.Rise
+	end
+	EDGE_SPARKS.Rate = motes.Rate or 2.5
 	NEXT_RAIL.Texture = ReforgedUI.TrimArt("rail")
 end
 

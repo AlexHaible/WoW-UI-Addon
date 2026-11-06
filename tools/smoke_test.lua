@@ -2608,31 +2608,42 @@ do
 		assert(r.Elements.Tab.Background.Color[1] == ns.Themes[key].inset[1], "tabs in the inset colour")
 	end
 	checkBB(ns.themeKey)
-	-- BetterBags Next: the body in the inset, the trim all round it as
-	-- ornaments (corners, beams, posts, the rail), the theme's art, data only.
+	-- BetterBags Next: the body in the inset, the trim as ornaments (all
+	-- round a small panel, only a post down a full one's inner side), the
+	-- rail, the theme's art and particles, data only.
 	local function checkNext(key)
 		local t = sonataNext.themes.ReforgedUI
 		dataOnly(t, "ReforgedUI")
 		local inset = ns.Themes[key].inset
 		local body = t.Palette.Body
 		assert(body[1] == inset[1] and body[2] == inset[2] and body[3] == inset[3], "Next: the " .. key .. " inset")
-		assert(t.Panel.Fill.Color == "Body" and t.Panel.Fill.Inset.Left == ReforgedUI.TRIM_OUT, "Next: fill under the trim")
-		assert(t.Panel.Feather == false and t.Panel.Edge == false, "Next: the trim instead of feather and border")
+		assert(t.Panel.Fill.Color == "Body", "Next: the body filled")
+		assert(t.Panel.Feather.Color == "Body" and t.Panel.Edge == false, "Next: a feather, the trim instead of a border")
 		local trim = "ReforgedUI\\Media\\Trim\\" .. key .. "\\"
 		local seen = {}
 		for _, o in ipairs(t.Panel.Ornaments) do
 			assert(type(o.Texture) == "string" and o.Texture:find(trim, 1, true), "Next: " .. o.Point .. " in " .. key .. "'s art")
 			local file = o.Texture:match("([^\\\\]+)$")
 			assert(exists(ADDON .. "Media/Trim/" .. key .. "/" .. file .. ".tga"), "Next: " .. file .. " is shipped")
-			seen[o.Point .. ":" .. file] = o
+			seen[o.Point .. ":" .. file .. ":" .. tostring(o.Sizes)] = o
 		end
 		for _, c in ipairs({ "TOPINNER", "TOPOUTER", "BOTTOMINNER", "BOTTOMOUTER" }) do
-			assert(seen[c .. ":join"], "Next: the " .. c .. " corner")
+			assert(seen[c .. ":join:Small"], "Next: the " .. c .. " corner on a small panel")
 		end
-		assert(seen["TOP:beam"] and seen["BOTTOM:beam"] and seen["TOP:beam"].Tile, "Next: beams tiled along")
-		assert(seen["INNER:post"] and seen["OUTER:post"], "Next: posts down both sides")
-		assert(seen["INNER:post"].Tile == ReforgedUI.TrimPostPeriod(), "Next: the post tiled by its period")
-		assert(seen["TOP:rail"], "Next: the rail under the title")
+		assert(seen["TOP:beam:Small"] and seen["BOTTOM:beam:Small"] and seen["TOP:beam:Small"].Tile, "Next: beams tiled along")
+		assert(seen["INNER:post:Small"] and seen["OUTER:post:Small"], "Next: posts down both sides of a small panel")
+		assert(seen["INNER:post:Small"].Tile == ReforgedUI.TrimPostPeriod(), "Next: the post tiled by its period")
+		local pillar = seen["INNER:post:Full"]
+		assert(pillar and pillar.X < 0 and pillar.Tile == 2 * ReforgedUI.TrimPostPeriod(), "Next: a full panel's post, astride its edge")
+		for k, o in pairs(seen) do
+			assert(o.Sizes or k:match("^TOP:rail"), "Next: only the rail and the inner post on a full panel: " .. k)
+		end
+		assert(seen["TOP:rail:nil"], "Next: the rail under the title")
+		local S = t.Sparkles
+		assert(S and S.Edge and S.Cloud and S.Ribbon == false, "Next: particles off the inner side and round the title")
+		for i, name in ipairs(S.Colors) do
+			assert(t.Palette[name], "Next: particle colour " .. i .. " in the palette")
+		end
 		assert(t.Fonts.Title.File == ReforgedUI.FONT and t.Fonts.Title.Locales, "Next: our font, Latin locales only")
 	end
 	checkNext(ns.themeKey)

@@ -84,7 +84,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 **Bags**
 - Your bag windows wear your theme too: the top bar's trim around each bag, a dark inset, the theme's rail under the title, and the bag's icon in Warcraft III's steel button frame on the corner. Click the icon for Blizzard's bag menu as before.
 - Using **BetterBags**? Pick the **Reforged UI** theme in BetterBags' settings and its bag, bank and option windows match, following your theme as you switch. Without BetterBags installed, that part simply stays off.
-- On **BetterBags Next**, BetterBags' new full-height bags? Pick **Reforged UI** in its theme list too: your bags in the theme's dark inset with its trim all round, gold titles and no sparkles, following your theme as you switch.
+- On **BetterBags Next**, BetterBags' new full-height bags? Pick **Reforged UI** in its theme list too: your bags in the theme's dark inset, its trim down the side facing the middle of the screen (all round a small bag), gold titles and your race's own particles (gold stars of the Light, orc embers, night elf wisps, forge sparks and more), following your theme as you switch.
 - It comes as a separate addon in the same download, **Reforged UI: Bags**. Untick it in the addon list to keep your bags as they were.
 
 ---

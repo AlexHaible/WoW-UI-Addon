@@ -164,7 +164,10 @@ It is a theme for BetterBags' Sonata theme engine (BetterBags 0.5.17 and
 later); with an older BetterBags, or none, that part does nothing. Using
 **BetterBags Next** (BetterBags' new full-height bags)? It has its own theme
 list, and **Reforged UI** is in that one too: the bags in your theme's dark
-inset with its trim all round, gold titles, and none of Next's sparkles.
+inset, a post of its trim down the side facing the middle of the screen (the
+whole trim round a small bag), gold titles, and the race's own particles
+drifting off the bags (the Light's stars, orc embers, night elf wisps, forge
+sparks...).
 
 ## Options
 

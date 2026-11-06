@@ -268,14 +268,40 @@ local PILLAR = piece("INNER", { 0, 1, 0, 1 }, { Width = PILLAR_SCALE * TRIM_EDGE
 -- The rail under the title, between the title row and the search box.
 local NEXT_RAIL = piece("TOP", nil, { Height = RAIL_H, Start = PILLAR_SCALE * TRIM_EDGE, End = TRIM_EDGE + 4, Y = 58 })
 
+-- Themes whose plain post is too thin for a panel the height of the screen
+-- get a pillar of their own (tools/make_next_pillar.py: pillar.tga, 128 x
+-- 256, drawn Width wide and repeating every Tile, its trunk on the panel's
+-- edge), and leaf clusters (cluster.tga) swaying on it.
+local PILLARS = {
+	nightelf = { Width = 80, Tile = 160, Clusters = true },
+}
+-- The clusters: off the pillar's outer side, at fixed heights from the top
+-- and the bottom, each swaying about where it grows from, out of step.
+local function cluster(point, anchor, y, period, delay)
+	return {
+		Point = point, Anchor = anchor, Width = 88, Height = 88, X = 18, Y = y, Sizes = "Full",
+		Layer = "BORDER", SubLevel = 3, TexCoords = { 0, 1, 0, 1 },
+		Motion = { Sway = 5, Period = period, Delay = delay, Origin = "OUTER" },
+	}
+end
+local CLUSTERS = {
+	cluster("TOPINNER", "TOPOUTER", 150, 6, 0),
+	cluster("TOPINNER", "TOPOUTER", 430, 7.5, 2.2),
+	cluster("BOTTOMINNER", "BOTTOMOUTER", -170, 6.5, 4.1),
+}
+
+-- The list BetterBags reads; refresh() fills it for the theme.
 local ornaments = {}
-for _, list in ipairs({ CORNERS, BEAMS, POSTS }) do
-	for _, o in ipairs(list) do
-		ornaments[#ornaments + 1] = o
+local function listOrnaments(clusters)
+	for i = #ornaments, 1, -1 do
+		ornaments[i] = nil
+	end
+	for _, list in ipairs({ CORNERS, BEAMS, POSTS, { PILLAR, NEXT_RAIL }, clusters and CLUSTERS or {} }) do
+		for _, o in ipairs(list) do
+			ornaments[#ornaments + 1] = o
+		end
 	end
 end
-ornaments[#ornaments + 1] = PILLAR
-ornaments[#ornaments + 1] = NEXT_RAIL
 
 -- Each race's particles, BetterBags' own sparkle emitters in its colours:
 -- drifting out of the inner side (Edge) and round the title (Cloud). Texture
@@ -450,8 +476,17 @@ local function refresh()
 		o.Texture = post
 		o.Tile = period
 	end
-	PILLAR.Texture = post
-	PILLAR.Tile = PILLAR_SCALE * period
+	local own = PILLARS[key]
+	if own then
+		PILLAR.Texture, PILLAR.Width, PILLAR.Tile = ReforgedUI.TrimArt("pillar"), own.Width, own.Tile
+	else
+		PILLAR.Texture, PILLAR.Width, PILLAR.Tile = post, PILLAR_SCALE * TRIM_EDGE, PILLAR_SCALE * period
+	end
+	PILLAR.X = -PILLAR.Width / 2
+	for _, o in ipairs(CLUSTERS) do
+		o.Texture = ReforgedUI.TrimArt("cluster")
+	end
+	listOrnaments(own and own.Clusters)
 
 	local motes = PARTICLES[key] or PARTICLES.human
 	for i = 1, 3 do

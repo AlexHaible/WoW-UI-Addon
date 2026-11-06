@@ -2633,8 +2633,26 @@ do
 		assert(seen["TOP:beam:Small"] and seen["BOTTOM:beam:Small"] and seen["TOP:beam:Small"].Tile, "Next: beams tiled along")
 		assert(seen["INNER:post:Small"] and seen["OUTER:post:Small"], "Next: posts down both sides of a small panel")
 		assert(seen["INNER:post:Small"].Tile == ReforgedUI.TrimPostPeriod(), "Next: the post tiled by its period")
-		local pillar = seen["INNER:post:Full"]
-		assert(pillar and pillar.X < 0 and pillar.Tile == 2 * ReforgedUI.TrimPostPeriod(), "Next: a full panel's post, astride its edge")
+		if key == "nightelf" then
+			-- Its own pillar, leafy, and leaf clusters swaying on it.
+			local pillar = seen["INNER:pillar:Full"]
+			assert(pillar and pillar.X == -pillar.Width / 2 and pillar.Width > 28, "Next: night elf's own pillar, astride the edge")
+			local clusters = 0
+			for _, o in ipairs(t.Panel.Ornaments) do
+				if o.Texture:match("cluster$") then
+					clusters = clusters + 1
+					assert(o.Sizes == "Full" and o.Motion and o.Motion.Sway, "Next: a cluster sways, on a full panel")
+				end
+			end
+			assert(clusters > 0, "Next: night elf's leaf clusters")
+		else
+			local pillar = seen["INNER:post:Full"]
+			assert(pillar and pillar.X == -pillar.Width / 2 and pillar.Tile == 2 * ReforgedUI.TrimPostPeriod(),
+				"Next: a full panel's post, astride its edge")
+			for _, o in ipairs(t.Panel.Ornaments) do
+				assert(not o.Texture:match("cluster$"), "Next: clusters only where a theme has them")
+			end
+		end
 		for k, o in pairs(seen) do
 			assert(o.Sizes or k:match("^TOP:rail"), "Next: only the rail and the inner post on a full panel: " .. k)
 		end

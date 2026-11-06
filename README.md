@@ -357,7 +357,9 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   border itself is the top bar's trim from `Media/`. `python3
   tools/make_bb_frame.py` turns those pieces into the BetterBags theme's art
   (`frame.tga` for the classic bags, `beam.tga` and `post.tga` for
-  BetterBags Next).
+  BetterBags Next). `python3 tools/make_next_pillar.py` makes the leafier
+  post (and swaying leaf clusters) Night Elf's full BetterBags Next panels
+  stand against.
   `python3 tools/render_damage_meter.py out.png` and
   `python3 tools/render_bags.py out.png` mock the two skins up for every
   theme.

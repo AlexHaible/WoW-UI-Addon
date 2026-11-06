@@ -683,16 +683,39 @@ local function resolveTheme(t)
 	end
 	return { Windows = sub(t.Windows), Elements = sub(t.Elements) }
 end
+-- And for BetterBags Next's (SonataNext): its own registry, the same
+-- registration path through Sonata, data only (no function anywhere).
+local sonataNext = { themes = {}, applies = {} }
+local function dataOnly(v, path)
+	assert(type(v) ~= "function" and type(v) ~= "userdata", path .. " is data")
+	if type(v) == "table" then
+		assert(getmetatable(v) == nil, path .. " is plain data")
+		for k, x in pairs(v) do dataOnly(x, path .. "." .. tostring(k)) end
+	end
+end
+function sonataNext:RegisterTheme(t)
+	assert(not self.themes[t.Name], "one Next theme per name")
+	dataOnly(t, t.Name)
+	self.themes[t.Name] = t
+end
+function sonataNext:GetCurrentThemeKey() return self.current end
+function sonataNext:ApplyTheme(ctx, key, save)
+	assert(ctx and ctx.event, "applied with a context")
+	self.applies[#self.applies + 1] = { key = key, save = save }
+end
+function sonata:RegisterNextTheme(t) sonataNext:RegisterTheme(t) end
 do
 	local ace = LibStub:NewLibrary("AceAddon-3.0", 1)
 	local bbContext = { New = function(_, event) return { event = event } end }
 	local bb = {}
-	function bb:GetModule(name) return ({ Sonata = sonata, Context = bbContext })[name] end
+	function bb:GetModule(name) return ({ Sonata = sonata, SonataNext = sonataNext, Context = bbContext })[name] end
 	function ace:GetAddon(name) return name == "BetterBags" and bb or nil end
 	assert(loadfile(BAGS_ADDON .. "BetterBags.lua"))("ReforgedUI_Bags", {})
 end
 assert(sonata.themes.ReforgedUI, "the BetterBags theme is registered")
 assert(sonata.themes.ReforgedUI.DisplayName == "Reforged UI", "listed as Reforged UI")
+assert(sonataNext.themes.ReforgedUI, "the BetterBags Next theme is registered")
+assert(sonataNext.themes.ReforgedUI.DisplayName == "Reforged UI", "listed in Next as Reforged UI")
 
 local function fire(event, ...)
 	for _, f in ipairs(eventFrames) do
@@ -2508,7 +2531,7 @@ do
 
 	-- Every theme has its frame art.
 	for _, key in ipairs(ns.THEME_ORDER) do
-		for _, file in ipairs({ "rail", "join", "frame" }) do
+		for _, file in ipairs({ "rail", "join", "frame", "beam", "post" }) do
 			local path = ADDON .. "Media/Trim/" .. key .. "/" .. file .. ".tga"
 			assert(exists(path), "missing " .. path)
 		end
@@ -2585,17 +2608,83 @@ do
 		assert(r.Elements.Tab.Background.Color[1] == ns.Themes[key].inset[1], "tabs in the inset colour")
 	end
 	checkBB(ns.themeKey)
+	-- BetterBags Next: the body in the inset, the trim as ornaments (all
+	-- round a small panel, only a post down a full one's inner side), the
+	-- rail, the theme's art and particles, data only.
+	local function checkNext(key)
+		local t = sonataNext.themes.ReforgedUI
+		dataOnly(t, "ReforgedUI")
+		local inset = ns.Themes[key].inset
+		local body = t.Palette.Body
+		assert(body[1] == inset[1] and body[2] == inset[2] and body[3] == inset[3], "Next: the " .. key .. " inset")
+		assert(t.Panel.Fill.Color == "Body", "Next: the body filled")
+		assert(t.Panel.Feather.Color == "Body" and t.Panel.Edge == false, "Next: a feather, the trim instead of a border")
+		local trim = "ReforgedUI\\Media\\Trim\\" .. key .. "\\"
+		local seen = {}
+		for _, o in ipairs(t.Panel.Ornaments) do
+			assert(type(o.Texture) == "string" and o.Texture:find(trim, 1, true), "Next: " .. o.Point .. " in " .. key .. "'s art")
+			local file = o.Texture:match("([^\\\\]+)$")
+			assert(exists(ADDON .. "Media/Trim/" .. key .. "/" .. file .. ".tga"), "Next: " .. file .. " is shipped")
+			seen[o.Point .. ":" .. file .. ":" .. tostring(o.Sizes)] = o
+		end
+		for _, c in ipairs({ "TOPINNER", "TOPOUTER", "BOTTOMINNER", "BOTTOMOUTER" }) do
+			assert(seen[c .. ":join:Small"], "Next: the " .. c .. " corner on a small panel")
+		end
+		assert(seen["TOP:beam:Small"] and seen["BOTTOM:beam:Small"] and seen["TOP:beam:Small"].Tile, "Next: beams tiled along")
+		assert(seen["INNER:post:Small"] and seen["OUTER:post:Small"], "Next: posts down both sides of a small panel")
+		assert(seen["INNER:post:Small"].Tile == ReforgedUI.TrimPostPeriod(), "Next: the post tiled by its period")
+		if key == "nightelf" then
+			-- Its own pillar, leafy, and leaf clusters swaying on it.
+			local pillar = seen["INNER:pillar:Full"]
+			assert(pillar and pillar.X == -pillar.Width / 2 and pillar.Width > 28, "Next: night elf's own pillar, astride the edge")
+			local clusters = 0
+			for _, o in ipairs(t.Panel.Ornaments) do
+				if o.Texture:match("cluster$") then
+					clusters = clusters + 1
+					assert(o.Sizes == "Full" and o.Motion and o.Motion.Sway, "Next: a cluster sways, on a full panel")
+				end
+			end
+			assert(clusters > 0, "Next: night elf's leaf clusters")
+		else
+			local pillar = seen["INNER:post:Full"]
+			assert(pillar and pillar.X == -pillar.Width / 2 and pillar.Tile == 2 * ReforgedUI.TrimPostPeriod(),
+				"Next: a full panel's post, astride its edge")
+			for _, o in ipairs(t.Panel.Ornaments) do
+				assert(not o.Texture:match("cluster$"), "Next: clusters only where a theme has them")
+			end
+		end
+		for k, o in pairs(seen) do
+			assert(o.Sizes or k:match("^TOP:rail"), "Next: only the rail and the inner post on a full panel: " .. k)
+		end
+		assert(seen["TOP:rail:nil"], "Next: the rail under the title")
+		local S = t.Sparkles
+		assert(S and S.Edge and S.Cloud and S.Ribbon == false, "Next: particles off the inner side and round the title")
+		for i, name in ipairs(S.Colors) do
+			assert(t.Palette[name], "Next: particle colour " .. i .. " in the palette")
+		end
+		assert(t.Fonts.Title.File == ReforgedUI.FONT and t.Fonts.Title.Locales, "Next: our font, Latin locales only")
+	end
+	checkNext(ns.themeKey)
 	-- A theme change applies the theme again, unsaved, only while it is the
 	-- applied one.
 	sonata.current = "Default"
+	sonataNext.current = "Default"
 	slash("theme orc")
 	assert(#sonata.applies == 0, "another BetterBags theme is left alone")
+	assert(#sonataNext.applies == 0, "another BetterBags Next theme is left alone")
+	checkNext("orc")
 	sonata.current = "ReforgedUI"
+	sonataNext.current = "ReforgedUI"
 	slash("theme nightelf")
 	checkBags("nightelf")
 	checkBB("nightelf")
+	checkNext("nightelf")
 	assert(#sonata.applies == 1 and sonata.applies[1].key == "ReforgedUI", "applied again on a theme change")
 	assert(sonata.applies[1].save == false, "without saving")
+	assert(#sonataNext.applies == 1 and sonataNext.applies[1].key == "ReforgedUI", "Next: applied again")
+	assert(sonataNext.applies[1].save == false, "Next: without saving")
+	slash("theme gnome")
+	checkNext("gnome")
 	slash("theme auto")
 	checkBags(ns.themeKey)
 end

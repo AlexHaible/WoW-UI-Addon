@@ -161,7 +161,13 @@ Blizzard's. If you use **BetterBags**, the addon also adds a **Reforged UI**
 theme to BetterBags' theme list (bag, bank and option windows, following
 your Reforged UI theme as it changes); pick it in BetterBags' settings.
 It is a theme for BetterBags' Sonata theme engine (BetterBags 0.5.17 and
-later); with an older BetterBags, or none, that part does nothing.
+later); with an older BetterBags, or none, that part does nothing. Using
+**BetterBags Next** (BetterBags' new full-height bags)? It has its own theme
+list, and **Reforged UI** is in that one too: the bags in your theme's dark
+inset, a post of its trim down the side facing the middle of the screen (the
+whole trim round a small bag), gold titles, and the race's own particles
+drifting off the bags (the Light's stars, orc embers, night elf wisps, forge
+sparks...).
 
 ## Options
 
@@ -348,7 +354,12 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   [theme ...]` makes its own art (`Media/Trim/<theme>`): the rail from each
   theme's target plate, the mitred corner where the top bar's beam and post
   meet, and side posts for themes whose top bar has none (Skyborne). The
-  border itself is the top bar's trim from `Media/`.
+  border itself is the top bar's trim from `Media/`. `python3
+  tools/make_bb_frame.py` turns those pieces into the BetterBags theme's art
+  (`frame.tga` for the classic bags, `beam.tga` and `post.tga` for
+  BetterBags Next). `python3 tools/make_next_pillar.py` makes the leafier
+  post (and swaying leaf clusters) Night Elf's full BetterBags Next panels
+  stand against.
   `python3 tools/render_damage_meter.py out.png` and
   `python3 tools/render_bags.py out.png` mock the two skins up for every
   theme.

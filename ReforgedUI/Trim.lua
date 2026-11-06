@@ -37,8 +37,15 @@ function ReforgedUI.TrimArt(name)
 	return TRIM .. (ns.themeKey or "human") .. "\\" .. name
 end
 
--- How far the trim reaches past the box it goes around.
+-- How far the trim reaches past the box it goes around, and how thick it is.
 ReforgedUI.TRIM_OUT = EDGE - INSET
+ReforgedUI.TRIM_EDGE = EDGE
+
+-- How long one period of the current theme's post is, in window units: the
+-- length BetterBags Next tiles post.tga by (made by make_bb_frame.py).
+function ReforgedUI.TrimPostPeriod()
+	return (OWN_EDGEV[ns.themeKey or "human"] or 128) / 32 * EDGE
+end
 
 -- One half of a side: from the corner at `point` of `box` (pushed `dx`, `dy`
 -- outwards), `w` x `h`, with the texture's repeat coords.

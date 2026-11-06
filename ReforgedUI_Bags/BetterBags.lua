@@ -13,6 +13,10 @@
 -- (Media/Trim/<theme>/frame.tga, made by tools/make_bb_frame.py from the
 -- pieces Trim.lua lays out).
 --
+-- BetterBags Next (BetterBags' new full-height bags) has its own themes and
+-- its own theme list: the second half of this file adds "Reforged UI" there
+-- too, when the BetterBags in use has Next themes.
+--
 -- BetterBags is only an optional dependency: without it (or with a version
 -- from before Sonata) this file does nothing at all.
 
@@ -181,5 +185,207 @@ sonata:RegisterTheme({
 ReforgedUI.RegisterThemeCallback(function()
 	if sonata:GetCurrentThemeKey() == NAME then
 		sonata:ApplyTheme(context:New("ReforgedUI_ThemeChanged"), NAME, false)
+	end
+end)
+
+-- BetterBags Next ------------------------------------------------------------
+--
+-- Next draws its panels from Next themes (BetterBags' sonata/next.lua and
+-- sonata/themes/next/): data only, no functions anywhere, every theme
+-- inheriting what it leaves out from Next's Default. So the theme below holds
+-- values, not variables: refresh() writes the current Reforged UI theme's
+-- colours and art into it, and BetterBags reads them each time it applies the
+-- theme (it resolves a new copy every time). A Reforged UI theme change
+-- refreshes it and, while it is the Next theme in use, applies it again.
+--
+-- The look: the panel's body in the theme's dark inset, the trim all round
+-- it as ornaments (Next's art pieces anchored to the body's sides and
+-- corners, mirrored on the bank's left-hand panel): join.tga in the corners,
+-- beam.tga tiled along the top and bottom and post.tga down the sides, both
+-- from make_bb_frame.py. The trim sits inside the body, so the tabs down its
+-- inner side stay clear of it; the fill stops under the trim as the windows'
+-- does. The rail under the title, gold titles in our font, and Next's
+-- sparkles, ribbon and title cloud left out.
+--
+-- Older BetterBags (no Next themes) just skips this.
+
+local sonataNext = BetterBags:GetModule("SonataNext", true)
+if not (sonataNext and sonataNext.RegisterTheme and sonataNext.ApplyTheme and sonata.RegisterNextTheme) then
+	return
+end
+
+local TRIM_EDGE = ReforgedUI.TRIM_EDGE or EDGE
+local BEAM_TILE = 256 / 32 * TRIM_EDGE -- beam.tga is 256 x 32
+-- Our font is Latin only: elsewhere Next draws these roles in the client's.
+local LATIN = { "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "itIT", "ptBR" }
+
+local function nextFont(size, color, shadow)
+	return { File = ReforgedUI.FONT, Locales = LATIN, Size = size, Color = color, Shadow = shadow }
+end
+
+-- An ornament: art at a place on the body (Next's Panel.Ornaments).
+local function piece(point, coords, size)
+	local o = { Point = point, TexCoords = coords, Layer = "BORDER", SubLevel = 1 }
+	for k, v in pairs(size) do
+		o[k] = v
+	end
+	return o
+end
+
+-- The pieces drawn for the backpack, whose inner side is the left one; Next
+-- mirrors them on panels whose inner side is the right one.
+local CORNERS = {
+	piece("TOPINNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
+	piece("TOPOUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
+	piece("BOTTOMINNER", { 0, 1, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
+	piece("BOTTOMOUTER", { 1, 0, 1, 0 }, { Width = TRIM_EDGE, Height = TRIM_EDGE }),
+}
+local BEAMS = {
+	piece("TOP", { 0, 1, 0, 1 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE }),
+	piece("BOTTOM", { 0, 1, 1, 0 }, { Height = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE, Tile = BEAM_TILE }),
+}
+-- post.tga has its outer side on the left.
+local POSTS = {
+	piece("INNER", { 0, 1, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE }),
+	piece("OUTER", { 1, 0, 0, 1 }, { Width = TRIM_EDGE, Start = TRIM_EDGE, End = TRIM_EDGE }),
+}
+-- The rail under the title, between the title row and the search box.
+local NEXT_RAIL = piece("TOP", nil, { Height = RAIL_H, Start = TRIM_EDGE + 4, End = TRIM_EDGE + 4, Y = 58 })
+
+local ornaments = {}
+for _, list in ipairs({ CORNERS, BEAMS, POSTS }) do
+	for _, o in ipairs(list) do
+		ornaments[#ornaments + 1] = o
+	end
+end
+ornaments[#ornaments + 1] = NEXT_RAIL
+
+local palette = {
+	White = { 1, 1, 1, 1 },
+	Text = { 0.95, 0.93, 0.88, 1 },
+	Muted = { 0.68, 0.66, 0.6, 1 },
+}
+
+local nextTheme = {
+	Name = NAME,
+	DisplayName = "Reforged UI",
+	Description = "Your Reforged UI theme: the race's trim around the bags, in its colours, following it as you switch.",
+
+	Palette = palette,
+
+	Fonts = {
+		Title = nextFont(22, "Gold", true),
+		Section = nextFont(13, "Gold", true),
+		SectionRecent = nextFont(13, "White", true),
+		Tab = nextFont(12, "Muted"),
+		TabSelected = nextFont(12, "Gold", true),
+		ConfirmTitle = nextFont(18, "Gold", true),
+		DialogTitle = nextFont(16, "Gold", true),
+		SettingsBrand = nextFont(20, "Gold", true),
+		SettingsTitle = nextFont(24, "Gold", true),
+	},
+
+	-- Room for the trim: the footer's text up off the bottom beam.
+	Layout = {
+		Footer = 46,
+		FooterText = 20,
+		FooterMoney = 18,
+	},
+
+	-- No bounce as a panel opens or comes in: its outer side's trim would
+	-- swing off the screen edge.
+	Motion = { Ease = { Open = "outCubic", Enter = "outCubic" } },
+
+	Panel = {
+		-- The fill stops under the trim, as the windows' inset does.
+		Fill = { Color = "Body", Inset = around(OUT) },
+		Feather = false,
+		Edge = false,
+		Wash = { Height = 200, BlendMode = "ADD" },
+		DropGlow = { Color = "Gold", Alpha = 0.12, BlendMode = "ADD" },
+		Ornaments = ornaments,
+	},
+
+	Header = {
+		Ribbon = false,
+		Cloud = false,
+		Spark = false,
+		TitleGlow = { Texture = "Glow", Color = "Gold", Alpha = 0.2, X = 24, Y = 14, BlendMode = "ADD" },
+		Buttons = { Color = "ButtonIcon", HoverColor = "White", ArtColor = "White", ArtHoverColor = "White" },
+	},
+
+	Sparkles = false,
+	Chain = { Braid = false },
+
+	-- Solid tabs edged in the inset line, the selected one in gold.
+	Tabs = {
+		Fade = 1,
+		Glow = { Color = "Gold", BlendMode = "ADD", Drop = 0.3, Pulse = 0.8 },
+		Edge = { Color = "Lavender", Alpha = 0.6, Size = 1 },
+		SelectedEdge = { Color = "Gold", Alpha = 1, Size = 1 },
+	},
+
+	Search = {
+		Icon = { Color = "Lavender", Idle = 0.85, Active = 1, FocusColor = "Gold" },
+	},
+}
+
+local function shade(c, d, a)
+	return {
+		math.min(1, c[1] + d),
+		math.min(1, c[2] + d),
+		math.min(1, c[3] + d),
+		a or 1,
+	}
+end
+
+-- Writes the current Reforged UI theme into the Next theme: its colours, its
+-- trim's art and the post's period.
+local function refresh()
+	local _, theme = ReforgedUI.GetTheme()
+	local inset = theme and theme.inset or DEFAULT_INSET
+	local line = theme and theme.insetLine or DEFAULT_LINE
+	local title = theme and theme.title or { 1, 0.82, 0 }
+	palette.Body = shade(inset, 0, 0.94)
+	palette.Wash = shade(line, 0, 0.08)
+	palette.Gold = shade(title, 0)
+	-- Next's edges, lines and links are "Lavender": ours are the inset line.
+	palette.Lavender = shade(line, 0)
+	palette.ButtonIcon = shade(title, 0)
+	palette.Bead = shade(title, 0)
+	palette.Tab = shade(inset, 0.04, 0.94)
+	palette.TabSelected = shade(inset, 0.12, 0.96)
+	palette.Card = shade(inset, 0.04, 0.98)
+	palette.SearchFill = shade(inset, 0.06)
+	palette.SearchFillFocus = shade(inset, 0.1)
+	palette.ControlFill = shade(inset, 0.06)
+	palette.ControlHover = shade(inset, 0.1)
+	palette.ControlPressed = shade(inset, 0.03)
+	palette.Track = shade(inset, 0.14)
+
+	local join, beam, post = ReforgedUI.TrimArt("join"), ReforgedUI.TrimArt("beam"), ReforgedUI.TrimArt("post")
+	local period = ReforgedUI.TrimPostPeriod and ReforgedUI.TrimPostPeriod() or 4 * TRIM_EDGE
+	for _, o in ipairs(CORNERS) do
+		o.Texture = join
+	end
+	for _, o in ipairs(BEAMS) do
+		o.Texture = beam
+	end
+	for _, o in ipairs(POSTS) do
+		o.Texture = post
+		o.Tile = period
+	end
+	NEXT_RAIL.Texture = ReforgedUI.TrimArt("rail")
+end
+
+refresh()
+sonata:RegisterNextTheme(nextTheme)
+
+-- Every theme change refreshes it (so it is right whenever BetterBags first
+-- applies it), and applies it again, unsaved, while it is Next's theme.
+ReforgedUI.RegisterThemeCallback(function()
+	refresh()
+	if sonataNext:GetCurrentThemeKey() == NAME then
+		sonataNext:ApplyTheme(context:New("ReforgedUI_ThemeChanged"), NAME, false)
 	end
 end)

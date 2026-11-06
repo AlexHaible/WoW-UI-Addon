@@ -14,6 +14,10 @@ Trim.lua mirrors it), one period of the beam along the top and, flipped, the
 bottom, and one period of the post down the sides, after the part the join
 took. BetterBags tiles the sides between the corners.
 
+For BetterBags Next it also writes that beam and side on their own
+(beam.tga, post.tga, at the art's 32 px), which Next tiles along the
+panel's edges between join.tga corners.
+
 The pieces are composed at the art's own 32 px and scaled to EDGE (14) px a
 side, so one texel is one window unit, the trim's size in Trim.lua. The
 centre is clear: the theme draws the dark inset itself.
@@ -83,6 +87,14 @@ def make(key):
     path = os.path.join(own, "frame.tga")
     out.save(path, rle=True)
     print(path, out.size)
+
+    # BetterBags Next draws the trim from pieces it tiles itself (ornaments,
+    # at the art's own 32 px): the same beam and side, each starting where
+    # the corner's join ends, so the pattern meets the join as frame.tga's.
+    for name, piece in (("beam", beam), ("post", side)):
+        path = os.path.join(own, name + ".tga")
+        piece.save(path, rle=True)
+        print(path, piece.size)
 
 
 def main():

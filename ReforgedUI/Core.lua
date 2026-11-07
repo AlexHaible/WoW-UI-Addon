@@ -935,14 +935,29 @@ function ns:PetRow(L)
 	return L and L.pet
 end
 
-function ns:PetBarSpot()
-	local row = self:PetRow()
+function ns:PetBarSpot(row)
+	row = row or self:PetRow()
 	if not (row and self:PetBarInEditMode()) then
 		return nil
 	end
 	local u = self:UnitsFor(_G.PetActionBar)
 	return { x = math.floor(row.x * u + 0.5), y = math.floor(row.y * u + 0.5),
 		size = row.size * u, padding = (row.step - row.size) * u }
+end
+
+-- Both rows the pet bar may be placed on: which one depends on the
+-- character (stance buttons or not), but the layout is shared by all of
+-- them, so a bar on either row counts as in place.
+function ns:PetBarSpots()
+	local L = self.layout
+	local spots = {}
+	for _, row in ipairs({ L and L.pet, L and L.stance }) do
+		local spot = self:PetBarSpot(row)
+		if spot then
+			spots[#spots + 1] = spot
+		end
+	end
+	return spots
 end
 
 local BUTTON_SIZE = 45 -- an action button at 100% icon size
@@ -965,7 +980,7 @@ local function setIconSize(entry, settings, scale, padding)
 	setSetting(entry, settings.IconPadding, indexed and padding - 2 or padding)
 end
 
-local function placePetBar(layout, spot, last, fresh)
+local function placePetBar(layout, spot, last, fresh, spots)
 	local sys, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
 	local pet = spot and sys.ActionBar and indices and indices.PetActionBar
 		and findSystem(layout, sys.ActionBar, indices.PetActionBar)
@@ -977,6 +992,9 @@ local function placePetBar(layout, spot, last, fresh)
 		and a.relativePoint == "BOTTOMLEFT"
 	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
 	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
+	for _, other in ipairs(spots or {}) do
+		inPlace = inPlace or (atOurs and near(a.offsetX, other.x) and near(a.offsetY, other.y))
+	end
 	if not ((pet.isInDefaultPosition and fresh) or (ours and not inPlace)) then
 		return false
 	end
@@ -1254,7 +1272,7 @@ function ns:SetupEditMode()
 
 	local raised, buffsMoved, petMoved, leaveMoved = 0, 0, 0, 0
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
-	local petSpot, petLast = self:PetBarSpot(), self.db.consoleOpts.petSpot
+	local petSpot, petLast, petSpots = self:PetBarSpot(), self.db.consoleOpts.petSpot, self:PetBarSpots()
 	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
 	-- Frames still in their default place are moved once per layout. Should
 	-- the game hand the layout back unchanged (it does for some players),
@@ -1271,7 +1289,7 @@ function ns:SetupEditMode()
 		if placeBuffs(layout, spot, last or nil, fresh) then
 			buffsMoved = buffsMoved + 1
 		end
-		if placePetBar(layout, petSpot, petLast or nil, fresh) then
+		if placePetBar(layout, petSpot, petLast or nil, fresh, petSpots) then
 			petMoved = petMoved + 1
 		end
 		if placeLeaveButton(layout, leaveSpot, leaveLast or nil, fresh) then
@@ -1291,7 +1309,9 @@ function ns:SetupEditMode()
 	if spot then
 		self.db.consoleOpts.buffSpot = spot
 	end
-	if petSpot then
+	-- Where we put it last: kept while nothing moved, so a character with
+	-- the bar on the other row doesn't make it look moved by the player.
+	if petSpot and (petMoved > 0 or not petLast) then
 		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
 	end
 	if leaveSpot then

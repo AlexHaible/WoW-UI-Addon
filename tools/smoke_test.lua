@@ -918,6 +918,18 @@ do
 	assert(#savedLayouts.layouts == 3 and activeLayout == nil and cvars.raidFramesDisplayClassColor == "0",
 		"the layout is set up once")
 
+	-- The pet bar's layout is shared: a character without stance buttons (or
+	-- one whose forms aren't known yet at login) finds the bar on the other
+	-- row and leaves it there, with no reload asked, both ways round.
+	local petAt = savedLayouts.layouts[1].systems[9].anchorInfo.offsetY
+	local asked = #popups
+	GetNumShapeshiftForms = function() return 0 end
+	ns:SetupEditMode()
+	GetNumShapeshiftForms = nil
+	ns:SetupEditMode()
+	assert(#popups == asked and savedLayouts.layouts[1].systems[9].anchorInfo.offsetY == petAt
+		and ns.db.consoleOpts.petSpot.y == petAt, "a pet bar on either row stays put")
+
 	-- Until Blizzard's Edit Mode has its layouts, the game's list may be
 	-- incomplete: nothing is made or saved before then. Our layout goes
 	-- after the account layouts, before the character's own, and the

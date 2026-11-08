@@ -44,7 +44,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.
-- Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall.
+- Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall, fully solid so the world never shows through it.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it. They work in combat too: they're Blizzard's own aura icons, placed for you.
 - Icons too small? Drag **Target aura size** in the options (or type `/rui aurasize 150`) to make them up to twice as big. They grow only as far as still fits on the wall beside the target's target.

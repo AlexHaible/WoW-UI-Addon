@@ -352,6 +352,11 @@ function Target:CreatePlate()
 	v.health = hero.MakeBar(top, 14, 9)
 	v.power = hero.MakeBar(top, 14, 9)
 	v.healthText, v.powerText = v.health.text, v.power.text
+	-- The plate stands above the wall, and some themes' plates are open
+	-- under the bars: a solid background, so the world doesn't show through
+	-- the empty part of a bar.
+	v.health.back:SetColorTexture(0, 0, 0, 1)
+	v.power.back:SetColorTexture(0, 0, 0, 1)
 	for _, fs in ipairs({ v.healthText, v.powerText }) do
 		fs:SetJustifyH("CENTER")
 		fs:SetWordWrap(false)

@@ -195,6 +195,7 @@ local function makeBar(parent, level, size)
 	local back = bar:CreateTexture(nil, "BACKGROUND")
 	back:SetAllPoints()
 	back:SetColorTexture(0, 0, 0, 0.5)
+	bar.back = back
 	bar.text = bar:CreateFontString(nil, "OVERLAY")
 	font(bar.text, size)
 	bar.text:SetPoint("CENTER")

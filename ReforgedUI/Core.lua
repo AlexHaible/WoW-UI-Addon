@@ -61,7 +61,7 @@ local DEFAULTS = {
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		leaveSpot = false, -- where the leave vehicle button was last placed in Edit Mode layouts ({ x, y })
-		leaveKey = false, -- the shared settings it was placed for (LeaveButtonKey)
+		spotKey = false, -- the shared settings those spots were placed for (EditSpotKey)
 		editPlaced = {}, -- per Edit Mode layout: frames already moved out of their default place once
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
@@ -866,7 +866,8 @@ end
 -- hidden; debuffs under the buffs. Placed in every
 -- layout where they are still in their default place, or still where we
 -- put them last (so a new top bar scale carries them along); once moved in
--- Edit Mode they are the player's.
+-- Edit Mode they are the player's. Like the pet bar and the leave button
+-- they only follow after a shared setting changes (EditSpotKey).
 local BUFF_GAP, BUFF_RIGHT = 6, 12
 
 local function near(v, want)
@@ -916,8 +917,9 @@ end
 -- The pet bar starts just above the stance row on the console wall
 -- (Blizzard's default place is over the console). Like the buffs it is placed
 -- in every layout where it is still in its default place, or still where we
--- put it last (so a new console scale carries it along); once moved in Edit
--- Mode it is the player's.
+-- put it last after a shared setting changed (so a new console scale
+-- carries it along, see EditSpotKey); once moved in Edit Mode it is the
+-- player's.
 function ns:PetBarInEditMode()
 	local indices = Enum and Enum.EditModeActionBarSystemIndices
 	local bar = _G.PetActionBar
@@ -1016,7 +1018,7 @@ end
 -- just above the minimap's top-left corner (Layout.lua); Blizzard's default
 -- place is under the top bar, over its slots. Placed in every layout where
 -- it is still in its default place. It only follows (from where we put it
--- last) when a setting all characters share changes (LeaveButtonKey): the
+-- last) when a setting all characters share changes (EditSpotKey): the
 -- spot itself differs a little from character to character and login to
 -- login (theme, menu buttons, the button's scale), but the layout is shared,
 -- so following that moved it, saved the layouts and asked for a reload on
@@ -1032,13 +1034,16 @@ function ns:LeaveButtonSpot()
 	return { x = math.floor(spot.x * u + 0.5), y = math.floor(spot.y * u + 0.5) }
 end
 
--- What the leave button's spot depends on that is the same for every
--- character: the screen and the account-wide console options.
-function ns:LeaveButtonKey()
+-- What the buffs', pet bar's and leave button's spots depend on that is
+-- the same for every character: the screen and the account-wide options.
+-- The spots also differ between characters (theme, stance buttons, menu
+-- buttons) and logins (frame scales), but the Edit Mode layouts are shared,
+-- so frames we placed only follow a change of this.
+function ns:EditSpotKey()
 	local o = self.db.consoleOpts
 	return table.concat({ math.floor(UIParent:GetWidth() + 0.5), math.floor(UIParent:GetHeight() + 0.5),
-		tostring(o.uiScale), tostring(o.uiSize), tostring(o.chatWiden), tostring(not not o.hideTopBar),
-		tostring(self.db.theme) }, " ")
+		tostring(self.db.scale), tostring(self.db.layout), tostring(o.uiScale), tostring(o.uiSize),
+		tostring(o.chatWiden), tostring(not not o.hideTopBar), tostring(self.db.theme) }, " ")
 end
 
 local function placeLeaveButton(layout, spot, last, fresh)
@@ -1288,9 +1293,10 @@ function ns:SetupEditMode()
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
 	local petSpot, petLast, petSpots = self:PetBarSpot(), self.db.consoleOpts.petSpot, self:PetBarSpots()
 	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
-	local leaveKey, leaveKeyLast = self:LeaveButtonKey(), self.db.consoleOpts.leaveKey
-	-- Followed only after a shared setting changed (none saved yet: as it is).
-	local leaveFollow = leaveLast and leaveKeyLast and leaveKeyLast ~= leaveKey and leaveLast or nil
+	-- Frames we placed follow only after a shared setting changed (none
+	-- saved yet, from an older version: they stay as they are).
+	local spotKey, spotKeyLast = self:EditSpotKey(), self.db.consoleOpts.spotKey
+	local follow = spotKeyLast and spotKeyLast ~= spotKey
 	-- Frames still in their default place are moved once per layout. Should
 	-- the game hand the layout back unchanged (it does for some players),
 	-- they are left there instead of being moved, saved and offered a reload
@@ -1303,13 +1309,13 @@ function ns:SetupEditMode()
 		if raiseCastBar(layout, castY, fresh) then
 			raised = raised + 1
 		end
-		if placeBuffs(layout, spot, last or nil, fresh) then
+		if placeBuffs(layout, spot, follow and last or nil, fresh) then
 			buffsMoved = buffsMoved + 1
 		end
-		if placePetBar(layout, petSpot, petLast or nil, fresh, petSpots) then
+		if placePetBar(layout, petSpot, follow and petLast or nil, fresh, petSpots) then
 			petMoved = petMoved + 1
 		end
-		if placeLeaveButton(layout, leaveSpot, leaveFollow, fresh) then
+		if placeLeaveButton(layout, leaveSpot, follow and leaveLast or nil, fresh) then
 			leaveMoved = leaveMoved + 1
 		end
 		if fresh then
@@ -1323,22 +1329,19 @@ function ns:SetupEditMode()
 	for _, key in ipairs(newlyPlaced) do
 		placedOnce[key] = true
 	end
-	if spot then
+	-- Where we put them last: kept while nothing moved, so another
+	-- character's (or login's) spot doesn't make them look moved by the
+	-- player.
+	if spot and (buffsMoved > 0 or not last) then
 		self.db.consoleOpts.buffSpot = spot
 	end
-	-- Where we put it last: kept while nothing moved, so a character with
-	-- the bar on the other row doesn't make it look moved by the player.
 	if petSpot and (petMoved > 0 or not petLast) then
 		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
 	end
-	-- Where we put it last: kept while nothing moved, so another
-	-- character's (or login's) spot doesn't make it look moved by the player.
-	if leaveSpot then
-		if leaveMoved > 0 or not leaveLast then
-			self.db.consoleOpts.leaveSpot = leaveSpot
-		end
-		self.db.consoleOpts.leaveKey = leaveKey
+	if leaveSpot and (leaveMoved > 0 or not leaveLast) then
+		self.db.consoleOpts.leaveSpot = leaveSpot
 	end
+	self.db.consoleOpts.spotKey = spotKey
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true
 	end

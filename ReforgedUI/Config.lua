@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 568
+local W, H = 650, 594
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -118,7 +118,8 @@ function Config:Slider(text, key, lo, hi, x, y, w, after, unit)
 	s:SetScript("OnValueChanged", function(_, v)
 		v = math.floor(v + 0.5)
 		value:SetText(v .. unit)
-		if ns.db.consoleOpts[key] ~= v then
+		-- Refresh showing a setting that is still unset (s.default) leaves it unset.
+		if ns.db.consoleOpts[key] ~= v and not self.refreshing then
 			ns.db.consoleOpts[key] = v
 			if after then
 				after(v)
@@ -301,9 +302,26 @@ function Config:Build()
 	-- A smaller console and top bar; Edit Mode's places follow when let go.
 	local size = self:Slider("UI size", "uiSize", ns.UI_SIZE_MIN, ns.UI_SIZE_MAX, 20, -496, 300, relayout)
 	size:SetScript("OnMouseUp", placeEditMode)
+	-- Bigger target buff and debuff icons on the wall: Edit Mode's Frame
+	-- Size for the target frame (its icons are all we leave of it), in
+	-- steps of 5 %, placed when let go. Until moved it stays unset, and Edit
+	-- Mode's own size is kept.
+	local auras = self:Slider("Target aura size", "targetAuraSize", ns.TARGET_AURA_SIZE_MIN,
+		ns.TARGET_AURA_SIZE_MAX, 20, -522, 300)
+	auras:SetValueStep(5)
+	auras.default = ns.TARGET_AURA_SIZE_MIN
+	local function placeAuras()
+		placeEditMode()
+		ns:SayTargetAuraSize()
+	end
+	auras:SetScript("OnMouseUp", placeAuras)
+	auras:SetScript("OnMouseWheel", function(slider, delta)
+		slider:SetValue(slider:GetValue() + delta * 5)
+		placeAuras()
+	end)
 
-	button(f, "Apply", 120, 20, -528, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -528, ReloadUI)
+	button(f, "Apply", 120, 20, -554, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -554, ReloadUI)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).
@@ -340,10 +358,13 @@ function Config:Refresh()
 		eb:SetText(v and tostring(v) or "")
 		eb:SetCursorPosition(0)
 	end
+	self.refreshing = true
 	for _, s in ipairs(self.sliders) do
-		s:SetValue(o[s.key] or 0)
-		s.value:SetText((o[s.key] or 0) .. s.unit)
+		local v = o[s.key] or s.default or 0
+		s:SetValue(v)
+		s.value:SetText(v .. s.unit)
 	end
+	self.refreshing = false
 	for _, b in ipairs(self.themeButtons) do
 		b:SetEnabled(ns.db.theme ~= b.key)
 	end

@@ -53,7 +53,9 @@ screen stays free on either side).
   icons: in combat the game lets no addon read a target's auras, so
   Blizzard's target frame stays with everything but its auras made
   invisible, and the "Reforged UI" Edit Mode layout places it (buffs on
-  top) so the icons land there.
+  top) so the icons land there. "Target aura size" in the options (or
+  `/rui aurasize 100-200`) makes them bigger through that layout's Frame
+  Size for the target frame, as far as a full row still fits on the wall.
   Left-click targets, right-click opens the unit menu.
   For the target's health nearer the middle of the screen, the options'
   "Target bar" (or `/rui targetbar on`) adds a small free-standing bar with
@@ -281,6 +283,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
+/rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset

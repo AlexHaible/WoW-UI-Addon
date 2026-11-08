@@ -97,6 +97,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - The target frame is placed so its buff and debuff icons sit next to the target display.
 - Your buffs and debuffs start in the top-right corner, just below the top bar (or at the very top with the top bar hidden).
 - The pet bar starts on the console wall, just above the stance buttons (in your other layouts too, unless you've moved it).
+- The leave vehicle button (also the flight path "request stop" button) starts just above the minimap's top-left corner (in your other layouts too, unless you've moved it). It's the same spot for all your characters, so switching characters or relogging doesn't move it again.
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly. It moves each frame out of its default place only once per layout, so if you put one back, it stays there and you won't be asked again at every login.
 

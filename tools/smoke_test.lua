@@ -930,6 +930,39 @@ do
 	assert(#popups == asked and savedLayouts.layouts[1].systems[9].anchorInfo.offsetY == petAt
 		and ns.db.consoleOpts.petSpot.y == petAt, "a pet bar on either row stays put")
 
+	-- The leave button's spot differs a little between characters and
+	-- logins (theme, menu buttons, the button's scale), but the layout is
+	-- shared: it stays where it is, with no reload asked, both ways round.
+	-- Only a shared setting changing carries it along.
+	local leave = savedLayouts.layouts[1].systems[10].anchorInfo
+	local leaveAt, leaveSpotAt = leave.offsetY, ns.db.consoleOpts.leaveSpot
+	assert(ns.db.consoleOpts.leaveKey == ns:LeaveButtonKey(), "the shared settings it was placed for are kept")
+	local realSpot = ns.LeaveButtonSpot
+	ns.LeaveButtonSpot = function(self)
+		local spot = realSpot(self)
+		return { x = spot.x, y = spot.y + 12 }
+	end
+	ns:SetupEditMode()
+	ns.LeaveButtonSpot = realSpot
+	ns:SetupEditMode()
+	assert(#popups == asked and leave.offsetY == leaveAt and ns.db.consoleOpts.leaveSpot == leaveSpotAt,
+		"a leave button at another login's spot stays put")
+	ns.db.consoleOpts.leaveKey = "an older screen"
+	ns.LeaveButtonSpot = function(self)
+		local spot = realSpot(self)
+		return { x = spot.x, y = spot.y + 12 }
+	end
+	ns:SetupEditMode()
+	ns.LeaveButtonSpot = realSpot
+	assert(savedLayouts.layouts[1].systems[10].anchorInfo.offsetY == leaveAt + 12
+		and ns.db.consoleOpts.leaveSpot.y == leaveAt + 12 and #popups == asked + 1
+		and popups[#popups].text:find("leave vehicle"), "a shared setting changing carries it along")
+	-- Back where it was (as a new console size would), for the tests below.
+	ns.db.consoleOpts.leaveKey = "an older screen"
+	ns:SetupEditMode()
+	assert(savedLayouts.layouts[1].systems[10].anchorInfo.offsetY == leaveAt, "and back")
+	asked = #popups
+
 	-- Until Blizzard's Edit Mode has its layouts, the game's list may be
 	-- incomplete: nothing is made or saved before then. Our layout goes
 	-- after the account layouts, before the character's own, and the

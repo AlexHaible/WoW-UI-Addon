@@ -61,6 +61,7 @@ local DEFAULTS = {
 		buffSpot = false, -- where the buffs were last placed in Edit Mode layouts ({ x, y })
 		petSpot = false, -- where the pet bar was last placed in Edit Mode layouts ({ x, y })
 		leaveSpot = false, -- where the leave vehicle button was last placed in Edit Mode layouts ({ x, y })
+		leaveKey = false, -- the shared settings it was placed for (LeaveButtonKey)
 		editPlaced = {}, -- per Edit Mode layout: frames already moved out of their default place once
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
@@ -1013,9 +1014,13 @@ end
 
 -- The leave vehicle button (also the flight path's "request stop") starts
 -- just above the minimap's top-left corner (Layout.lua); Blizzard's default
--- place is under the top bar, over its slots. Placed like the pet bar: in
--- every layout where it is still in its default place, or still where we
--- put it last.
+-- place is under the top bar, over its slots. Placed in every layout where
+-- it is still in its default place. It only follows (from where we put it
+-- last) when a setting all characters share changes (LeaveButtonKey): the
+-- spot itself differs a little from character to character and login to
+-- login (theme, menu buttons, the button's scale), but the layout is shared,
+-- so following that moved it, saved the layouts and asked for a reload on
+-- every relog.
 function ns:LeaveButtonSpot()
 	local button = _G.MainMenuBarVehicleLeaveButton
 	local spot = self.layout and self.layout.leaveButton
@@ -1025,6 +1030,15 @@ function ns:LeaveButtonSpot()
 	end
 	local u = self:UnitsFor(button)
 	return { x = math.floor(spot.x * u + 0.5), y = math.floor(spot.y * u + 0.5) }
+end
+
+-- What the leave button's spot depends on that is the same for every
+-- character: the screen and the account-wide console options.
+function ns:LeaveButtonKey()
+	local o = self.db.consoleOpts
+	return table.concat({ math.floor(UIParent:GetWidth() + 0.5), math.floor(UIParent:GetHeight() + 0.5),
+		tostring(o.uiScale), tostring(o.uiSize), tostring(o.chatWiden), tostring(not not o.hideTopBar),
+		tostring(self.db.theme) }, " ")
 end
 
 local function placeLeaveButton(layout, spot, last, fresh)
@@ -1274,6 +1288,9 @@ function ns:SetupEditMode()
 	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
 	local petSpot, petLast, petSpots = self:PetBarSpot(), self.db.consoleOpts.petSpot, self:PetBarSpots()
 	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
+	local leaveKey, leaveKeyLast = self:LeaveButtonKey(), self.db.consoleOpts.leaveKey
+	-- Followed only after a shared setting changed (none saved yet: as it is).
+	local leaveFollow = leaveLast and leaveKeyLast and leaveKeyLast ~= leaveKey and leaveLast or nil
 	-- Frames still in their default place are moved once per layout. Should
 	-- the game hand the layout back unchanged (it does for some players),
 	-- they are left there instead of being moved, saved and offered a reload
@@ -1292,7 +1309,7 @@ function ns:SetupEditMode()
 		if placePetBar(layout, petSpot, petLast or nil, fresh, petSpots) then
 			petMoved = petMoved + 1
 		end
-		if placeLeaveButton(layout, leaveSpot, leaveLast or nil, fresh) then
+		if placeLeaveButton(layout, leaveSpot, leaveFollow, fresh) then
 			leaveMoved = leaveMoved + 1
 		end
 		if fresh then
@@ -1314,8 +1331,13 @@ function ns:SetupEditMode()
 	if petSpot and (petMoved > 0 or not petLast) then
 		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
 	end
+	-- Where we put it last: kept while nothing moved, so another
+	-- character's (or login's) spot doesn't make it look moved by the player.
 	if leaveSpot then
-		self.db.consoleOpts.leaveSpot = leaveSpot
+		if leaveMoved > 0 or not leaveLast then
+			self.db.consoleOpts.leaveSpot = leaveSpot
+		end
+		self.db.consoleOpts.leaveKey = leaveKey
 	end
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true

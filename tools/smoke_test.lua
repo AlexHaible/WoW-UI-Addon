@@ -864,12 +864,19 @@ do
 	local oldY = ourBuffs.anchorInfo.offsetY
 	local oldSpot = ns.BuffSpot
 	ns.BuffSpot = function() return { x = -24, y = oldY * 2 } end
+	-- (Only after a shared setting changes: another character's or login's
+	-- spot alone leaves them be.)
+	ns:SetupEditMode()
+	assert(ourBuffs.anchorInfo.offsetY == oldY and #popups == offered, "buffs stay for another login's spot")
+	ns.db.consoleOpts.spotKey = "an older top bar scale"
 	ns:SetupEditMode()
 	assert(ourBuffs.anchorInfo.offsetY == oldY * 2 and mineBuffs.anchorInfo.offsetX == -400,
 		"our buffs follow the top bar, moved buffs stay")
 	assert(popups[#popups].text:find("buffs"), "reload offered after moving buffs")
 	ns.BuffSpot = oldSpot
+	ns.db.consoleOpts.spotKey = "an older top bar scale"
 	ns:SetupEditMode()
+	assert(ourBuffs.anchorInfo.offsetY == oldY, "and back")
 	offered = #popups
 	-- "Let Edit Mode place action bars 1-3": the bars are placed in our
 	-- layout once over the grid rows, at a grid-like icon size in whichever
@@ -929,6 +936,57 @@ do
 	ns:SetupEditMode()
 	assert(#popups == asked and savedLayouts.layouts[1].systems[9].anchorInfo.offsetY == petAt
 		and ns.db.consoleOpts.petSpot.y == petAt, "a pet bar on either row stays put")
+	-- Night elf themes have both rows 12 units higher than the others: a
+	-- character on one of those leaves the bar where another race put it.
+	local realSpots, realPetSpot = ns.PetBarSpots, ns.PetBarSpot
+	ns.PetBarSpot = function(self, row)
+		local spot = realPetSpot(self, row)
+		return spot and { x = spot.x, y = spot.y + 12, size = spot.size, padding = spot.padding }
+	end
+	ns.PetBarSpots = function(self)
+		local list = realSpots(self)
+		for i, spot in ipairs(list) do
+			list[i] = { x = spot.x, y = spot.y + 12 }
+		end
+		return list
+	end
+	ns:SetupEditMode()
+	ns.PetBarSpots, ns.PetBarSpot = realSpots, realPetSpot
+	assert(#popups == asked and savedLayouts.layouts[1].systems[9].anchorInfo.offsetY == petAt
+		and ns.db.consoleOpts.petSpot.y == petAt, "a pet bar on another race's row stays put")
+
+	-- The leave button's spot differs a little between characters and
+	-- logins (theme, menu buttons, the button's scale), but the layout is
+	-- shared: it stays where it is, with no reload asked, both ways round.
+	-- Only a shared setting changing carries it along.
+	local leave = savedLayouts.layouts[1].systems[10].anchorInfo
+	local leaveAt, leaveSpotAt = leave.offsetY, ns.db.consoleOpts.leaveSpot
+	assert(ns.db.consoleOpts.spotKey == ns:EditSpotKey(), "the shared settings it was placed for are kept")
+	local realSpot = ns.LeaveButtonSpot
+	ns.LeaveButtonSpot = function(self)
+		local spot = realSpot(self)
+		return { x = spot.x, y = spot.y + 12 }
+	end
+	ns:SetupEditMode()
+	ns.LeaveButtonSpot = realSpot
+	ns:SetupEditMode()
+	assert(#popups == asked and leave.offsetY == leaveAt and ns.db.consoleOpts.leaveSpot == leaveSpotAt,
+		"a leave button at another login's spot stays put")
+	ns.db.consoleOpts.spotKey = "an older screen"
+	ns.LeaveButtonSpot = function(self)
+		local spot = realSpot(self)
+		return { x = spot.x, y = spot.y + 12 }
+	end
+	ns:SetupEditMode()
+	ns.LeaveButtonSpot = realSpot
+	assert(savedLayouts.layouts[1].systems[10].anchorInfo.offsetY == leaveAt + 12
+		and ns.db.consoleOpts.leaveSpot.y == leaveAt + 12 and #popups == asked + 1
+		and popups[#popups].text:find("leave vehicle"), "a shared setting changing carries it along")
+	-- Back where it was (as a new console size would), for the tests below.
+	ns.db.consoleOpts.spotKey = "an older screen"
+	ns:SetupEditMode()
+	assert(savedLayouts.layouts[1].systems[10].anchorInfo.offsetY == leaveAt, "and back")
+	asked = #popups
 
 	-- Until Blizzard's Edit Mode has its layouts, the game's list may be
 	-- incomplete: nothing is made or saved before then. Our layout goes

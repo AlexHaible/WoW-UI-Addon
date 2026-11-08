@@ -1171,6 +1171,14 @@ local function buildMicro(L, micro)
 	end
 	local wall = (LEFT_WALL[L.theme] or LEFT_WALL[L.base] or 0.64) * s
 	local y = max(top(mm) + 2, wall - 0.3 * h) + (#rows - 1) * (h + CONSOLE_MICRO_GAP)
+	-- How much higher the buttons would stand on the theme with the highest
+	-- wall: the leave vehicle button goes above them in the Edit Mode layout
+	-- every character shares, so it allows for that.
+	local highest = wall
+	for _, w in pairs(LEFT_WALL) do
+		highest = max(highest, w * s)
+	end
+	L.microLift = max(top(mm) + 2, highest - 0.3 * h) - max(top(mm) + 2, wall - 0.3 * h)
 	local spanL, spanR = x0 + room, x0
 	for _, row in ipairs(rows) do
 		local w = row.sum * h + (#row - 1) * CONSOLE_MICRO_GAP
@@ -1204,7 +1212,7 @@ function Layout.Compute(W, H, o)
 			cx, y = span.x + span.w / 2, top(span) + 2
 		end
 		L.clockTime = rect(cx - CONSOLE_TIME_W / 2, y, CONSOLE_TIME_W, CONSOLE_TIME_H)
-		L.leaveButton.y = max(L.leaveButton.y, top(L.clockTime) + 2)
+		L.leaveButton.y = max(L.leaveButton.y, top(L.clockTime) + 2 + (span.w > 0 and L.microLift or 0))
 	end
 	local ref = o.theme == AURA_THEME and dx or placement(W, H, setmetatable({ theme = AURA_THEME }, { __index = o }))
 	local T = L.targetAuras

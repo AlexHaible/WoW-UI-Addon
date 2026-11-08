@@ -27,13 +27,9 @@ local MENU_HINT = "\n|cff808080Right-click to choose what this icon shows.|r"
 
 -- Stat icon choices (the original addon's ChangeWeaponIcon).
 Hero.ICON_KINDS = {
-	"main", "offhand", "ranged", "ammo", "spell", "heal", "armor",
-	"str", "agi", "int", "crit", "none",
-}
-Hero.ICON_LABELS = {
-	main = "Main hand", offhand = "Offhand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", armor = "Armor",
-	str = "Strength", agi = "Agility", int = "Intellect", crit = "Crit chance", none = "None",
+	"main", "offhand", "ranged", "ammo", "ap", "crit", "spell", "heal",
+	"armor", "dodge", "parry", "resist",
+	"str", "agi", "sta", "int", "spi", "none",
 }
 local SLOT = { main = 16, offhand = 17, ranged = 18, ammo = 0 }
 local SCHOOLS = { "holy", "fire", "nature", "frost", "shadow", "arcane" }
@@ -41,7 +37,25 @@ local SCHOOLS = { "holy", "fire", "nature", "frost", "shadow", "arcane" }
 local PRIMARY = {
 	str = { index = 1, name = "Strength", art = "other\\attribute_str" },
 	agi = { index = 2, name = "Agility", art = "other\\attribute_agi" },
+	sta = { index = 3, name = "Stamina", icon = "Interface\\Icons\\Spell_Holy_WordFortitude" },
 	int = { index = 4, name = "Intellect", art = "other\\attribute_int" },
+	spi = { index = 5, name = "Spirit", icon = "Interface\\Icons\\Spell_Holy_DivineSpirit" },
+}
+-- Icons of the other stats, from WoW's own spell and ability icons.
+local STAT_ICONS = {
+	ap = "Interface\\Icons\\Ability_Warrior_BattleShout",
+	dodge = "Interface\\Icons\\Ability_Rogue_Feint",
+	parry = "Interface\\Icons\\Ability_Parry",
+	resist = "Interface\\Icons\\Spell_Shadow_AntiShadow",
+}
+-- Magic schools with a resistance: UnitResistance index, name and the
+-- colour the character sheet gives it.
+local RESISTANCES = {
+	{ index = 2, name = "Fire", color = "|cffff6020" },
+	{ index = 3, name = "Nature", color = "|cff40ff40" },
+	{ index = 4, name = "Frost", color = "|cff60c0ff" },
+	{ index = 5, name = "Shadow", color = "|cffb070ff" },
+	{ index = 6, name = "Arcane", color = "|cffffffa0" },
 }
 -- WoW ships the Blademaster's Critical Strike button as one of its own icons.
 local CRIT_ICON = "Interface\\Icons\\Ability_CriticalStrike"
@@ -471,6 +485,46 @@ local function primaryStat(kind)
 	return stat, posBuff or 0, negBuff or 0
 end
 
+-- The player's attack power: melee and ranged, each with the parts from
+-- buffs and debuffs.
+local function attackPower(ranged)
+	local fn = ranged and UnitRangedAttackPower or UnitAttackPower
+	if not fn then
+		return 0, 0, 0
+	end
+	local base, pos, neg = fn("player")
+	pos, neg = pos or 0, neg or 0
+	return (base or 0) + pos + neg, pos, neg
+end
+
+-- The attack power a stat icon shows: ranged for hunters, melee for the rest.
+local function shownAttackPower()
+	local _, class = UnitClass("player")
+	return (attackPower(class == "HUNTER"))
+end
+
+-- The player's total resistance to each magic school, in RESISTANCES order.
+local function resistances()
+	local list = {}
+	for i, r in ipairs(RESISTANCES) do
+		local total
+		if UnitResistance then
+			total = select(2, UnitResistance("player", r.index))
+		end
+		list[i] = total or 0
+	end
+	return list
+end
+
+-- The five resistances as coloured numbers, wrapped like damage ranges.
+local function resistText()
+	local parts = {}
+	for i, v in ipairs(resistances()) do
+		parts[i] = RESISTANCES[i].color .. v .. "|r"
+	end
+	return table.concat(parts, " ", 1, 3) .. "\n " .. table.concat(parts, " ", 4, 5)
+end
+
 -- The player's chance to critically hit, in percent: melee, ranged and the
 -- best spell school.
 local function critChances()
@@ -498,17 +552,19 @@ local function statIcon(kind)
 	elseif kind == "armor" then
 		return GetInventoryItemTexture("player", 5) or CAPE
 	elseif PRIMARY[kind] then
-		return ns:ArtPath(PRIMARY[kind].art)
+		return PRIMARY[kind].icon or ns:ArtPath(PRIMARY[kind].art)
 	elseif kind == "crit" then
 		return CRIT_ICON
 	end
+	return STAT_ICONS[kind]
 end
 
 -- The label a stat icon shows before its value has ever been read.
 local STAT_LABELS = {
 	main = "Damage:", offhand = "Damage:", ranged = "Damage:", ammo = "Ammo:",
 	spell = "Spell:", heal = "Healing:", armor = "Armor:",
-	str = "Strength:", agi = "Agility:", int = "Intellect:", crit = "Crit:",
+	str = "Strength:", agi = "Agility:", sta = "Stamina:", int = "Intellect:", spi = "Spirit:",
+	crit = "Crit:", ap = "Attack:", dodge = "Dodge:", parry = "Parry:", resist = "Resist:",
 }
 
 -- Label and value for a stat icon of kind `kind`. In combat the client can
@@ -554,6 +610,14 @@ local function statValues(kind)
 	elseif kind == "crit" then
 		-- The highest of the three, so casters and hunters see theirs.
 		return "Crit:", ("%.2f%%"):format(math.max(critChances()))
+	elseif kind == "ap" then
+		return "Attack:", tostring(shownAttackPower())
+	elseif kind == "dodge" then
+		return "Dodge:", ("%.2f%%"):format(GetDodgeChance and GetDodgeChance() or 0)
+	elseif kind == "parry" then
+		return "Parry:", ("%.2f%%"):format(GetParryChance and GetParryChance() or 0)
+	elseif kind == "resist" then
+		return "Resist:", resistText()
 	end
 end
 
@@ -629,6 +693,33 @@ local function statInfo(kind)
 		local melee, ranged, spell = critChances()
 		return ("%sMelee crit:|r %.2f%%\n%sRanged crit:|r %.2f%%\n%sSpell crit:|r %.2f%%"):format(
 			GOLD, melee, GOLD, ranged, GOLD, spell)
+	elseif kind == "ap" then
+		local lines = {}
+		for _, which in ipairs({ { "Melee", false }, { "Ranged", true } }) do
+			local ap, pos, neg = attackPower(which[2])
+			local line = ("%s%s attack power:|r %d"):format(GOLD, which[1], ap)
+			if pos > 0 or neg < 0 then
+				line = line .. (" (%d base"):format(ap - pos - neg)
+					.. (pos > 0 and ("|cff40ff40 +%d|r"):format(pos) or "")
+					.. (neg < 0 and ("|cffff4040 %d|r"):format(neg) or "") .. ")"
+			end
+			lines[#lines + 1] = line
+		end
+		return table.concat(lines, "\n")
+	elseif kind == "dodge" or kind == "parry" then
+		local text = ("%sDodge:|r %.2f%%\n%sParry:|r %.2f%%"):format(
+			GOLD, GetDodgeChance and GetDodgeChance() or 0, GOLD, GetParryChance and GetParryChance() or 0)
+		if GetBlockChance then
+			text = text .. ("\n%sBlock:|r %.2f%%"):format(GOLD, GetBlockChance())
+		end
+		return text
+	elseif kind == "resist" then
+		local lines = {}
+		for i, v in ipairs(resistances()) do
+			local r = RESISTANCES[i]
+			lines[i] = ("%s%s resistance:|r %d"):format(r.color, r.name, v)
+		end
+		return table.concat(lines, "\n")
 	end
 	return attackInfo(kind)
 end
@@ -670,8 +761,9 @@ end
 
 local ICON_NAMES = {
 	main = "Main hand", offhand = "Off hand", ranged = "Ranged", ammo = "Ammo",
-	spell = "Spell power", heal = "Healing", armor = "Armor",
-	str = "Strength", agi = "Agility", int = "Intellect", crit = "Crit chance", none = "None",
+	ap = "Attack power", crit = "Crit chance", spell = "Spell power", heal = "Healing",
+	armor = "Armor", dodge = "Dodge chance", parry = "Parry chance", resist = "Resistances",
+	str = "Strength", agi = "Agility", sta = "Stamina", int = "Intellect", spi = "Spirit", none = "None",
 }
 local ICON_TITLES = { "Top left stat icon", "Top right stat icon", "Bottom right stat icon", "Bottom left stat icon" }
 
@@ -863,10 +955,11 @@ function Hero:OnEnable()
 	end
 	local stats = ns:Throttle(function() self:UpdateStats() end, 0.2)
 	for _, e in ipairs({ "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_INVENTORY_CHANGED", "UNIT_AURA",
-		"UNIT_RESISTANCES", "UNIT_STATS", "UNIT_DAMAGE", "UNIT_ATTACK_SPEED", "UNIT_RANGEDDAMAGE" }) do
+		"UNIT_RESISTANCES", "UNIT_STATS", "UNIT_DAMAGE", "UNIT_ATTACK_SPEED", "UNIT_RANGEDDAMAGE", "UNIT_DEFENSE" }) do
 		ns:On(e, unitEvent(stats))
 	end
-	for _, e in ipairs({ "UPDATE_SHAPESHIFT_FORM", "SPELLS_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "BAG_UPDATE_DELAYED" }) do
+	for _, e in ipairs({ "UPDATE_SHAPESHIFT_FORM", "SPELLS_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "BAG_UPDATE_DELAYED",
+		"COMBAT_RATING_UPDATE", "SKILL_LINES_CHANGED" }) do
 		ns:On(e, stats)
 	end
 	local status = function() self:UpdateStatusIcons() end

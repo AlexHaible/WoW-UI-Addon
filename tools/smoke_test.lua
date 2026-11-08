@@ -1483,6 +1483,45 @@ do
 	hero:UpdateStats()
 end
 assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "heal", "icon choices are kept per class")
+-- The defensive and attribute choices read their own stats, secret or not.
+do
+	local saved = { UnitAttackPower, UnitRangedAttackPower, GetDodgeChance, GetParryChance, UnitResistance, UnitStat }
+	UnitAttackPower = function() return 300, 50, -10 end
+	UnitRangedAttackPower = function() return 120, 0, 0 end
+	GetDodgeChance = function() return 5.25 end
+	GetParryChance = function() return 6.5 end
+	UnitResistance = function(_, school) return 0, school * 10, 0, 0 end
+	UnitStat = function(_, index) return 0, 40 + index, 0, 0 end
+	local choices = hero:IconChoices()
+	local old = { choices[1], choices[2], choices[3], choices[4] }
+	local expect = {
+		ap = { "Attack", "340" }, dodge = { "Dodge", "5.25%" }, parry = { "Parry", "6.50%" },
+		sta = { "Stamina", "43" }, spi = { "Spirit", "45" },
+	}
+	for kind, want in pairs(expect) do
+		choices[1] = kind
+		hero:UpdateStats()
+		assert(hero.stats[1].label._text:find(want[1]) and hero.stats[1].value._text == want[2], kind .. " icon value")
+		assert(hero.stats[1].icon._tex and hero.stats[1].icon._tex:find("Interface\\Icons\\"), kind .. " icon picture")
+	end
+	choices[1] = "resist"
+	hero:UpdateStats()
+	local digits = hero.stats[1].value._text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	assert(digits == "20 30 40\n 50 60", "resistances show fire, nature, frost / shadow, arcane: " .. digits)
+	-- A secret attack power keeps the last value.
+	choices[1] = "ap"
+	hero:UpdateStats()
+	UnitAttackPower = function() return 999, 0, 0 end
+	secret = true
+	hero:UpdateStats()
+	secret = false
+	assert(hero.stats[1].value._text == "340", "secret attack power keeps the last value")
+	for i = 1, 4 do
+		choices[i] = old[i]
+	end
+	UnitAttackPower, UnitRangedAttackPower, GetDodgeChance, GetParryChance, UnitResistance, UnitStat = unpack(saved)
+	hero:UpdateStats()
+end
 -- A right-click on a weapon icon opens its menu (or steps on without one).
 local menuOpened
 local oldMenu = ns.ShowMenu

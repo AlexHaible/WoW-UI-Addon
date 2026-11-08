@@ -31,7 +31,8 @@ read_globals = {
 	"GetInventoryItemCount", "GetInventoryItemID", "GetItemInfoInstant", "GetShieldBlock", "GetSpellBonusDamage",
 	"GetSpellBonusHealing", "IsAltKeyDown", "IsShiftKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
-	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
+	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitAttackPower", "UnitRangedAttackPower", "UnitResistance", "GetDodgeChance", "GetParryChance",
+	"UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "ToggleCharacter", "ToggleQuestLog", "ToggleFriendsFrame", "ToggleWorldMap", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",
 	-- Console port (hero screen, action bars, options menu)
 	"ClearCursor", "ColorPickerFrame", "ContainerFrame1", "CurveConstants", "GetCursorInfo", "GetRealmName",

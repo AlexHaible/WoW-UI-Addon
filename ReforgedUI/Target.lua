@@ -646,6 +646,8 @@ function Target:DescribeAuras()
 	if spot and L then
 		local k = ns:ConsoleScale()
 		lines[#lines + 1] = ("wanted: first icon at %s,%s"):format(n(spot.x0 * k), n(spot.y * k))
+		local want, fit = ns:TargetAuraSize(spot)
+		lines[#lines + 1] = want and ("wanted size: %d%%, fits %d%%"):format(want, fit) or "wanted size: as Edit Mode has it"
 	end
 	return lines
 end

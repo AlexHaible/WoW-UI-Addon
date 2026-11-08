@@ -47,6 +47,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it. They work in combat too: they're Blizzard's own aura icons, placed for you.
+- Icons too small? Drag **Target aura size** in the options (or type `/rui aurasize 150`) to make them up to twice as big. They grow only as far as still fits on the wall beside the target's target.
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
 
 **Pet**
@@ -118,6 +119,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - UI size, which makes the console and top bar smaller (70-100%, also `/rui size 85`)
 - console transparency, which fades the console's art so the world shows through while buttons, icons, text and the portrait stay solid
 - chat width and height
+- target aura size, for bigger target buff and debuff icons (100-200%, also `/rui aurasize 150`)
 - portrait position
 - low-health warning threshold
 - zone text position
@@ -137,6 +139,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui target swap|plate           target on the hero screen, or a plate on the wall
 /rui pet reset                   put the pet icon back beside the target's target
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
+/rui aurasize 100-200            target buff and debuff icon size, in %
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui size 70-100                 console and top bar size, in %

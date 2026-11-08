@@ -69,6 +69,7 @@ local DEFAULTS = {
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
+		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 	},
 }
 
@@ -1079,6 +1080,42 @@ end
 -- target frame's top-left corner when buffs are on top (TargetFrame.lua).
 local TARGET_AURA_X, TARGET_AURA_Y = 5, -15
 
+-- The "Target aura size" option: Edit Mode's Frame Size for the target
+-- frame (100-200 % in steps of 5), which is all that makes its aura icons
+-- bigger. Blizzard wraps a row of them at AURA_ROW_WIDTH (122 at 100 %),
+-- so the size is kept to what fits on the wall between the target of target
+-- and the stance row (`spot`, in console units).
+ns.TARGET_AURA_SIZE_MIN, ns.TARGET_AURA_SIZE_MAX = 100, 200
+local TARGET_AURA_ROW = 122
+
+-- The size wanted (nil: as Edit Mode has it), and the size that fits.
+function ns:TargetAuraSize(spot)
+	local p = tonumber(self.db.consoleOpts.targetAuraSize)
+	if not p then
+		return nil
+	end
+	p = math.max(self.TARGET_AURA_SIZE_MIN, math.min(self.TARGET_AURA_SIZE_MAX, math.floor(p / 5 + 0.5) * 5))
+	local fit = p
+	if spot and spot.x1 and spot.x0 then
+		local room = (spot.x1 - spot.x0) * self:ConsoleScale() - TARGET_AURA_X
+		fit = math.floor(room / TARGET_AURA_ROW * 100 / 5) * 5
+	end
+	return p, math.max(self.TARGET_AURA_SIZE_MIN, math.min(p, fit))
+end
+
+-- Tells the player the target aura size, and when it is more than fits.
+function ns:SayTargetAuraSize()
+	local target = self.modules.target
+	local want, fit = self:TargetAuraSize(target and target.enabled and target:AuraSpot())
+	if not want then
+		self:Print("target aura size: as Edit Mode has it.")
+	elseif fit < want then
+		self:Print(("target aura size: %d%% (%d%% is all that fits on the wall at this UI size)."):format(want, fit))
+	else
+		self:Print(("target aura size: %d%%."):format(want))
+	end
+end
+
 -- Places the target frame in `layout`; true if that changed it.
 function ns:PlaceTargetAuras(layout)
 	local frames, sys = Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem
@@ -1089,7 +1126,10 @@ function ns:PlaceTargetAuras(layout)
 		return false
 	end
 	local k = self:ConsoleScale()
-	local scale = TargetFrame and TargetFrame:GetScale() or 1
+	local sizeSetting = Enum.EditModeUnitFrameSetting and Enum.EditModeUnitFrameSetting.FrameSize
+	local _, size = self:TargetAuraSize(spot)
+	size = sizeSetting and size
+	local scale = size and size / 100 or TargetFrame and TargetFrame:GetScale() or 1
 	if not scale or scale <= 0 then
 		scale = 1
 	end
@@ -1117,6 +1157,18 @@ function ns:PlaceTargetAuras(layout)
 		end
 		changed = changed or not set
 		setSetting(tf, onTop, 1)
+	end
+	-- Edit Mode keeps a slider's step, not its value: (size - 100) / 5.
+	if size then
+		local stored = (size - ns.TARGET_AURA_SIZE_MIN) / 5
+		local was
+		for _, entry in ipairs(tf.settings or {}) do
+			if entry.setting == sizeSetting then
+				was = entry.value
+			end
+		end
+		changed = changed or was ~= stored
+		setSetting(tf, sizeSetting, stored)
 	end
 	return changed
 end
@@ -1374,7 +1426,7 @@ function ns:SetupEditMode()
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))
 	elseif made or placed then
-		self:AskReload("updated the target frame's place in the Edit Mode layout.")
+		self:AskReload("updated the target frame's place and size in the Edit Mode layout.")
 	elseif renamed > 0 then
 		self:AskReload(("renamed %d extra %q Edit Mode layout(s) (delete them in Edit Mode if you don't use them).")
 			:format(renamed, ns.EDIT_LAYOUT))
@@ -1456,6 +1508,7 @@ local function usage()
 		.. " pet, topbar, config; needs /reload)")
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
+	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
@@ -1497,6 +1550,14 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("UI size:", ns.db.consoleOpts.uiSize .. "%")
+	elseif cmd == "aurasize" and tonumber(arg) and ns.modules.target.enabled then
+		ns.db.consoleOpts.targetAuraSize = math.max(ns.TARGET_AURA_SIZE_MIN, math.min(ns.TARGET_AURA_SIZE_MAX,
+			math.floor(tonumber(arg) / 5 + 0.5) * 5))
+		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:SayTargetAuraSize()
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)

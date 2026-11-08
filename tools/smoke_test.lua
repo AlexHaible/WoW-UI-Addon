@@ -432,7 +432,7 @@ Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6
 Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
-Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4 }
+Enum.EditModeUnitFrameSetting = { BuffsOnTop = 2, UseRaidStylePartyFrames = 4, FrameSize = 16 }
 Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3, PetActionBar = 13 }
 Enum.EditModeActionBarSetting = { IconSize = 3, IconPadding = 4, HideBarArt = 6, HideBarScrolling = 7,
 	AlwaysShowButtons = 8 }
@@ -858,6 +858,40 @@ do
 	end
 	ns:SetupEditMode()
 	assert(#popups == offered, "no reload offered for offsets the game rounded")
+	-- Target aura size: unset, Edit Mode's own Frame Size is left alone; set,
+	-- it goes in as Edit Mode's slider step and the frame is placed for that
+	-- scale, kept to what fits on the wall.
+	do
+		local tf = savedLayouts.layouts[3].systems[5]
+		local function frameSize()
+			for _, e in ipairs(tf.settings or {}) do
+				if e.setting == 16 then return e.value end
+			end
+		end
+		local spot = ns.modules.target:AuraSpot()
+		assert(frameSize() == nil and ns:TargetAuraSize(spot) == nil, "no target frame size until the option is set")
+		local function placedAt(size)
+			local scale = size / 100
+			assert(frameSize() == (size - 100) / 5, "target frame size saved as a slider step: " .. tostring(frameSize()))
+			assert(math.abs((tf.anchorInfo.offsetX + 5) * scale - spot.x0 * k) <= 2 * scale
+				and math.abs((tf.anchorInfo.offsetY - 15) * scale - spot.y * k) <= 2 * scale,
+				"target auras placed for their size " .. size)
+		end
+		SlashCmdList.REFORGEDUI("aurasize 123")
+		assert(ns.db.consoleOpts.targetAuraSize == 125, "aura size in steps of 5")
+		placedAt(125)
+		assert(#popups == offered + 1 and popups[#popups].text:find("size"), "reload offered for the new size")
+		ns:SetupEditMode()
+		assert(#popups == offered + 1, "no reload offered when the size is in place")
+		SlashCmdList.REFORGEDUI("aurasize 500")
+		local want, fit = ns:TargetAuraSize(spot)
+		assert(want == 200 and fit >= 100 and fit <= 200 and fit % 5 == 0, "aura size clamped")
+		assert(fit == 100 or 122 * fit / 100 <= (spot.x1 - spot.x0) * k, "the aura rows fit on the wall")
+		placedAt(fit)
+		SlashCmdList.REFORGEDUI("aurasize 100")
+		placedAt(100)
+		offered = #popups
+	end
 	-- Buffs still where we put them follow a new top bar scale; moved ones don't.
 	local ourBuffs, mineBuffs = savedLayouts.layouts[3].systems[7], savedLayouts.layouts[1].systems[7]
 	mineBuffs.anchorInfo.offsetX = -400
@@ -1789,6 +1823,26 @@ ns:Relayout()
 assert(math.abs(ns.modules.console.frames.grid:GetAlpha() - 0.9) < 1e-6, "transparency survives a relayout")
 slider:SetValue(0)
 assert(ns.modules.console.frames.cap:GetAlpha() == 1, "back to opaque")
+-- The target aura size slider: shown at 100 % while unset, and left unset
+-- until moved (then saved, in steps of 5).
+do
+	local auras
+	for _, sl in ipairs(config.sliders) do
+		if sl.key == "targetAuraSize" then auras = sl end
+	end
+	assert(auras, "target aura size slider")
+	local was = ReforgedUIDB.consoleOpts.targetAuraSize
+	ReforgedUIDB.consoleOpts.targetAuraSize = false
+	auras:SetValue(130)
+	ReforgedUIDB.consoleOpts.targetAuraSize = false
+	config:Refresh()
+	assert(auras:GetValue() == 100 and ReforgedUIDB.consoleOpts.targetAuraSize == false,
+		"an unset aura size stays unset when the menu is shown")
+	auras:SetValue(150)
+	assert(ReforgedUIDB.consoleOpts.targetAuraSize == 150, "aura size saved when moved")
+	ReforgedUIDB.consoleOpts.targetAuraSize = was
+	config:Refresh()
+end
 -- The chat width slider: on a screen too narrow for the original addon's
 -- chat area (16:10 here), the console scales down to make room for it; 0 %
 -- keeps a 16:9 screen's width. Wider screens are left alone.

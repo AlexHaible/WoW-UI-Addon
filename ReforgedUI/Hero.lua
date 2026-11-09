@@ -246,6 +246,7 @@ function Hero:UpdateHealth()
 	bar:SetMinMaxValues(0, max)
 	bar:SetValue(cur)
 	setText(bar.text, cur, max, ns.db.consoleOpts.healthPercent, UnitHealthPercent)
+	ns:UpdateHealPrediction(bar, "player", max)
 	if isSecret(cur) or isSecret(max) then
 		bar:SetStatusBarColor(0, 1, 0, 1)
 		self:SetWarning(false)
@@ -928,6 +929,7 @@ function Hero:OnEnable()
 	holder:SetAllPoints(ns.root)
 	self.holder = holder
 	self.health = makeBar(holder, 2, 10)
+	ns:AddHealPrediction(self.health)
 	self.power = makeBar(holder, 4, 9)
 	self:CreateXP(holder)
 	self.stats = {}
@@ -943,7 +945,7 @@ function Hero:OnEnable()
 	end
 	local health = unitEvent(function() self:UpdateHealth() end)
 	local power = unitEvent(function() self:UpdatePower() end)
-	for _, e in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH" }) do
+	for _, e in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION" }) do
 		ns:On(e, health)
 	end
 	for _, e in ipairs({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }) do

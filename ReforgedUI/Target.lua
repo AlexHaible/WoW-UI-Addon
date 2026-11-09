@@ -313,6 +313,7 @@ function Target:CreateSwap()
 	f:Hide()
 	local v = { frame = f }
 	v.health = makeBar(f, 11, 11)
+	ns:AddHealPrediction(v.health)
 	v.power = makeBar(f, 11, 10)
 	v.healthText, v.powerText = v.health.text, v.power.text
 	v.combo = makeCombo(f)
@@ -350,6 +351,7 @@ function Target:CreatePlate()
 	top:SetFrameLevel(13)
 	top:SetAllPoints(f)
 	v.health = hero.MakeBar(top, 14, 9)
+	ns:AddHealPrediction(v.health)
 	v.power = hero.MakeBar(top, 14, 9)
 	v.healthText, v.powerText = v.health.text, v.power.text
 	-- The plate stands above the wall, and some themes' plates are open
@@ -381,6 +383,7 @@ function Target.CreateUnitIcon(name, unit, level, power)
 	b.portrait:SetTexCoord(0.12, 0.88, 0.12, 0.88)
 	b.health = makeBar(b, level + 1)
 	b.health:SetStatusBarColor(0.1, 0.9, 0.1)
+	ns:AddHealPrediction(b.health)
 	if power then
 		b.power = makeBar(b, level + 1)
 		b.power:SetStatusBarColor(0.2, 0.4, 1)
@@ -677,13 +680,13 @@ function Target:OnEnable()
 			end)
 		end
 	end
-	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH" }, self.UpdateHealth)
+	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION" }, self.UpdateHealth)
 	unitEvent({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }, self.UpdatePower)
 	unitEvent({ "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION", "UNIT_CLASSIFICATION_CHANGED" }, self.UpdateName)
 	unitEvent({ "UNIT_MODEL_CHANGED", "UNIT_PORTRAIT_UPDATE" }, self.UpdateModel)
 	unitEvent({ "UNIT_TARGET" }, self.UpdateToT)
-	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER",
-		"UNIT_DISPLAYPOWER", "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION" }, self.UpdateBar)
+	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION", "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT",
+		"UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION" }, self.UpdateBar)
 	unitEvent({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }, self.UpdateCast)
@@ -774,6 +777,7 @@ function Target:UpdateHealth()
 	local cur, max = UnitHealth("target"), UnitHealthMax("target")
 	v.health:SetMinMaxValues(0, max)
 	v.health:SetValue(cur)
+	ns:UpdateHealPrediction(v.health, "target", max)
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
 	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
@@ -888,8 +892,10 @@ function Target:UpdateToT()
 	gem.socket:SetShown(not warn)
 	gem.stone:SetShown(not warn)
 	gem.swords:SetShown(warn)
-	tot.health:SetMinMaxValues(0, UnitHealthMax("targettarget"))
+	local max = UnitHealthMax("targettarget")
+	tot.health:SetMinMaxValues(0, max)
 	tot.health:SetValue(UnitHealth("targettarget"))
+	ns:UpdateHealPrediction(tot.health, "targettarget", max)
 end
 
 ----------------------------------------------------------------------------
@@ -943,6 +949,7 @@ function Target:CreateBar()
 	v.health:SetPoint("TOPLEFT", 5, -(BAR_NAME_H + 3))
 	v.health:SetPoint("TOPRIGHT", -5, -(BAR_NAME_H + 3))
 	v.health:SetHeight(BAR_HEALTH_H)
+	ns:AddHealPrediction(v.health)
 	v.power = makeBar(f, f:GetFrameLevel() + 1, 9)
 	v.power:SetPoint("TOPLEFT", v.health, "BOTTOMLEFT", 0, -1)
 	v.power:SetPoint("TOPRIGHT", v.health, "BOTTOMRIGHT", 0, -1)
@@ -1119,6 +1126,7 @@ function Target:UpdateBar()
 	local cur, max = UnitHealth("target"), UnitHealthMax("target")
 	v.health:SetMinMaxValues(0, max)
 	v.health:SetValue(cur)
+	ns:UpdateHealPrediction(v.health, "target", max)
 	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
 	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))

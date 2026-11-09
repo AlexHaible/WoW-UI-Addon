@@ -185,6 +185,10 @@ function methods:SetValue(v)
 	if old ~= v and self._scripts.OnValueChanged then self._scripts.OnValueChanged(self, v) end
 end
 function methods:GetValue() return self._value end
+function methods:GetStatusBarTexture()
+	self._fill = self._fill or new("texture", nil, self)
+	return self._fill
+end
 function methods:GetStringHeight() return 12 end
 function methods:SetEnabled(v) self._enabled = v end
 function methods:Click() self._clicks = (self._clicks or 0) + 1 end
@@ -2329,6 +2333,46 @@ do
 	secretTarget = true
 	fire("UNIT_HEALTH", "target")
 	assert(type(target.swap.health._value) == "table", "secret health reaches the bar")
+	-- Incoming heals: the player's own and everyone else's, after the fill.
+	do
+		local heals = target.swap.health.heals
+		assert(heals and heals.top and target.swap.health.text:GetParent() == heals.top,
+			"heals under the health text")
+		assert(select(2, heals.mine:GetPoint(1)) == target.swap.health:GetStatusBarTexture()
+			and select(2, heals.others:GetPoint(1)) == heals.mine:GetStatusBarTexture(), "heals chain on from the fill")
+		local all, mine = 80, 30
+		UnitGetIncomingHeals = function(u, healer)
+			if u ~= "target" then return nil end
+			return healer and mine or all
+		end
+		fire("UNIT_HEAL_PREDICTION", "target")
+		assert(heals.mine._value == 30 and heals.others._value == 50 and heals.mine._max == 666, "incoming heals split")
+		mine = 120
+		fire("UNIT_HEAL_PREDICTION", "target")
+		assert(heals.mine._value == 80 and heals.others._value == 0, "own heals never above all heals")
+		-- Secret amounts (in instances): reach the bar, never compared.
+		local secretHeal = newproxy(true)
+		getmetatable(secretHeal).__lt = function() error("compared a secret heal") end
+		getmetatable(secretHeal).__le = getmetatable(secretHeal).__lt
+		getmetatable(secretHeal).__eq = getmetatable(secretHeal).__lt
+		local oldIsSecret = issecretvalue
+		issecretvalue = function(v) return v == secretHeal or oldIsSecret(v) end
+		UnitGetIncomingHeals = function() return secretHeal end
+		fire("UNIT_HEAL_PREDICTION", "target")
+		assert(heals.others._value == secretHeal and heals.mine._value == 0, "secret heals reach the bar")
+		-- The client's calculator, when it has one.
+		local calc = { GetIncomingHeals = function() return 70, 40, 30, false end }
+		CreateUnitHealPredictionCalculator = function() return calc end
+		UnitGetDetailedHealPrediction = function(u, healer, c) assert(c == calc and healer == "player") end
+		fire("UNIT_HEAL_PREDICTION", "target")
+		assert(heals.others._value == secretHeal, "calculator looked up once, at the first update")
+		issecretvalue, UnitGetIncomingHeals = oldIsSecret, nil
+		CreateUnitHealPredictionCalculator, UnitGetDetailedHealPrediction = nil, nil
+		fire("UNIT_HEAL_PREDICTION", "target")
+		assert(heals.mine._value == 0 and heals.others._value == 0, "no heal prediction API: empty")
+		assert(ns.modules.hero.health.heals and ns.modules.pet.button.health.heals
+			and target.plate.health.heals and target.tot.health.heals, "every health bar has heals")
+	end
 	secretTarget = false
 	fire("UNIT_HEALTH", "target")
 	-- Secret name (in instances): shown as it is, never compared or measured.

@@ -219,7 +219,7 @@ function Pet:OnEnable()
 			end)
 		end
 	end
-	petEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH" }, self.UpdateHealth)
+	petEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION" }, self.UpdateHealth)
 	petEvent({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }, self.UpdatePower)
 	petEvent({ "UNIT_AURA" }, self.UpdateAuras)
 	petEvent({ "UNIT_HAPPINESS" }, self.UpdateHappiness)
@@ -266,8 +266,10 @@ end
 
 function Pet:UpdateHealth()
 	local bar = self.button.health
-	bar:SetMinMaxValues(0, UnitHealthMax("pet"))
+	local max = UnitHealthMax("pet")
+	bar:SetMinMaxValues(0, max)
 	bar:SetValue(UnitHealth("pet"))
+	ns:UpdateHealPrediction(bar, "pet", max)
 end
 
 function Pet:UpdatePower()

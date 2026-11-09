@@ -30,6 +30,10 @@ screen stays free on either side).
   right-click for your menu), health and power bars under it, rest/combat,
   group leader and PvP icons. The background pulses red under the low health
   threshold.
+- **Incoming heals**: every health bar (player, target in either mode,
+  the target bar, target of target, pet) shows the game's heal prediction
+  after the health fill, your own heals bright teal and others' darker
+  (HealPrediction.lua).
 - **Hero screen**: name, level and class, the experience bar with rested
   experience (hover for the numbers, right-click for its colour: purple,
   blue or none) and four stat icons. Each shows main hand, off hand (block

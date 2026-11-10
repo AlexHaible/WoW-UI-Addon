@@ -1037,6 +1037,10 @@ local function build(W, H, o, X0, chatW)
 	L.stance = { x = g[1].x + 0.04 * s, y = wallTop, size = barSize, step = barStep }
 	L.pet = { x = L.stance.x, y = wallTop + barSize + 3, size = barSize, step = barStep }
 	L.stanceTop = wallTop + barSize
+	-- Totem timers (Totems.lua): the same row's other end, ending with the
+	-- last action slot.
+	local bar = L.bars.main
+	L.totems = { right = bar.xs[12] + bar.size, y = wallTop, size = barSize, step = barStep }
 	buildTarget(L, s, t, MT, L.xp)
 
 	-- Extensions: the wall above the action grid.

@@ -44,4 +44,6 @@ read_globals = {
 	-- target display
 	"AbbreviateLargeNumbers", "GetTime", "TargetFrameToT", "UnitCanAttack", "UnitCastingInfo", "UnitChannelInfo",
 	"UnitIsUnit",
+	-- totem timers
+	"GetTotemInfo", "GetTotemTimeLeft",
 }

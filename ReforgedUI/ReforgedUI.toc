@@ -42,6 +42,7 @@ Hero.lua
 Target.lua
 Pet.lua
 ActionBars.lua
+Totems.lua
 Minimap.lua
 Chat.lua
 Inventory.lua

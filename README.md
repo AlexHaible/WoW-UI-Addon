@@ -25,7 +25,9 @@ screen stays free on either side).
   beside it. Other addons' minimap buttons go in a compartment: click the bag
   just above the map's top-right corner to open or close a flyout of them
   (Blizzard's own buttons line up along the top edge of the map); the minimap's day/night indicator is hidden (the top bar has the
-  clock).
+  clock). Our calendar button leads that row in place of Blizzard's: today's
+  date on a note, with a pulsing letter while calendar invitations wait;
+  click it for the calendar, hover it for the week's events.
 - **Portrait block**: animated 3D portrait (click to target yourself,
   right-click for your menu), health and power bars under it, rest/combat,
   group leader and PvP icons. The background pulses red under the low health
@@ -101,7 +103,9 @@ screen stays free on either side).
   per faction, Horde and Alliance apart). Our ping and FPS feed shows world
   latency on the left of its slot and the framerate on the right (hover it for
   home latency and bandwidth); a zone feed shows where you are, coloured by
-  PvP status like the minimap's. Right-click an empty
+  PvP status like the minimap's; a calendar feed shows what is on now (or the
+  next event and when) and waiting invitations, with the week in its tooltip
+  and the calendar a click away. Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),

@@ -6,7 +6,9 @@
 -- line up along the top edge of the map; other addons' minimap buttons are
 -- gathered in a compartment whose button sits just above the map and opens
 -- a flyout upwards. The day/night (or
--- calendar) indicator is made invisible: the top bar has its own clock.
+-- calendar) indicator is made invisible: the top bar has its own clock. Our
+-- own calendar button (today's date, a letter while invitations wait; see
+-- Calendar.lua) leads the row along the top edge of the map instead.
 --
 -- The map stays a child of its cluster (an Edit Mode frame we never move or
 -- hide); only the map itself and the buttons are placed, anchored to
@@ -220,7 +222,65 @@ function MinimapModule:OnEnable()
 	end
 	self.skip = skip
 	self:CreateCompartment()
+	self:CreateCalendarButton()
 	self.buttons, self.addonButtons = collectButtons(skip)
+end
+
+----------------------------------------------------------------------------
+-- The calendar button: Blizzard's (GameTimeFrame) goes with the day/night
+-- indicator, so ours takes its place, first in the row on the map's top
+-- edge. Calendar.lua keeps its date and invitation letter up to date and
+-- opens the calendar.
+
+function MinimapModule:CreateCalendarButton()
+	local cal = ns.modules.calendar
+	if not (cal and cal:Available()) then
+		return
+	end
+	local b = CreateFrame("Button", "ReforgedUICalendarButton", self.holder)
+	b:SetFrameLevel(self.holder:GetFrameLevel() + 5)
+	b:SetSize(32, 32)
+	local icon = b:CreateTexture(nil, "ARTWORK")
+	icon:SetAllPoints()
+	icon:SetTexture(cal.ICON)
+	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	icon:SetVertexColor(0.8, 0.8, 0.8)
+	b.icon = icon
+	-- Today's day of the month across the note.
+	local day = b:CreateFontString(nil, "OVERLAY")
+	if not ns:SetFont(day, 15, "OUTLINE") then
+		day:SetFont("Fonts\\FRIZQT__.TTF", 15, "OUTLINE")
+	end
+	day:SetPoint("CENTER", 0, -1)
+	day:SetTextColor(1, 1, 1)
+	b.day = day
+	-- Invitations waiting: Blizzard's letter in the top-right corner, and
+	-- its glow pulsing over the button until the calendar is opened.
+	local invite = b:CreateTexture(nil, "OVERLAY", nil, 2)
+	invite:SetTexture("Interface\\Calendar\\EventNotification")
+	invite:SetTexCoord(0.03125, 0.6484375, 0.03125, 0.8671875)
+	invite:SetSize(16, 18)
+	invite:SetPoint("TOPRIGHT", 4, 4)
+	invite:Hide()
+	b.invite = invite
+	local glow = b:CreateTexture(nil, "OVERLAY", nil, 1)
+	glow:SetTexture("Interface\\Calendar\\EventNotificationGlow")
+	glow:SetBlendMode("ADD")
+	glow:SetSize(48, 48)
+	glow:SetPoint("CENTER")
+	glow:Hide()
+	b.glow = glow
+	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	b:RegisterForClicks("AnyUp")
+	b:SetScript("OnClick", function() cal:Open() end)
+	b:SetScript("OnEnter", function(f)
+		GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
+		cal:Tooltip(GameTooltip)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	self.calendar = b
+	cal:SetButton(b)
 end
 
 ----------------------------------------------------------------------------
@@ -422,9 +482,13 @@ function MinimapModule:OnLayout(L)
 	-- shrinking to fit them all.
 	self.layout = L
 	local row = L.minimapButtons
-	local n = #self.buttons
+	local buttons = { self.calendar }
+	for _, btn in ipairs(self.buttons) do
+		buttons[#buttons + 1] = btn
+	end
+	local n = #buttons
 	local size = math.min(row.size, (row.maxW - (n - 1) * 2) / math.max(n, 1))
-	for i, btn in ipairs(self.buttons) do
+	for i, btn in ipairs(buttons) do
 		local x = row.x + (i - 1) * (size + 2)
 		ns:Lock(btn, function(b)
 			fit(b, size)

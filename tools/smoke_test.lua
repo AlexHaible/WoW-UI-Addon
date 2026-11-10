@@ -108,6 +108,7 @@ function methods:SetShown(v) self._shown = not not v end
 function methods:Show() self._shown = true end
 function methods:Hide() self._shown = false end
 function methods:IsShown() return self._shown end
+function methods:IsOwned(f) return self._owner == f end
 function methods:GetRegions()
 	local out = {}
 	for _, f in ipairs(allFrames) do
@@ -511,6 +512,12 @@ function GetUnitName(unit, full)
 end
 function UnitLevel() return 12 end
 function UnitClass() return "Shaman", "SHAMAN" end
+-- One totem down (Searing Totem in the fire slot), the others empty.
+function GetTotemInfo(slot)
+	if slot == 1 then return true, "Searing Totem", 100, 55, 135825 end
+	return false, "", 0, 0, 0
+end
+function GetTotemTimeLeft(slot) return slot == 1 and 42.3 or 0 end
 function UnitHealth() return 300 end
 function UnitHealthMax() return 450 end
 function UnitPower() return 120 end
@@ -2971,6 +2978,34 @@ do
 	IsShiftKeyDown = nil
 	slash("theme auto")
 	hasPet = false
+end
+
+-- Totem timers: secure buttons at the right end of the stance row, a
+-- shaman's always there, right-click cancels its slot's totem.
+do
+	local mod = ns.modules.totems
+	local T = ns.layout.totems
+	assert(#mod.buttons == 4 and ReforgedUITotem1, "four totem buttons")
+	for i, b in ipairs(mod.buttons) do
+		assert(b._shown, "a shaman's totem buttons stay shown")
+		assert(b:GetAttribute("type2") == "destroytotem" and b:GetAttribute("totem-slot") == b.slot,
+			"totem button " .. i .. " cancels its slot")
+	end
+	local fire = mod.buttons[2]
+	assert(fire.slot == 1 and fire.active and fire.face:GetAlpha() == 1, "the fire totem shows")
+	assert(fire.face.time._text == "43", "the fire totem's time left: " .. tostring(fire.face.time._text))
+	assert(not mod.buttons[1].active and mod.buttons[1].face:GetAlpha() == 0, "an empty slot draws nothing")
+	assert(T.right - 4 * T.step > ns.layout.stance.x + 4 * T.step, "totems clear of the stance row's start")
+	-- A secret answer still shows the icon, without time.
+	local oldInfo, oldSecret = GetTotemInfo, issecretvalue
+	local SECRET = {}
+	issecretvalue = function(v) return v == SECRET end
+	GetTotemInfo = function() return SECRET, SECRET, SECRET, SECRET, 135825 end
+	mod:Update()
+	assert(fire.secret and fire.face.time._text == "", "secret totems show no time")
+	GetTotemInfo, issecretvalue = oldInfo, oldSecret
+	mod:Update()
+	assert(not fire.secret and fire.face.time._text == "43", "back to plain totem info")
 end
 
 print("smoke test passed")

@@ -62,6 +62,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - These are Blizzard's own buttons, so bindings, paging, cooldowns and proc glows all work as normal. Icons show in full, in Warcraft III's steel button frame.
 - Rather arrange the bars yourself? Turn on **Let Edit Mode place action bars 1-3**: they start over the grid and you can then move, resize and reflow them in Edit Mode like any bar.
 - Stance, aura and form buttons stand on the wall above the grid.
+- **Totem timers** stand at the other end of that wall: each active totem's icon with a countdown sweep and the time it has left. Hover one for its tooltip, **right-click to cancel it**, in combat too, no macro or extra spell needed.
 - The pet bar starts just above them (in their place, for classes without stances), clear of the chat. Move and resize it in Edit Mode.
 
 **Inventory**

@@ -1,0 +1,6 @@
+<Bindings>
+	<!-- The three action slots beside the minimap (MinimapBar.lua); names are set there. -->
+	<Binding name="CLICK ReforgedUIMinimapButton1:LeftButton" header="REFORGEDUI" category="ADDONS"/>
+	<Binding name="CLICK ReforgedUIMinimapButton2:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK ReforgedUIMinimapButton3:LeftButton" category="ADDONS"/>
+</Bindings>

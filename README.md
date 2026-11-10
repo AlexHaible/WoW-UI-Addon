@@ -122,11 +122,15 @@ screen stays free on either side).
   combat; `/rui clock reset` puts it back), and the buffs move up to the
   screen's top edge.
 
-The three action slots beside the minimap are the first three buttons of
-Blizzard's **Action Bar 8**, so they bind like any other bar (Key Bindings >
-Action Bars > Action Bar 8). The addon turns on Action Bars 2, 3 and 8 once per
-character; if you turn bar 8 off later, the slots are empty sockets whose
-tooltip says how to turn it back on.
+The three action slots beside the minimap are Reforged UI's own bar, so
+all of Blizzard's action bars stay yours. Bind them under Key Bindings >
+AddOns > Reforged UI. They need action slots of their own: they use the
+moonkin form page (slots 109-111), which only druids use, and on druids the
+shaman totem page (133-135). Drag spells, items and macros onto them out of
+combat (with locked bars, hold Shift as usual). Up to 1.11 the slots were
+Action Bar 8's first three buttons: on each character's first login with the
+new version, what was on them and their keys move over, and Action Bar 8
+goes back to off (the addon had turned it on).
 
 Buffs and debuffs are held in the top-right corner just below the top bar
 (at the screen's top edge with the top bar hidden).
@@ -273,10 +277,8 @@ of your faction. Saved themes from earlier versions keep working.
    folder of your Forever install.
    **Restart the game client completely** (not just `/reload`): the addon has
    new files, which the game only picks up on a full restart.
-2. Action Bars 2, 3 and 8 are turned on for you the first time each character
-   logs in. Only the first three buttons of bar 8 are used (the slots beside
-   the minimap); the rest are parked off screen, so you can set it to as few
-   icons as Edit Mode allows.
+2. Action Bars 2 and 3 are turned on for you the first time each character
+   logs in.
 3. Move the focus frame and anything else Edit Mode manages to
    where you want them around the console.
 
@@ -321,7 +323,6 @@ the client now does itself:
   option and the **first-run reload** prompt.
 - Spell and healing power **scanned from tooltips and auras**: the client's
   own spell power API is used instead.
-- the original addon's **Bindings.xml**: the three extra slots use Action Bar 8's bindings.
 - **Bonus action bar** handling (stances, stealth): the client pages the main
   bar by itself.
 - Moving the **battleground minimap button**: it lines up with the other

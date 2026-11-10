@@ -302,7 +302,6 @@ for _, spec in ipairs({ { "ActionButton", MainActionBar }, { "MultiBarBottomLeft
 		b.IconMask = new("texture", nil, b)
 	end
 end
-MultiBar7Button1.action = 145
 BuffFrame = new("frame", "BuffFrame", UIParent)
 DebuffFrame = new("frame", "DebuffFrame", UIParent)
 local settingValues = { PROXY_SHOW_ACTIONBAR_2 = false, PROXY_SHOW_ACTIONBAR_3 = true, PROXY_SHOW_ACTIONBAR_8 = false }
@@ -444,10 +443,17 @@ function HasNewMail() return false end
 function UnitAttackSpeed() return 2.0, nil end
 C_PaperDollInfo = { OffhandHasShield = function() return true end }
 local placed
+-- Action slots: one spell left on Action Bar 8's second button (slot 170)
+-- from before the minimap bar had its own slots.
+local actions, cursorAction = { [170] = "Lightning Bolt" }, nil
 function GetCursorInfo() return placed == "cursor" and "item" or nil end
-function HasAction() return false end
-function PlaceAction(slot) placed = slot end
-function ClearCursor() end
+function HasAction(slot) return actions[slot] ~= nil end
+function PickupAction(slot) cursorAction, actions[slot] = actions[slot], nil end
+function PlaceAction(slot)
+	placed = slot
+	if cursorAction then actions[slot], cursorAction = cursorAction, nil end
+end
+function ClearCursor() cursorAction = nil end
 C_Item = { GetItemCount = function() return 1 end, PickupItem = function() placed = "cursor" end }
 function GetRealmName() return "Forever" end
 UISpecialFrames = {}
@@ -525,7 +531,21 @@ function updateContainerFrameAnchors() end
 stateDrivers = {}
 function RegisterStateDriver(f, _, v) stateDrivers[f] = v end
 function geterrorhandler() return function(err) error(err, 0) end end
-function GetBindingKey(cmd) if cmd == "ACTIONBUTTON1" then return "1", "SHIFT-1" end end
+-- Keys: Action Bar 8's second button had F2 (the old minimap slot 2).
+local bindings = { ACTIONBUTTON1 = { "1", "SHIFT-1" }, MULTIACTIONBAR7BUTTON2 = { "F2" } }
+local bindingsSaved = 0
+function GetBindingKey(cmd) return unpack(bindings[cmd] or {}) end
+function SetBinding(key, cmd)
+	for _, keys in pairs(bindings) do
+		for i = #keys, 1, -1 do
+			if keys[i] == key then table.remove(keys, i) end
+		end
+	end
+	bindings[cmd] = bindings[cmd] or {}
+	table.insert(bindings[cmd], key)
+end
+function SaveBindings() bindingsSaved = bindingsSaved + 1 end
+function GetCurrentBindingSet() return 2 end
 local overrides = 0
 function SetOverrideBindingClick(_, _, key, name) assert(_G[name], "binding target missing"); overrides = overrides + 1 end
 function ClearOverrideBindings() overrides = 0 end
@@ -1168,7 +1188,9 @@ assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil a
 assert(Minimap:GetParent() == UIParent, "the minimap keeps its parent")
 assert(#StanceBar._points == 0 and #ObjectiveTrackerFrame._points == 0, "Edit Mode frames must stay put")
 assert(MainActionBar.EndCaps._alpha == 0 and MainActionBar._alpha == nil, "main bar art should hide, not its buttons")
-assert(MainActionBar._mouse == false and MultiBar7._mouse == false, "empty bar frames should be click-through")
+assert(MainActionBar._mouse == false, "empty bar frames should be click-through")
+assert(MultiBar7._mouse == nil and #MultiBar7Button1._points == 0 and not MultiBar7Button1.reforgedFrame,
+	"Action Bar 8 is the player's: untouched")
 
 local L = ns.layout
 local unit = function(f) return f:GetEffectiveScale() / ns.root:GetEffectiveScale() end
@@ -1430,20 +1452,25 @@ for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButt
 		assert(math.abs(btn._w * unit(btn) - row.size) < 0.01, prefix .. i .. " has the wrong size")
 	end
 end
+-- The minimap slots: our own secure action buttons on the moonkin page
+-- (109-111; a druid would get 133-135), over the slots beside the minimap.
 for i = 1, 3 do
-	local r = L.minimapSlots[i]
-	at(_G["MultiBar7Button" .. i], r.x, r.y, "Action Bar 8 button " .. i)
-	local b = _G["MultiBar7Button" .. i]
-	assert(math.abs(b._w * unit(b) - r.w) < 0.01, "Action Bar 8 button " .. i .. " has the wrong size")
+	local r, b = L.minimapSlots[i], _G["ReforgedUIMinimapButton" .. i]
+	local p = b._points[1]
+	assert(b._kind == "secure" and p[2] == ns.root and math.abs(p[4] - r.x) < 0.01 and math.abs(p[5] - r.y) < 0.01
+		and math.abs(b._w - r.w) < 0.01, "minimap slot " .. i .. " placed")
+	assert(b:GetAttribute("type") == "action" and b:GetAttribute("action") == 108 + i, "minimap slot " .. i .. " action")
 end
-for _, i in ipairs({ 4, 9, 12 }) do
-	local _, _, _, _, y = _G["MultiBar7Button" .. i]:GetPoint(1)
-	assert(y < 0, "Action Bar 8 button " .. i .. " should be parked below the screen")
+do
+	local shaman = UnitClass
+	UnitClass = function() return "Druid", "DRUID" end
+	assert(ns:MinimapSlot(1) == 133 and ns:MinimapSlot(3) == 135, "druids use the shaman totem page")
+	UnitClass = shaman
 end
 -- The gold dividers between buttons stay invisible, even after Blizzard
 -- updates them.
 assert(ActionButton7.RightDivider._alpha == 0, "button dividers hidden")
-for _, b in ipairs({ ActionButton1, MultiBar7Button1, ReforgedUIBagSlot1 }) do
+for _, b in ipairs({ ActionButton1, ReforgedUIMinimapButton1, ReforgedUIBagSlot1 }) do
 	assert(b.reforgedFrame and b.reforgedFrame._tex:find("iconframe"), b:GetName() .. " has the steel icon frame")
 end
 assert(not ReforgedUIKeyRing.reforgedFrame and ReforgedUIKeyRing._normal:find("UI%-Button%-KeyRing"),
@@ -1454,24 +1481,14 @@ MainActionBar:UpdateDividers()
 for _, d in ipairs(dividerPool) do
 	assert(d._alpha == 0 and d._shown, "bar dividers hidden by alpha, never Hide()")
 end
--- Empty sockets explain Action Bar 8 while it is off.
-local bars = ns.modules.actionbars
-assert(not ReforgedUIBar8Socket1:IsShown(), "no socket over a shown Action Bar 8 button")
-MultiBar7:Hide()
-MultiBar7._hooks.OnHide()
-assert(ReforgedUIBar8Socket1:IsShown() and ReforgedUIBar8Socket3:IsShown(), "sockets show while Action Bar 8 is off")
-local p1 = ReforgedUIBar8Socket1._points[1]
-assert(p1[2] == ns.root and math.abs(p1[4] - L.minimapSlots[1].x) < 0.01, "socket over the first minimap slot")
+-- An empty minimap slot says what it is for.
 local tip
 local oldSetText = methods.SetText
 function GameTooltip:SetText(t) tip = t end
-ReforgedUIBar8Socket1._scripts.OnEnter(ReforgedUIBar8Socket1)
-assert(tip == "Turn on Action Bar 8 in Edit Mode to use these slots", "socket tooltip")
+ReforgedUIMinimapButton3._scripts.OnEnter(ReforgedUIMinimapButton3)
+assert(tip == "Empty slot: drag a spell, item or macro here.", "empty minimap slot tooltip")
 GameTooltip.SetText = nil
 methods.SetText = oldSetText
-MultiBar7:Show()
-bars:UpdateSockets()
-assert(not ReforgedUIBar8Socket1:IsShown(), "sockets hide again when Action Bar 8 is on")
 -- Stance (aura) buttons: Blizzard's, on the wall over the grid, anchored to
 -- UIParent; their Edit Mode bar stays put. The pet buttons stay on their
 -- Edit Mode bar, which the layout places (see above) so it can be moved.
@@ -1497,7 +1514,16 @@ assert(MinimapCluster.DielFrame._alpha == 0 and #MinimapCluster.DielFrame._point
 for _, b in ipairs(ns.modules.minimap.buttons) do
 	assert(b ~= GameTimeFrame, "GameTimeFrame must not join the minimap button row")
 end
-assert(placed == 145, "the hearthstone should go into the first slot beside the minimap")
+assert(placed == 109, "the hearthstone should go into the first slot beside the minimap")
+-- Up to 1.11 the slots were Action Bar 8's: its actions and keys moved over once.
+assert(actions[110] == "Lightning Bolt" and not actions[170], "Action Bar 8's second action moved to minimap slot 2")
+assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F2" and not GetBindingKey("MULTIACTIONBAR7BUTTON2")
+	and bindingsSaved == 1, "Action Bar 8's key moved to the minimap slot binding")
+assert(ReforgedUIMinimapButton2.hotkey._text == "F2", "the minimap slot shows its key")
+assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"], "moved once per character")
+actions[171] = "Earth Shock"
+ns.modules.minimapbar:MoveFromBar8()
+assert(actions[171] and not actions[111], "the move happens only once")
 assert(ReforgedUIDB.consoleOpts.hearthstone["Thrall-Forever"], "the hearthstone is placed once per character")
 
 -- Console art: all pieces placed with the original addon's files.
@@ -2364,12 +2390,22 @@ slash("feeds")
 -- Buffs are left to Edit Mode: moving them sticks.
 BuffFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 assert(BuffFrame:GetPoint(1) == "CENTER", "buffs can be moved")
--- Bars 2, 3 and 8 are turned on once per character.
+-- Bars 2 and 3 are turned on once per character; Action Bar 8 is left alone.
 assert(settingValues.PROXY_SHOW_ACTIONBAR_2 and settingValues.PROXY_SHOW_ACTIONBAR_3
-	and settingValues.PROXY_SHOW_ACTIONBAR_8, "bars 2, 3 and 8 turned on")
-settingValues.PROXY_SHOW_ACTIONBAR_8 = false
+	and settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "bars 2 and 3 turned on, not bar 8")
+settingValues.PROXY_SHOW_ACTIONBAR_3 = false
 ns.modules.actionbars:EnableBars()
-assert(settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "bars are only turned on once; the player's choice stands")
+assert(settingValues.PROXY_SHOW_ACTIONBAR_3 == false, "bars are only turned on once; the player's choice stands")
+-- A character whose Action Bar 8 the addon had turned on (up to 1.11) gets it
+-- turned off again when its slots move.
+do
+	local mb = ns.modules.minimapbar
+	settingValues.PROXY_SHOW_ACTIONBAR_8 = true
+	ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"] = nil
+	mb.addonBar8 = true
+	mb:MoveFromBar8()
+	assert(settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "Action Bar 8 back to off")
+end
 -- Target display.
 do
 	local target, hero = ns.modules.target, ns.modules.hero

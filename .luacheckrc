@@ -13,6 +13,7 @@ read_globals = {
 	"CreateUnitHealPredictionCalculator", "UnitGetDetailedHealPrediction", "UnitGetIncomingHeals",
 	"ContainerFrameCombinedBags", "ContainerIDToInventoryID", "CreateColor", "CreateFontFamily", "CreateFrame", "GameFontHighlight",
 	"EQUIP_CONTAINER", "ExpansionLandingPageMinimapButton", "FCF_SavePositionAndDimensions",
+	"C_Calendar", "C_DateAndTime", "C_GameRules", "CalendarFrame", "Calendar_LoadUI", "Calendar_Show", "ToggleCalendar",
 	"GameTimeFrame", "GameTooltip", "GameTooltip_Hide", "GameTooltip_SetDefaultAnchor",
 	"GarrisonLandingPageMinimapButton", "GetBindingKey", "GetContainerNumFreeSlots", "GetContainerNumSlots",
 	"GetInventoryItemTexture", "GetMaxPlayerLevel", "GetMinimapZoneText", "GetXPExhaustion",

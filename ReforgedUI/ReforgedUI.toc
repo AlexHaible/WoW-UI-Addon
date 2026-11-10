@@ -38,6 +38,7 @@ Trim.lua
 Art.lua
 Console.lua
 TopBar.lua
+Calendar.lua
 Hero.lua
 Target.lua
 Pet.lua

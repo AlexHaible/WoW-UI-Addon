@@ -221,6 +221,36 @@ GameTimeFrame._w, GameTimeFrame._h = 40, 40
 -- Forever's day/night moon: a keyless child of the cluster.
 MinimapCluster.DielFrame = new("frame", nil, MinimapCluster)
 TimeManagerClockButton = new("button", "TimeManagerClockButton", MinimapCluster)
+-- The calendar: today is Tuesday 10 November 2026, 14:30 realm time. A
+-- holiday runs from the 8th to the 16th, a raid waits for an answer at 19:00
+-- today, a raid lockout (left out), a declined event (left out) and an event
+-- on the 20th (past the week).
+local calNow = { year = 2026, month = 11, monthDay = 10, weekday = 3, hour = 14, minute = 30 }
+C_DateAndTime = { GetCurrentCalendarTime = function() return calNow end }
+local calPending, calendarToggles, calendarRequested = 1, 0, false
+local calEvents = {}
+local function calTime(d, h, m) return { year = 2026, month = 11, monthDay = d, hour = h, minute = m } end
+for d = 8, 16 do
+	calEvents["0:" .. d] = { { eventID = 7, title = "Hallow's End", calendarType = "HOLIDAY",
+		sequenceType = d == 8 and "START" or d == 16 and "END" or "ONGOING", inviteStatus = 0,
+		startTime = calTime(8, 10, 0), endTime = calTime(16, 10, 0), dontDisplayEnd = false } }
+end
+table.insert(calEvents["0:10"], { eventID = 50, title = "Raid night", calendarType = "GUILD_EVENT", inviteStatus = 0,
+	startTime = calTime(10, 19, 0), endTime = calTime(10, 19, 0) })
+table.insert(calEvents["0:10"], { eventID = 51, title = "Molten Core", calendarType = "RAID_LOCKOUT", inviteStatus = 0,
+	startTime = calTime(10, 9, 0), endTime = calTime(10, 9, 0) })
+table.insert(calEvents["0:12"], { eventID = 52, title = "Declined thing", calendarType = "PLAYER", inviteStatus = 2,
+	startTime = calTime(12, 20, 0), endTime = calTime(12, 20, 0) })
+calEvents["0:20"] = { { eventID = 53, title = "Too far", calendarType = "PLAYER", inviteStatus = 3,
+	startTime = calTime(20, 20, 0), endTime = calTime(20, 20, 0) } }
+C_Calendar = {
+	OpenCalendar = function() calendarRequested = true end,
+	GetMonthInfo = function() return { year = 2026, month = 11, numDays = 30, firstWeekday = 1 } end,
+	GetNumPendingInvites = function() return calPending end,
+	GetNumDayEvents = function(offset, day) local l = calEvents[offset .. ":" .. day]; return l and #l or 0 end,
+	GetDayEvent = function(offset, day, i) return calEvents[offset .. ":" .. day][i] end,
+}
+function ToggleCalendar() calendarToggles = calendarToggles + 1 end
 -- A forbidden frame among UIParent's children: touching it is an error.
 local forbiddenFrame = new("frame", nil, UIParent)
 forbiddenFrame._forbidden = true
@@ -1177,6 +1207,64 @@ do
 	for _, b in ipairs(mm.buttons) do
 		assert(b ~= addonButton, "addon buttons leave the row")
 	end
+end
+do
+	-- The calendar button leads the row on the map's top edge, with today's
+	-- date and a pulsing letter for the waiting invitation.
+	local mm, cal = ns.modules.minimap, ns.modules.calendar
+	local b = mm.calendar
+	assert(b and b:GetName() == "ReforgedUICalendarButton" and b._shown ~= false, "the calendar button is made")
+	assert(GameTimeFrame._alpha == 0, "Blizzard's calendar button stays hidden")
+	local row = L.minimapButtons
+	assert(b._points[1][1] == "TOPLEFT" and math.abs(b._points[1][4] * unit(b) - row.x) < 0.01,
+		"the calendar button comes first in the row")
+	assert(math.abs(b._w * unit(b) - math.min(row.size, (row.maxW - #mm.buttons * 2) / (#mm.buttons + 1))) < 0.01,
+		"and is sized like the row's buttons")
+	assert(b.day._text == 10, "it shows the day of the month")
+	assert(b.invite._shown and b.glow._shown and b:GetScript("OnUpdate"), "a waiting invitation pulses")
+	assert(calendarRequested, "the calendar's events are asked for")
+	local feed = LibStub("LibDataBroker-1.1"):GetDataObjectByName(cal.FEED)
+	assert(feed and feed.text:find("1 invitation", 1, true) and feed.text:find("Hallow's End", 1, true),
+		"the feed shows the invitation and the holiday on now: " .. tostring(feed and feed.text))
+	local lines = {}
+	local tip = {
+		AddLine = function(_, t) lines[#lines + 1] = t end,
+		AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+	}
+	feed.OnTooltipShow(tip)
+	local text = table.concat(lines, "\n")
+	assert(text:find("Now\nHallow's End=until Mon", 1, true), "the holiday is on until Monday: " .. text)
+	assert(text:find("Coming up\nRaid night=Today 19:00", 1, true), "the raid is coming up today")
+	assert(not text:find("Molten Core", 1, true) and not text:find("Declined", 1, true) and not text:find("Too far", 1, true),
+		"no lockouts, declined events or events past the week")
+	assert(#cal:Events() == 2, "the holiday comes once")
+	-- Clicking opens the calendar and stops the pulse; the letter stays
+	-- while the invitation waits.
+	b._scripts.OnClick(b)
+	assert(calendarToggles == 1 and not b.glow._shown and b.invite._shown and not b:GetScript("OnUpdate"),
+		"a click opens the calendar and stops the pulse")
+	feed.OnClick()
+	assert(calendarToggles == 2, "so does a click on the feed")
+	calPending = 0
+	fire("CALENDAR_UPDATE_PENDING_INVITES")
+	flushTimers()
+	assert(not b.invite._shown and not feed.text:find("invitation", 1, true), "answered: no letter")
+	-- Later in the evening: the raid is on, the holiday too.
+	calNow = { year = 2026, month = 11, monthDay = 10, weekday = 3, hour = 19, minute = 20 }
+	assert(cal:FeedText() == "Raid night +1", "the event ending first leads: " .. cal:FeedText())
+	-- After the holiday: the next thing, by its day.
+	calNow = { year = 2026, month = 11, monthDay = 17, weekday = 3, hour = 12, minute = 0 }
+	assert(cal:FeedText() == "Too far Fri 20:00", "the next event and when: " .. cal:FeedText())
+	calNow = { year = 2026, month = 11, monthDay = 20, weekday = 6, hour = 19, minute = 30 }
+	assert(cal:FeedText() == "Too far in 30 min", "soon: " .. cal:FeedText())
+	calNow = { year = 2026, month = 11, monthDay = 25, weekday = 4, hour = 12, minute = 0 }
+	assert(cal:FeedText() == "No events", "nothing left")
+	-- Day numbers run across months and years.
+	local y, m, d = cal.CivilFromDays(cal.DaysFromCivil(2026, 12, 31) + 1)
+	assert(y == 2027 and m == 1 and d == 1, "a day after New Year's Eve")
+	y, m, d = cal.CivilFromDays(cal.DaysFromCivil(2028, 2, 28) + 1)
+	assert(y == 2028 and m == 2 and d == 29, "leap years")
+	calNow = { year = 2026, month = 11, monthDay = 10, weekday = 3, hour = 14, minute = 30 }
 end
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")

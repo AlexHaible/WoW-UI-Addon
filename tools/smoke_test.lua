@@ -3094,6 +3094,36 @@ do
 	GetTotemInfo, issecretvalue = oldInfo, oldSecret
 	mod:Update()
 	assert(not fire.secret and fire.face.time._text == "43", "back to plain totem info")
+	-- Moving: the buttons hang from one holder; Shift-drag or Edit Mode
+	-- moves it out of combat, the spot is saved, /rui totems reset clears it.
+	local h = mod.holder
+	assert(fire:GetParent() == h and h == ReforgedUITotems, "totem buttons hang from the holder")
+	local wall = mod:Spot()
+	assert(wall.x == T.right - wall.w and wall.y == T.y, "the row starts on the wall")
+	IsShiftKeyDown = function() return false end
+	fire._scripts.OnDragStart(fire)
+	assert(not h._moving, "a plain drag doesn't move the totems")
+	IsShiftKeyDown = function() return true end
+	inCombat = true
+	fire._scripts.OnDragStart(fire)
+	assert(not h._moving, "no moving the totems in combat")
+	inCombat = false
+	fire._scripts.OnDragStart(fire)
+	assert(h._moving, "Shift-drag moves the totems")
+	fire._scripts.OnDragStop(fire)
+	IsShiftKeyDown = nil
+	assert(not h._moving and type(ns.db.consoleOpts.totemSpot) == "table", "the totems' spot is saved")
+	local moved = mod:Spot()
+	assert(moved.x == ns.db.consoleOpts.totemSpot[1] and moved.w == wall.w, "the row goes where it was dragged")
+	EditModeManagerFrame._hooks.OnShow()
+	assert(h.outline._shown and h._mouse ~= false, "Edit Mode shows the totems' outline")
+	h._scripts.OnDragStart(h)
+	assert(h._moving, "Edit Mode drags the totems without Shift")
+	h._scripts.OnDragStop(h)
+	EditModeManagerFrame._hooks.OnHide()
+	assert(not h.outline._shown and h._mouse == false, "the outline goes with Edit Mode")
+	SlashCmdList.REFORGEDUI("totems reset")
+	assert(ns.db.consoleOpts.totemSpot == false and mod:Spot().x == wall.x, "/rui totems reset")
 end
 
 print("smoke test passed")

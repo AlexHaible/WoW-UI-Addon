@@ -10,6 +10,12 @@
 -- show in combat, so a shaman's four buttons stay in place, and an empty
 -- slot only draws nothing.
 --
+-- The row can move: Shift-drag a totem out of combat, or drag the row's
+-- outline while Edit Mode is open. The buttons hang from one holder, which
+-- is what moves; its spot is kept per account (consoleOpts.totemSpot,
+-- console units from the console's bottom-left), and /rui totems reset puts
+-- it back on the wall.
+--
 -- Totem info may be secret (Blizzard's ShouldTotemSlotBeSecret): then only
 -- the icon is shown, through calls that take secret values, without the
 -- sweep or the time.
@@ -22,6 +28,7 @@ local function isSecret(v)
 end
 local SLOTS = _G.MAX_TOTEMS or 4
 local CANCEL_HINT = "Right-click to cancel."
+local MOVE_HINT = "Shift-drag to move."
 
 local function plain(v)
 	return v ~= nil and not isSecret(v)
@@ -51,12 +58,13 @@ local function onEnter(b)
 	GameTooltip:SetOwner(b, "ANCHOR_TOP")
 	if pcall(GameTooltip.SetTotem, GameTooltip, b.slot) then
 		GameTooltip:AddLine(CANCEL_HINT, 0.6, 0.6, 0.6)
+		GameTooltip:AddLine(MOVE_HINT, 0.6, 0.6, 0.6)
 		GameTooltip:Show()
 	end
 end
 
-local function makeButton(index, slot)
-	local b = CreateFrame("Button", "ReforgedUITotem" .. index, ns.root, "SecureActionButtonTemplate")
+local function makeButton(holder, index, slot)
+	local b = CreateFrame("Button", "ReforgedUITotem" .. index, holder, "SecureActionButtonTemplate")
 	b:SetFrameStrata("MEDIUM")
 	b:SetFrameLevel(10)
 	b:RegisterForClicks("AnyUp")
@@ -98,8 +106,41 @@ local function makeButton(index, slot)
 
 	b:SetScript("OnEnter", onEnter)
 	b:SetScript("OnLeave", GameTooltip_Hide)
+	b:RegisterForDrag("LeftButton")
+	b:SetScript("OnDragStart", function() Totems:StartDrag(IsShiftKeyDown()) end)
+	b:SetScript("OnDragStop", function() Totems:StopDrag() end)
 	b:Hide()
 	return b
+end
+
+-- The holder all buttons hang from: what moves. Click-through except while
+-- Edit Mode is open, when it shows an outline to drag (also for an empty or
+-- hidden row).
+local function makeHolder()
+	local h = CreateFrame("Frame", "ReforgedUITotems", ns.root)
+	h:SetFrameStrata("MEDIUM")
+	h:SetFrameLevel(9)
+	h:SetMovable(true)
+	h:SetClampedToScreen(true)
+	h:EnableMouse(false)
+	local outline = CreateFrame("Frame", nil, h)
+	outline:SetAllPoints()
+	outline:SetFrameLevel(h:GetFrameLevel() + 20)
+	outline.fill = outline:CreateTexture(nil, "BACKGROUND")
+	outline.fill:SetAllPoints()
+	outline.fill:SetColorTexture(0.1, 0.5, 1, 0.35)
+	outline.label = outline:CreateFontString(nil, "OVERLAY")
+	if not ns:SetFont(outline.label, 10, "OUTLINE") then
+		outline.label:SetFontObject("GameFontHighlightSmall")
+	end
+	outline.label:SetPoint("CENTER")
+	outline.label:SetText("Totems")
+	outline:Hide()
+	h.outline = outline
+	h:RegisterForDrag("LeftButton")
+	h:SetScript("OnDragStart", function() Totems:StartDrag(true) end)
+	h:SetScript("OnDragStop", function() Totems:StopDrag() end)
+	return h
 end
 
 function Totems:OnEnable()
@@ -108,12 +149,18 @@ function Totems:OnEnable()
 	end
 	local _, class = UnitClass("player")
 	self.always = class == "SHAMAN"
+	self.holder = makeHolder()
 	self.buttons = {}
 	for i, slot in ipairs(slotOrder(class)) do
 		if i > SLOTS then
 			break
 		end
-		self.buttons[i] = makeButton(i, slot)
+		self.buttons[i] = makeButton(self.holder, i, slot)
+	end
+	local editMode = _G.EditModeManagerFrame
+	if editMode and editMode.HookScript then
+		editMode:HookScript("OnShow", function() self:SetEditing(true) end)
+		editMode:HookScript("OnHide", function() self:SetEditing(false) end)
 	end
 	for _, e in ipairs({ "PLAYER_TOTEM_UPDATE", "PLAYER_ENTERING_WORLD" }) do
 		ns:On(e, function() self:Update() end)
@@ -219,17 +266,84 @@ end
 ----------------------------------------------------------------------------
 -- Layout
 
+-- The row's box in console units: where the player put it, else on the
+-- wall, right-aligned so the last slot ends where the action slots do.
+function Totems:Spot()
+	local T = self.layout.totems
+	local n = #self.buttons
+	local w = n * T.step - (T.step - T.size)
+	local spot = ns.db.consoleOpts.totemSpot
+	if type(spot) == "table" and plain(spot[1]) and plain(spot[2]) then
+		return { x = spot[1], y = spot[2], w = w, h = T.size }
+	end
+	return { x = T.right - w, y = T.y, w = w, h = T.size }
+end
+
 function Totems:PlaceButtons()
 	local T = self.layout and self.layout.totems
 	if not T then
 		return
 	end
-	local n = #self.buttons
+	ns.modules.console.Place(self.holder, self:Spot())
 	for i, b in ipairs(self.buttons) do
-		-- Right-aligned: the last slot ends where the row does.
-		ns.modules.console.Place(b, { x = T.right - (n - i) * T.step - T.size, y = T.y, w = T.size, h = T.size })
+		b:ClearAllPoints()
+		b:SetPoint("BOTTOMLEFT", self.holder, "BOTTOMLEFT", (i - 1) * T.step, 0)
+		b:SetSize(T.size, T.size)
 	end
 	self:ShowButtons()
+end
+
+-- Dragging: with Shift (or in Edit Mode), out of combat; protected frames
+-- can't move in combat.
+function Totems:StartDrag(allowed)
+	if (allowed or self.editing) and not InCombatLockdown() and self.layout then
+		self.moving = true
+		self.holder:StartMoving()
+	end
+end
+
+function Totems:StopDrag()
+	if not self.moving then
+		return
+	end
+	self.moving = false
+	local h = self.holder
+	h:StopMovingOrSizing()
+	if h.SetUserPlaced then
+		h:SetUserPlaced(false) -- ours to save, not the client's layout cache
+	end
+	self:SaveSpot()
+end
+
+-- After a drag: the row's corner in console units, kept per account.
+function Totems:SaveSpot()
+	local h, root = self.holder, ns.root
+	local x, y = h:GetLeft(), h:GetBottom()
+	local rx, ry = root:GetLeft(), root:GetBottom()
+	if x and y and rx and ry then
+		ns.db.consoleOpts.totemSpot = { x - rx, y - ry }
+	end
+	ns:RunOutOfCombat("totem-place", function() self:PlaceButtons() end)
+end
+
+function Totems:ResetSpot()
+	ns.db.consoleOpts.totemSpot = false
+	if self.holder then
+		ns:RunOutOfCombat("totem-place", function() self:PlaceButtons() end)
+	end
+end
+
+-- Edit Mode open: the row's outline shows and can be dragged.
+function Totems:SetEditing(on)
+	self.editing = on
+	local h = self.holder
+	h.outline:SetShown(on)
+	ns:RunOutOfCombat("totem-edit", function()
+		h:EnableMouse(on and true or false)
+	end)
+	if not on then
+		self:StopDrag()
+	end
 end
 
 function Totems:OnLayout(L)

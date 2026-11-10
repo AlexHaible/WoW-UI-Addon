@@ -194,6 +194,7 @@ function methods:GetStringHeight() return 12 end
 function methods:SetEnabled(v) self._enabled = v end
 function methods:Click() self._clicks = (self._clicks or 0) + 1 end
 function methods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a } end
+function methods:SetReverseFill(v) self._reverse = v end
 
 ----------------------------------------------------------------------------
 -- Globals the addon touches
@@ -2491,6 +2492,58 @@ do
 		fire("UNIT_NAME_UPDATE", "target")
 		assert(hero.xp.name._text == "Hogger", "the plain name comes back")
 	end
+	-- The target's cast bar. Cast info of any unit but you and your pet is
+	-- secret: name, start and end reach the bar untouched, never compared or
+	-- added up; the stop events hide it.
+	do
+		local function secretValue()
+			local v = newproxy(true)
+			local mt = getmetatable(v)
+			mt.__lt = function() error("compared a secret cast value") end
+			mt.__le, mt.__eq = mt.__lt, mt.__lt
+			mt.__add = function() error("did sums with a secret cast value") end
+			mt.__sub, mt.__mul, mt.__div, mt.__unm = mt.__add, mt.__add, mt.__add, mt.__add
+			return v
+		end
+		local sName, sStart, sEnd = secretValue(), secretValue(), secretValue()
+		local oldCast, oldChannel = UnitCastingInfo, UnitChannelInfo
+		secret = true -- Target.lua's isSecret is the stub's, read at load
+		local casting = true
+		UnitCastingInfo = function(u)
+			if u == "target" and casting then return sName, sName, 136, sStart, sEnd end
+		end
+		local cast = target:View().cast
+		assert(not cast:IsShown(), "no cast, no cast bar")
+		fire("UNIT_SPELLCAST_START", "target")
+		assert(cast:IsShown() and cast.text._text == sName, "a secret cast shows, its name untouched")
+		assert(cast._min == sStart and cast._max == sEnd and cast._value == 100000, "the bar runs from start to end")
+		cast._scripts.OnUpdate(cast)
+		assert(cast:IsShown() and cast._value == 100000 and not cast._reverse, "a secret end is never waited for")
+		fire("UNIT_SPELLCAST_CHANNEL_STOP", "target")
+		assert(cast:IsShown(), "a channel's stop leaves a cast")
+		casting = false
+		fire("UNIT_SPELLCAST_STOP", "target")
+		assert(not cast:IsShown(), "the cast's stop hides it")
+		-- A plain channel drains, and ends by itself at its end.
+		secret, UnitCastingInfo = false, function() return nil end
+		UnitChannelInfo = function(u)
+			if u == "target" then return "Drain Life", "Drain Life", 136, 99000, 103000 end
+		end
+		fire("UNIT_SPELLCAST_CHANNEL_START", "target")
+		assert(cast:IsShown() and cast.text._text == "Drain Life" and cast._reverse, "a channel drains")
+		fire("UNIT_SPELLCAST_FAILED", "target")
+		assert(cast:IsShown(), "a failed cast leaves a channel")
+		local oldTime = GetTime
+		GetTime = function() return 104 end
+		cast._scripts.OnUpdate(cast)
+		assert(not cast:IsShown(), "a channel past its end goes")
+		GetTime = oldTime
+		-- An API that errors hides it rather than breaking.
+		UnitChannelInfo = function() error("cast info refused") end
+		fire("UNIT_SPELLCAST_CHANNEL_START", "target")
+		assert(not cast:IsShown(), "unreadable cast info: no bar")
+		UnitCastingInfo, UnitChannelInfo = oldCast, oldChannel
+	end
 	-- Reaction colours: hostile red, neutral yellow, friendly green.
 	local function nameRGB() local fs = hero.xp.name; return fs._r, fs._g, fs._b end
 	local oldColor = methods.SetTextColor
@@ -2625,6 +2678,16 @@ do
 		UnitHealth = oldH
 		fire("UNIT_HEALTH", "target")
 		assert(bar.power.text._text == "30 / 100" and bar.power._color[1] == 1 and bar.power:IsShown(), "target bar: rage")
+		-- The target's cast hangs under it, beside the console's.
+		local oldCast = UnitCastingInfo
+		UnitCastingInfo = function(u) if u == "target" then return "Fireball", "Fireball", 135, 99500, 102500 end end
+		fire("UNIT_SPELLCAST_START", "target")
+		assert(bar.cast:IsShown() and bar.cast.text._text == "Fireball" and bar.cast:GetParent() == bar.frame,
+			"target bar: the target's cast")
+		assert(target:View().cast:IsShown(), "the console shows it too")
+		UnitCastingInfo = oldCast
+		fire("UNIT_SPELLCAST_STOP", "target")
+		assert(not bar.cast:IsShown() and not target:View().cast:IsShown(), "target bar: the cast ends")
 		assert(bar.name._fontObject or bar.name._font, "target bar text goes through our font")
 		assert(not bar.frame._mouse, "the target bar is click-through")
 		local p0 = bar.frame._points[1]

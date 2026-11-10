@@ -33,7 +33,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 **Minimap block**
 - Square minimap with mouse-wheel zoom, and the zone name on its edge.
 - Tracking button and mail slot.
-- Three extra action slots, which use Action Bar 8, so they bind like any bar.
+- Three extra action slots: Reforged UI's own little bar, so every Blizzard action bar stays free for you. Bind them under Key Bindings > AddOns > Reforged UI.
 - Addon minimap buttons are tucked into a compartment: click the bag above the map to open a flyout of them.
 - A calendar button on the map's top edge shows today's date; a letter pulses on it when calendar invitations are waiting. Click it to open the calendar, hover it for what's on this week.
 
@@ -164,7 +164,8 @@ Theme names: `human`, `dwarf`, `gnome`, `nightelf`, `highorder`, `windshapers`, 
 - Blizzard's player and target frames are replaced by the console. The focus frame is left to Edit Mode.
 - In combat this client doesn't let any addon read a target's auras. That's why Reforged UI uses Blizzard's own aura icons for the target: they keep working when the fighting starts.
 - Names in Korean, Chinese or Cyrillic show properly. The console's font only has Latin letters, so the game's own fonts fill in the rest.
-- If you turn Action Bar 8 off, the three slots beside the minimap become empty sockets. Hover them to see how to turn it back on.
+- The three slots beside the minimap use action slots 109-111 (133-135 on druids): pages only druids (moonkin form) or shamans (totem bar) use. If another bar addon shows those pages, you'll see the same actions there.
+- Updating from 1.11 or older: those slots used to be Action Bar 8. On each character's first login, their actions and keys move to the new slots and Action Bar 8 goes back to off, ready for your own use.
 
 ## Bugs and suggestions
 

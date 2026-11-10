@@ -13,7 +13,8 @@
 --    (Hero.CreateLevelPlate, Hero.MakeBar).
 --
 -- Optionally, in either mode, a small target bar (name, level, health and
--- power) stands on its own where the player drags it (see "The target bar").
+-- power, and its cast bar under it while it casts) stands on its own where
+-- the player drags it (see "The target bar").
 --
 -- In both, the target's target is a small unit icon in the theme's trim on
 -- the wall above the portrait (your pet's, Pet.lua, stands beside it), and
@@ -216,6 +217,7 @@ local function makeBar(parent, level, textSize)
 	local back = bar:CreateTexture(nil, "BACKGROUND")
 	back:SetAllPoints()
 	back:SetColorTexture(0, 0, 0, 0.6)
+	bar.back = back
 	if textSize then
 		bar.text = bar:CreateFontString(nil, "OVERLAY")
 		font(bar.text, textSize)
@@ -253,21 +255,76 @@ end
 
 -- The target's cast bar: spell name inside, gold while casting, green while
 -- channelling.
+--
+-- Cast info of any unit but the player and their pet is secret (Blizzard's
+-- SecretWhenUnitSpellCastRestricted, everywhere, not only in instances): the
+-- spell's name and its start and end can't be tested, compared or added up.
+-- So they go into the bar untouched: its range is the cast's start to end
+-- (in ms), its value the time now, and the client works out the fill. A
+-- channel drains: the bar fills backwards in the background colour over a
+-- green back, so the green that is left shrinks the same way. The bar goes
+-- away on the cast's stop events (and at its end, when the end is known).
+local CAST_COLOR, CHANNEL_COLOR = { 1, 0.7, 0 }, { 0.2, 0.85, 0.2 }
+
+-- `active` says a cast is on the bar: `endMS` may be secret, never tested.
+local function stopCast(bar)
+	bar.active, bar.endMS, bar.channel = false, nil, false
+	bar:Hide()
+end
+
 local function makeCast(parent, level, textSize)
 	local bar = makeBar(parent, level, textSize)
 	bar:Hide()
 	bar:SetScript("OnUpdate", function(b)
-		if not b.finish then
+		if not b.active then
 			return
 		end
-		local now = GetTime()
-		if now >= b.finish then
-			b:Hide()
+		local now = GetTime() * 1000
+		if not isSecret(b.endMS) and now >= b.endMS then
+			stopCast(b)
 			return
 		end
-		b:SetValue(b.channel and (b.finish - now) or (now - b.start))
+		b:SetValue(now)
 	end)
 	return bar
+end
+
+-- The unit's cast or channel now: name, start and end (ms, maybe secret) and
+-- whether it is a channel; nothing when it casts nothing. A secret name means
+-- there is a cast, so that is checked before the name is looked at.
+local function castInfo(unit)
+	local name, _, _, startMS, endMS = UnitCastingInfo(unit)
+	if isSecret(name) or name ~= nil then
+		return name, startMS, endMS, false
+	end
+	if UnitChannelInfo then
+		name, _, _, startMS, endMS = UnitChannelInfo(unit)
+		if isSecret(name) or name ~= nil then
+			return name, startMS, endMS, true
+		end
+	end
+end
+
+
+local function showCast(bar, name, startMS, endMS, channel)
+	bar.channel = channel and true or false
+	bar:SetMinMaxValues(startMS, endMS)
+	bar:SetValue(GetTime() * 1000)
+	if bar.SetReverseFill then
+		bar:SetReverseFill(channel)
+	end
+	if channel then
+		bar:SetStatusBarColor(0, 0, 0, 0.85)
+		bar.back:SetColorTexture(CHANNEL_COLOR[1], CHANNEL_COLOR[2], CHANNEL_COLOR[3], 1)
+	else
+		bar:SetStatusBarColor(CAST_COLOR[1], CAST_COLOR[2], CAST_COLOR[3])
+		bar.back:SetColorTexture(0, 0, 0, 0.6)
+	end
+	if bar.text then
+		bar.text:SetText(name)
+	end
+	bar.active, bar.endMS = true, endMS
+	bar:Show()
 end
 
 local function secureButton(name, unit, level)
@@ -687,9 +744,15 @@ function Target:OnEnable()
 	unitEvent({ "UNIT_TARGET" }, self.UpdateToT)
 	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION", "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT",
 		"UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION" }, self.UpdateBar)
-	unitEvent({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
+	for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
-		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }, self.UpdateCast)
+		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }) do
+		ns:On(e, function(_, unit)
+			if unit == "target" then
+				self:UpdateCast(e)
+			end
+		end)
+	end
 	ns:On("PLAYER_TARGET_CHANGED", function()
 		self:KeepBlizzardAuras()
 		self:Refresh()
@@ -838,36 +901,43 @@ function Target:UpdateCombo()
 	end
 end
 
-function Target:UpdateCast()
+-- Every cast bar showing the target: the console's (swap or plate) and the
+-- target bar's.
+function Target:CastBars()
+	local bars = {}
 	local v = self:View()
-	if not v then
-		return
+	if v then
+		bars[#bars + 1] = v.cast
 	end
-	local bar = v.cast
-	local ok = pcall(function()
-		local channel = false
-		local name, _, _, startMS, endMS = UnitCastingInfo("target")
-		if not name and UnitChannelInfo then
-			name, _, _, startMS, endMS = UnitChannelInfo("target")
-			channel = name ~= nil
+	if self.bar and self.bar.frame:IsShown() and UnitExists("target") then
+		bars[#bars + 1] = self.bar.cast
+	end
+	return bars
+end
+
+-- `event` is the spellcast event that asked (nil on a target change). A stop
+-- hides the bar outright: the cast's info may not be gone yet, and a secret
+-- end can't be waited for.
+local CAST_STOPS = { UNIT_SPELLCAST_STOP = false, UNIT_SPELLCAST_FAILED = false,
+	UNIT_SPELLCAST_INTERRUPTED = false, UNIT_SPELLCAST_CHANNEL_STOP = true }
+
+function Target:UpdateCast(event)
+	local stopChannel = event and CAST_STOPS[event]
+	for _, bar in ipairs(self:CastBars()) do
+		if stopChannel ~= nil then
+			if bar.active and bar.channel == stopChannel then
+				stopCast(bar)
+			end
+		else
+			local ok, name, startMS, endMS, channel = pcall(castInfo, "target")
+			if ok and (isSecret(name) or name ~= nil) then
+				if not pcall(showCast, bar, name, startMS, endMS, channel) then
+					stopCast(bar)
+				end
+			else
+				stopCast(bar)
+			end
 		end
-		if not name then
-			bar.finish = nil
-			bar:Hide()
-			return
-		end
-		bar.start, bar.finish, bar.channel = startMS / 1000, endMS / 1000, channel
-		bar:SetMinMaxValues(0, bar.finish - bar.start)
-		bar:SetValue(channel and (bar.finish - GetTime()) or (GetTime() - bar.start))
-		bar:SetStatusBarColor(channel and 0.2 or 1, channel and 0.85 or 0.7, channel and 0.2 or 0)
-		if bar.text then
-			bar.text:SetText(name)
-		end
-		bar:Show()
-	end)
-	if not ok then
-		bar.finish = nil
-		bar:Hide()
 	end
 end
 
@@ -900,7 +970,8 @@ end
 
 ----------------------------------------------------------------------------
 -- The target bar (db.consoleOpts.targetBar, off by default): the target's
--- name, level, health and power in a small free-standing frame the player
+-- name, level, health and power (and its cast bar, hung under it while it
+-- casts) in a small free-standing frame the player
 -- can put anywhere, nearer the middle of the screen than the console's
 -- target display. It is shown in both modes, beside that display. Not
 -- secure, so it shows and hides in combat; it is click-through except while
@@ -909,7 +980,7 @@ end
 -- its own (db.consoleOpts.targetBarPos, from the screen's centre) and never
 -- feeds the Edit Mode layout.
 
-local BAR_W, BAR_NAME_H, BAR_HEALTH_H, BAR_POWER_H = 230, 16, 18, 10
+local BAR_W, BAR_NAME_H, BAR_HEALTH_H, BAR_POWER_H, BAR_CAST_H = 230, 16, 18, 10, 14
 local BAR_SPOT = { x = 0, y = -150 }
 -- After the level, as on Blizzard's own target frames.
 local BAR_CLASS = { elite = "+", rareelite = "R+", rare = "R", worldboss = "" }
@@ -954,6 +1025,11 @@ function Target:CreateBar()
 	v.power:SetPoint("TOPLEFT", v.health, "BOTTOMLEFT", 0, -1)
 	v.power:SetPoint("TOPRIGHT", v.health, "BOTTOMRIGHT", 0, -1)
 	v.power:SetHeight(BAR_POWER_H)
+	-- The target's cast, hung just under the frame while it casts.
+	v.cast = makeCast(f, f:GetFrameLevel() + 1, 9)
+	v.cast:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 5, -2)
+	v.cast:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", -5, -2)
+	v.cast:SetHeight(BAR_CAST_H)
 	-- While it can be moved: Edit Mode's blue, and its name.
 	v.highlight = f:CreateTexture(nil, "OVERLAY")
 	v.highlight:SetAllPoints()
@@ -1067,11 +1143,15 @@ function Target:RefreshBar()
 	local show = self:BarEnabled() and (has or self.barEditing)
 	v.frame:SetShown(show)
 	self:UpdateBarMouse()
+	if not (show and has) then
+		stopCast(v.cast)
+	end
 	if not show then
 		return
 	end
 	if has then
 		self:UpdateBar()
+		self:UpdateCast()
 	else
 		-- Edit Mode without a target: a stand-in to place.
 		v.name:SetText("Target")

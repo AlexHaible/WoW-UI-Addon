@@ -66,9 +66,13 @@ screen stays free on either side).
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
   Left-click targets, right-click opens the unit menu.
+  The target's cast bar reads the game's cast info as it is: for any unit
+  but you and your pet that info is secret, so it goes straight into the bar
+  and is never compared or added up.
   For the target's health nearer the middle of the screen, the options'
   "Target bar" (or `/rui targetbar on`) adds a small free-standing bar with
-  its name, level, health and power, in either mode. It is click-through
+  its name, level, health and power (and its cast bar underneath while it
+  casts), in either mode. It is click-through
   until you hold Shift out of combat (or open Edit Mode), then drag it anywhere; its place
   is saved on its own and never touches the Edit Mode layout.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's

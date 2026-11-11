@@ -166,7 +166,9 @@ switches it to an account-wide Edit Mode layout called "Reforged UI", made
 once as a copy of the layout you were using, with the cast bar just above the
 console (its default place is under it), raid-style party frames, and the
 target frame placed for its aura icons (again at each login and target mode
-change). When the
+change; the game only takes that in at a reload, so a mode change asks for
+one, and a few seconds after login the chat says so if the icons aren't where
+they belong, e.g. with another layout active). When the
 layout is made, the raid frame options are turned on too: class colours,
 power bars for every role, debuffs, aggro highlight, incoming heals, main
 tank and assist, health as a percentage. Everything lives in the layout and

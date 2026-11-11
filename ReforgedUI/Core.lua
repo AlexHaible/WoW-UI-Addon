@@ -1104,6 +1104,7 @@ end
 -- Blizzard puts the first aura icon's bottom-left corner this far from its
 -- target frame's top-left corner when buffs are on top (TargetFrame.lua).
 local TARGET_AURA_X, TARGET_AURA_Y = 5, -15
+ns.TARGET_AURA_X, ns.TARGET_AURA_Y = TARGET_AURA_X, TARGET_AURA_Y
 
 -- The "Target aura size" option: Edit Mode's Frame Size for the target
 -- frame (100-200 % in steps of 5), which is all that makes its aura icons
@@ -1259,7 +1260,8 @@ local function editModeReady()
 	return not ok or ready
 end
 
-function ns:SetupEditMode()
+-- `why`: what to tell the player should only the target frame move.
+function ns:SetupEditMode(why)
 	local systems = Enum and Enum.EditModeSystem
 	if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and systems and systems.CastBar
 		and self.layout) then
@@ -1451,7 +1453,7 @@ function ns:SetupEditMode()
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))
 	elseif made or placed then
-		self:AskReload("updated the target frame's place and size in the Edit Mode layout.")
+		self:AskReload(why or "updated the target frame's place and size in the Edit Mode layout.")
 	elseif renamed > 0 then
 		self:AskReload(("renamed %d extra %q Edit Mode layout(s) (delete them in Edit Mode if you don't use them).")
 			:format(renamed, ns.EDIT_LAYOUT))

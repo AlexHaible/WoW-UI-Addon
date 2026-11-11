@@ -42,7 +42,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - Rest, combat, leader and PvP icons. The portrait pulses red when your health is low.
 - Incoming heals show on every health bar (yours, your target's, its target's and your pet's), just like Blizzard's own frames: your own heals in bright teal, everyone else's in a darker teal, right after the current health.
 - Name, level and class, plus an experience bar showing rested XP. Right-click the bar to choose its colour.
-- A thin reputation bar under the experience bar for the faction you've ticked "Show as Experience Bar", in its standing's colour. Hover it for your standing and progress, click it to open the reputation panel.
+- A thin reputation bar under the experience bar for the faction you've ticked "Show as Experience Bar", in its standing's colour. Hover it for your standing and progress, click it to open the reputation panel. Don't want it? Untick **Reputation bar** in the options (or `/rui repbar off`) and the experience bar gets its full height back.
 - Four stat icons, each showing main hand, off hand (block chance and value with a shield), ranged, ammo, attack power, crit chance, spell power, healing, armour, dodge chance, parry chance, resistances (all five schools in their colours), strength, agility, stamina, intellect, spirit or nothing. Pick them per class from each icon's right-click menu or the options menu. Hover an icon for the details of that slot.
 
 **Target**
@@ -143,6 +143,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
 /rui pet reset                   put the pet icon back beside the target's target
+/rui repbar on|off               the reputation bar under the experience bar
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
 /rui aurasize 100-200            target buff and debuff icon size, in %
 /rui feeds                       list data feeds, game panels and top bar slots

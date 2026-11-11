@@ -405,6 +405,7 @@ end
 -- `squash` (default 1) makes the plate that much as tall, keeping its top
 -- edge and the name where they were: the hero's is a little flatter, to
 -- leave room for the reputation strip under it.
+local LEVEL_WINDOW_MID = (64 - 35) / 64
 local function levelPlate(x, y, s, squash)
 	local xs = 0.375
 	local k = squash or 1
@@ -421,13 +422,15 @@ local function levelPlate(x, y, s, squash)
 		bar = rect(x, y, 0.6814 * s, 0.083 * s * k), -- at 100%
 		hover = rect(x + capW, y, total, 0.08 * s * k),
 		nameY = nameY,
-		levelY = y + capH / 2,
+		-- The middle of the art's window (rows 11-59 of 64, from the top),
+		-- a little below the plate's own middle.
+		levelY = y + capH * LEVEL_WINDOW_MID,
 		cx = x + capW + midW / 2,
 		width = total,
 	}
 end
 Layout.LevelPlate = levelPlate
--- How tall the hero's experience bar is against the target plates'.
+-- How tall the hero's experience bar is with the reputation strip under it.
 local XP_SQUASH = 0.8
 Layout.XP_SQUASH = XP_SQUASH
 -- Width of a level plate per unit of its `s`.
@@ -977,12 +980,12 @@ local function build(W, H, o, X0, chatW)
 
 	-- Hero screen: experience bar and the four stat icons.
 	local xpX, xpY = PT.x + 0.23 * s, 0.3 * s
-	L.xp = levelPlate(xpX, xpY, s, XP_SQUASH)
+	-- With the reputation strip on (o.repBar), a flatter experience bar
+	-- and the watched faction's strip under it, as wide as the plate's
+	-- middle, in the room that leaves above the stat icons.
+	L.xp = levelPlate(xpX, xpY, s, o.repBar and XP_SQUASH or nil)
 	local total = L.xp.width
-	-- The watched faction's strip, under the experience bar and as wide as
-	-- the plate's middle, in the room the flatter plate leaves above the
-	-- stat icons.
-	do
+	if o.repBar then
 		local mid = L.xp.middle
 		local h = 0.02 * s
 		L.rep = rect(mid.x, mid.y - 0.004 * s - h, mid.w, h)

@@ -238,6 +238,8 @@ function Config:Build()
 	self:Edit("", "portraitX", x, y - 84)
 	self:Edit("", "portraitY", x + 70, y - 84)
 	self:Edit("Portrait scale (0-35)", "portraitScale", x, y - 126)
+	-- The watched faction's strip under the experience bar.
+	self:Check("Reputation bar", "repBar", x + 116, y - 140, relayout)
 
 	-- No top bar: the menu buttons stand above the minimap instead.
 	self:Check("Hide top bar", "hideTopBar", x, y - 178, function(on) ns:SetTopBarShown(not on) end)

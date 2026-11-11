@@ -1337,6 +1337,19 @@ do
 	assert(ns.modules.reputation:InfoText():find("Until next standing:|r 3700", 1, true), "the strip's info box")
 	hero.rep.hover:GetScript("OnLeave")(hero.rep.hover)
 	assert(not hero.xp.level._text:find("Nightclaw", 1, true), "and back to the level line")
+	-- The level line in the middle of the plate's window (below the
+	-- plate's own middle: the art's rim is lower at the top).
+	local X = RL.xp
+	assert(X.levelY < X.left.y + X.left.h / 2 and X.levelY > X.left.y + X.left.h * 0.4, "level line centred")
+	-- It can be turned off: the bar is as tall as ever and the strip gone.
+	local flatH = X.left.h
+	SlashCmdList.REFORGEDUI("repbar off")
+	assert(ns.db.consoleOpts.repBar == false and not ns.layout.rep, "the strip is off")
+	assert(not hero.rep.fill:IsShown() and not hero.rep.hover:IsShown(), "and hidden")
+	assert(ns.layout.xp.left.h > flatH * 1.2, "the experience bar gets its height back")
+	assert(ns.layout.xp.nameY == X.nameY, "the name stays put")
+	SlashCmdList.REFORGEDUI("repbar on")
+	assert(ns.layout.rep and hero.rep.fill:IsShown(), "and on again")
 	watchedFaction.currentStanding = 5550
 	fire("UPDATE_FACTION")
 	flushTimers()

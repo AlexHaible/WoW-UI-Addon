@@ -71,6 +71,7 @@ local DEFAULTS = {
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
+		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 	},
 }
@@ -593,6 +594,7 @@ function ns:LayoutOptions()
 		-- With "Chat width" on, the chat area runs to the screen edge rather
 		-- than giving up width to the end caps.
 		capsOffScreen = (tonumber(o.chatWiden) or 0) > 0,
+		repBar = o.repBar ~= false,
 	}
 end
 
@@ -639,6 +641,17 @@ function ns:SetTopBarShown(on)
 	self.db.consoleOpts.hideTopBar = not on
 	self:Relayout()
 	self:RunOutOfCombat("edit-mode", function() self:SetupEditMode() end)
+	local config = self.modules.config
+	if config.frame then
+		config:Refresh()
+	end
+end
+
+-- The watched faction's strip under the experience bar (the bar is a
+-- little flatter while it's on).
+function ns:SetRepBarShown(on)
+	self.db.consoleOpts.repBar = on and true or false
+	self:Relayout()
 	local config = self.modules.config
 	if config.frame then
 		config:Refresh()
@@ -1515,6 +1528,7 @@ local function usage()
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
+	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
 end
@@ -1587,6 +1601,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "totems" and arg == "reset" and ns.modules.totems.enabled then
 		ns.modules.totems:ResetSpot()
 		ns:Print("totem timers back on the wall over the action bars.")
+	elseif cmd == "repbar" and (arg == "on" or arg == "off") then
+		ns:SetRepBarShown(arg == "on")
+		ns:Print(arg == "on" and "reputation bar on, under the experience bar." or "reputation bar off.")
 	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
 		local target = ns.modules.target
 		if arg == "reset" then

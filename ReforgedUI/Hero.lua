@@ -308,6 +308,8 @@ function Hero.CreateLevelPlate(holder, nameSize, levelSize)
 	return xp
 end
 
+local LETTER_LIFT = 0.065
+
 -- Place a level plate made by CreateLevelPlate at X (Layout.LevelPlate).
 function Hero.PlaceLevelPlate(xp, X)
 	place(xp.left, X.left)
@@ -319,11 +321,18 @@ function Hero.PlaceLevelPlate(xp, X)
 		fs:SetWidth(X.width)
 	end
 	xp.name:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.nameY)
-	xp.level:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.levelY)
+	-- The game draws the letters a little above the middle of their line:
+	-- lower them by that much (measured in game: about 1.5 px of a 12 point
+	-- line at 1440p), so they sit in the middle of the plate's window.
+	local _, size = xp.level:GetFont()
+	size = xp.level.fitSize or size or 12
+	xp.level:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.levelY - LETTER_LIFT * size)
 end
 
+local LEVEL_SIZE = 12
+
 function Hero:CreateXP(holder)
-	local xp = Hero.CreateLevelPlate(holder, 16, 12)
+	local xp = Hero.CreateLevelPlate(holder, 16, LEVEL_SIZE)
 	xp.rested = holder:CreateTexture(nil, "BORDER")
 	xp.rested:SetTexture(ns:ArtPath("other\\xpProgressBar"))
 
@@ -409,16 +418,20 @@ end
 
 function Hero:UpdateRep()
 	local rep, L = self.rep, ns.layout
-	if not (rep and L and L.rep) then
+	if not rep then
 		return
 	end
-	local w = self:Watched()
-	rep.border:SetShown(w ~= nil)
-	rep.bg:SetShown(w ~= nil)
-	rep.fill:SetShown(w ~= nil)
-	rep.hover:SetShown(w ~= nil)
+	local w = L and L.rep and self:Watched() or nil
+	local shown = w ~= nil
+	rep.border:SetShown(shown)
+	rep.bg:SetShown(shown)
+	rep.fill:SetShown(shown)
+	rep.hover:SetShown(shown)
 	if not w then
-		self.repHovering = false
+		if self.repHovering then
+			self.repHovering = false
+			hideInfo()
+		end
 		return
 	end
 	local mod = ns.modules.reputation
@@ -1066,13 +1079,17 @@ function Hero:OnLayout(L)
 	place(self.power, L.power)
 
 	local xp, X = self.xp, L.xp
+	-- The level line a point smaller on the flatter bar, to fit its window.
+	xp.level.fitSize = L.rep and LEVEL_SIZE - 1 or LEVEL_SIZE
 	Hero.PlaceLevelPlate(xp, X)
 	place(xp.rested, X.bar)
 	place(xp.hover, X.hover)
-	place(self.rep.border, L.rep.border)
-	place(self.rep.bg, L.rep)
-	place(self.rep.fill, L.rep)
-	place(self.rep.hover, L.rep.hover)
+	if L.rep then
+		place(self.rep.border, L.rep.border)
+		place(self.rep.bg, L.rep)
+		place(self.rep.fill, L.rep)
+		place(self.rep.hover, L.rep.hover)
+	end
 
 	for i, f in ipairs(self.stats) do
 		local r = L.statIcons[i]

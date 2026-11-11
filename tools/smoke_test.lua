@@ -178,6 +178,7 @@ function methods:EnableMouse(v) self._mouse = v end
 function methods:IsForbidden() return self._forbidden or false end
 function methods:SetColorTexture(r, g, b) assert(r and g and b, "colour needs rgb") end
 function methods:SetTextColor(r, g, b) assert(r and g and b, "colour needs rgb"); self._textColor = { r, g, b } end
+function methods:GetTextColor() local c = self._textColor or { 1, 0.82, 0 }; return c[1], c[2], c[3], 1 end
 function methods:SetStatusBarColor(r, g, b) assert(r and g and b, "colour needs rgb"); self._color = { r, g, b } end
 function methods:SetMinMaxValues(lo, hi) self._min, self._max = lo, hi end
 function methods:SetValue(v)
@@ -470,6 +471,9 @@ function HasNewMail() return false end
 function UnitAttackSpeed() return 2.0, nil end
 C_PaperDollInfo = { OffhandHasShield = function() return true end }
 local placed
+-- The client reports action range per slot once asked (EnableActionRangeCheck).
+local rangeChecked = {}
+C_ActionBar = { EnableActionRangeCheck = function(slot, on) rangeChecked[slot] = on end }
 -- Action slots: one spell left on Action Bar 8's second button (slot 170)
 -- from before the minimap bar had its own slots.
 local actions, cursorAction = { [170] = "Lightning Bolt" }, nil
@@ -1753,6 +1757,17 @@ assert(actions[110] == "Lightning Bolt" and not actions[170], "Action Bar 8's se
 assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F2" and not GetBindingKey("MULTIACTIONBAR7BUTTON2")
 	and bindingsSaved == 1, "Action Bar 8's key moved to the minimap slot binding")
 assert(ReforgedUIMinimapButton2.hotkey._text == "F2", "the minimap slot shows its key")
+-- Out of range: the key turns red, never the icon; no range to check: back to normal.
+do
+	local b = ReforgedUIMinimapButton2
+	assert(rangeChecked[110] and rangeChecked[109] and rangeChecked[111], "range checks asked for the minimap slots")
+	local normal = b.hotkey._textColor and b.hotkey._textColor[1]
+	fire("ACTION_RANGE_CHECK_UPDATE", 110, false, true)
+	assert(b.hotkey._textColor[1] == 1 and b.hotkey._textColor[2] < 0.2, "out of range: red key")
+	assert(not (b.icon._vertex and b.icon._vertex[2] < 0.5 and b.icon._vertex[1] > 0.5), "out of range: icon not tinted red")
+	fire("ACTION_RANGE_CHECK_UPDATE", 110, false, false)
+	assert(b.hotkey._textColor[2] > 0.2 and (normal == nil or b.hotkey._textColor[1] == normal), "no target: key colour back")
+end
 assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"], "moved once per character")
 actions[171] = "Earth Shock"
 ns.modules.minimapbar:MoveFromBar8()

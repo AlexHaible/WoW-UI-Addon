@@ -1591,6 +1591,45 @@ assert(L.stance.y >= 0.55 * L.s and L.stance.x > L.portraitArt.x + L.portraitArt
 	"stance row sits on the wall over the grid")
 assert(StanceBar._mouse == false and PetActionBar._mouse == false and StanceBar._alpha == nil,
 	"stance and pet bar frames are click-through, not hidden")
+-- The stance row moves by its outline while Edit Mode is open (a drag on a
+-- stance button picks up its spell); /rui stance reset puts it back.
+do
+	local bars = ns.modules.actionbars
+	local h = bars.stanceHolder
+	assert(h == ReforgedUIStance and not h._shown and h._mouse == false, "the stance outline hides outside Edit Mode")
+	h._scripts.OnDragStart(h)
+	assert(not h._moving, "no moving the stance row outside Edit Mode")
+	EditModeManagerFrame._hooks.OnShow()
+	assert(h._shown and h._mouse ~= false, "Edit Mode shows the stance outline")
+	inCombat = true
+	h._scripts.OnDragStart(h)
+	assert(not h._moving, "no moving the stance row in combat")
+	inCombat = false
+	h._scripts.OnDragStart(h)
+	assert(h._moving, "Edit Mode drags the stance row")
+	h._scripts.OnDragStop(h)
+	assert(not h._moving and type(ns.db.consoleOpts.stanceSpot) == "table", "the stance row's spot is saved")
+	EditModeManagerFrame._hooks.OnHide()
+	assert(not h._shown and h._mouse == false, "the stance outline goes with Edit Mode")
+	ns.db.consoleOpts.stanceSpot = { 300, 200 }
+	bars:PlaceStance()
+	for i = 1, 10 do
+		at(_G["StanceButton" .. i], 300 + (i - 1) * L.stance.step, 200, "moved stance button " .. i)
+	end
+	ns:Relayout()
+	at(StanceButton2, 300 + L.stance.step, 200, "the moved stance row stays after a relayout")
+	SlashCmdList.REFORGEDUI("stance reset")
+	assert(ns.db.consoleOpts.stanceSpot == false, "/rui stance reset")
+	at(StanceButton1, L.stance.x, L.stance.y, "stance row back on the wall")
+	-- Left to another bar addon: the player's choice, or Dominos loaded.
+	assert(not bars:LeavesStance(), "the stance buttons are ours by default")
+	C_AddOns = { IsAddOnLoaded = function(name) return name == "Dominos" end }
+	assert(bars:LeavesStance(), "Dominos gets the stance buttons")
+	C_AddOns = nil
+	ns.db.consoleOpts.leaveStance = true
+	assert(bars:LeavesStance(), "the player can leave the stance buttons to their bar addon")
+	ns.db.consoleOpts.leaveStance = false
+end
 -- The day/night indicator is hidden, not moved.
 assert(GameTimeFrame._alpha == 0 and #GameTimeFrame._points == 0, "GameTimeFrame should be concealed, not moved")
 assert(MinimapCluster.DielFrame._alpha == 0 and #MinimapCluster.DielFrame._points == 0,

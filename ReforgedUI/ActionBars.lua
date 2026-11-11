@@ -2,7 +2,9 @@
 -- bottom row, bars 2 and 3 above it. The original addon's three extra slots beside the
 -- minimap are our own bar (MinimapBar.lua), not one of Blizzard's. (The 2x3
 -- inventory holds the bags, see Inventory.lua.) The stance (aura, form) buttons stand in a row on the
--- wall over the grid. The pet bar keeps its buttons where Edit Mode has one:
+-- wall over the grid; the row can be dragged elsewhere while Edit Mode is
+-- open (consoleOpts.stanceSpot, /rui stance reset), or left to another bar
+-- addon altogether (consoleOpts.leaveStance, or Dominos loaded). The pet bar keeps its buttons where Edit Mode has one:
 -- it is placed just above the stance row once (on it, for classes without
 -- stances), then moved in Edit Mode (see ns:PetBarSpot); on clients without,
 -- its buttons get that row (ns:PetRow).
@@ -29,6 +31,10 @@ local ROWS = {
 	{ key = "stance", prefixes = { "StanceButton", "ShapeshiftButton" }, count = 10 },
 	{ key = "pet", prefixes = { "PetActionButton" }, count = 10 },
 }
+
+-- Bar addons that put Blizzard's own stance buttons on their bars: holding
+-- the buttons on the wall would fight theirs.
+local STANCE_ADDONS = { "Dominos" }
 
 local BAR_FRAMES = {
 	"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight",
@@ -185,9 +191,11 @@ function ActionBars:OnEnable()
 	-- wall, not in the grid art.
 	self.rows = {}
 	local petInEditMode = ns:PetBarInEditMode()
+	local leaveStance = self:LeavesStance()
 	for _, spec in ipairs(ROWS) do
 		local list = {}
-		for _, prefix in ipairs(spec.key == "pet" and petInEditMode and {} or spec.prefixes) do
+		local skip = spec.key == "pet" and petInEditMode or spec.key == "stance" and leaveStance
+		for _, prefix in ipairs(skip and {} or spec.prefixes) do
 			if _G[prefix .. "1"] then
 				for i = 1, spec.count do
 					local btn = _G[prefix .. i]
@@ -204,11 +212,14 @@ function ActionBars:OnEnable()
 	-- The bars' own frames stay where Edit Mode put them (now empty, at the
 	-- bottom of the screen, except an Edit Mode pet bar, which keeps its
 	-- buttons); stop them catching clicks meant for the console.
+	-- Stance bar frames left to another addon keep their buttons and clicks.
+	local stanceFrames = { StanceBar = true, StanceBarFrame = true, ShapeshiftBarFrame = true }
 	ns:RunOutOfCombat("actionbar-frames", function()
 		for _, name in ipairs(own and { "StanceBar", "StanceBarFrame", "ShapeshiftBarFrame",
 			"PetActionBar", "PetActionBarFrame" } or BAR_FRAMES) do
 			local bar = _G[name]
-			if bar and not ns.IsForbidden(bar) and bar.EnableMouse then
+			if bar and not ns.IsForbidden(bar) and bar.EnableMouse
+				and not (leaveStance and stanceFrames[name]) then
 				bar:EnableMouse(false)
 			end
 		end
@@ -236,6 +247,38 @@ function ActionBars:OnEnable()
 			self:EnableBars()
 		end)
 	end)
+
+	if next(self.rows.stance) then
+		self.stanceHolder = self:MakeStanceHolder()
+		local editMode = _G.EditModeManagerFrame
+		if editMode and editMode.HookScript then
+			editMode:HookScript("OnShow", function() self:SetEditing(true) end)
+			editMode:HookScript("OnHide", function() self:SetEditing(false) end)
+		end
+		ns:On("UPDATE_SHAPESHIFT_FORMS", function()
+			if self.editing then
+				self:PlaceStanceHolder()
+			end
+		end)
+	end
+end
+
+-- True when the stance buttons are left where Blizzard or another bar addon
+-- puts them: the player asked for it, or such an addon is loaded.
+function ActionBars:LeavesStance()
+	if ns.db.consoleOpts.leaveStance then
+		return true
+	end
+	local addons = _G.C_AddOns
+	local loaded = (addons and addons.IsAddOnLoaded) or _G.IsAddOnLoaded
+	if loaded then
+		for _, name in ipairs(STANCE_ADDONS) do
+			if loaded(name) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Bars 2 and 3 fill the console, so turn them on once per character
@@ -300,13 +343,138 @@ function ActionBars:OnLayout(L)
 			lockButton(btn, { x = row.xs[i], y = row.y, w = row.size })
 		end
 	end
-	-- Stance (and, without Edit Mode, pet) buttons in rows over the grid.
+	-- Stance (and, without Edit Mode, pet) buttons in rows over the grid;
+	-- the stance row wherever the player dragged it.
+	self.layout = L
 	for key, list in pairs(self.rows) do
 		local row = key == "pet" and ns:PetRow(L) or L[key]
 		for i, btn in pairs(list) do
 			ns:Lock(btn, function(b)
-				placeButton(b, row.x + (i - 1) * row.step, row.y, row.size)
+				local r = key == "stance" and self:StanceSpot() or row
+				placeButton(b, r.x + (i - 1) * r.step, r.y, r.size)
 			end, { "SetScale" })
 		end
+	end
+	if self.stanceHolder then
+		self:PlaceStanceHolder()
+	end
+end
+
+----------------------------------------------------------------------------
+-- Moving the stance row
+--
+-- The stance buttons are Blizzard's (protected, and a drag on one picks up
+-- its spell), so the row moves by an outline of our own that shows while
+-- Edit Mode is open: drag it out of combat and the buttons follow. Its spot
+-- is kept per account (consoleOpts.stanceSpot, console units from the
+-- console's bottom-left); /rui stance reset puts it back on the wall.
+
+-- The row's first button: where the player put it, else on the wall.
+function ActionBars:StanceSpot()
+	local row = self.layout.stance
+	local spot = ns.db.consoleOpts.stanceSpot
+	if type(spot) == "table" and type(spot[1]) == "number" and type(spot[2]) == "number" then
+		return { x = spot[1], y = spot[2], size = row.size, step = row.step }
+	end
+	return row
+end
+
+-- How many stance buttons the character has (at least one, so the outline
+-- can still be found).
+local function stanceCount(list)
+	local forms = _G.GetNumShapeshiftForms
+	local n = forms and forms() or 0
+	if type(n) ~= "number" or n < 1 then
+		n = 0
+		for _ in pairs(list) do
+			n = n + 1
+		end
+	end
+	return math.max(1, math.min(n, 10))
+end
+
+function ActionBars:MakeStanceHolder()
+	local h = CreateFrame("Frame", "ReforgedUIStance", ns.root)
+	h:SetFrameStrata("HIGH")
+	h:SetMovable(true)
+	h:SetClampedToScreen(true)
+	h:EnableMouse(false)
+	h.fill = h:CreateTexture(nil, "BACKGROUND")
+	h.fill:SetAllPoints()
+	h.fill:SetColorTexture(0.1, 0.5, 1, 0.35)
+	h.label = h:CreateFontString(nil, "OVERLAY")
+	if not ns:SetFont(h.label, 10, "OUTLINE") then
+		h.label:SetFontObject("GameFontHighlightSmall")
+	end
+	h.label:SetPoint("CENTER")
+	h.label:SetText("Stance bar")
+	h:RegisterForDrag("LeftButton")
+	h:SetScript("OnDragStart", function() self:StartStanceDrag() end)
+	h:SetScript("OnDragStop", function() self:StopStanceDrag() end)
+	h:Hide()
+	return h
+end
+
+function ActionBars:PlaceStanceHolder()
+	local h = self.stanceHolder
+	if not (h and self.layout) or self.moving then
+		return
+	end
+	local r = self:StanceSpot()
+	local n = stanceCount(self.rows.stance)
+	ns.modules.console.Place(h, { x = r.x, y = r.y, w = n * r.step - (r.step - r.size), h = r.size })
+end
+
+-- Edit Mode open: the outline shows over the row and can be dragged.
+function ActionBars:SetEditing(on)
+	self.editing = on
+	local h = self.stanceHolder
+	if on then
+		self:PlaceStanceHolder()
+	else
+		self:StopStanceDrag()
+	end
+	h:SetShown(on and true or false)
+	h:EnableMouse(on and true or false)
+end
+
+function ActionBars:StartStanceDrag()
+	if self.editing and not InCombatLockdown() and self.layout then
+		self.moving = true
+		self.stanceHolder:StartMoving()
+	end
+end
+
+function ActionBars:StopStanceDrag()
+	if not self.moving then
+		return
+	end
+	self.moving = false
+	local h, root = self.stanceHolder, ns.root
+	h:StopMovingOrSizing()
+	if h.SetUserPlaced then
+		h:SetUserPlaced(false) -- ours to save, not the client's layout cache
+	end
+	local x, y = h:GetLeft(), h:GetBottom()
+	local rx, ry = root:GetLeft(), root:GetBottom()
+	if x and y and rx and ry then
+		ns.db.consoleOpts.stanceSpot = { x - rx, y - ry }
+	end
+	self:PlaceStance()
+end
+
+-- The buttons to the row's (new) spot: their locks place them, after
+-- combat if need be.
+function ActionBars:PlaceStance()
+	for _, btn in pairs(self.rows and self.rows.stance or {}) do
+		ns:Relock(btn)
+	end
+	self:PlaceStanceHolder()
+end
+
+function ActionBars:ResetStanceSpot()
+	ns.db.consoleOpts.stanceSpot = false
+	if self.layout then
+		self:PlaceStance()
 	end
 end

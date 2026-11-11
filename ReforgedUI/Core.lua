@@ -73,6 +73,7 @@ local DEFAULTS = {
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
+		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
 	},
 }
 
@@ -1524,6 +1525,7 @@ local function usage()
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
+	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
@@ -1575,6 +1577,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:SayTargetAuraSize()
+	elseif cmd == "buffsfirst" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
+		ns.modules.target:SetBuffsFirst(arg == "on")
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print(arg == "on" and "target buffs first, debuffs after them." or "target auras in the game's order.")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)

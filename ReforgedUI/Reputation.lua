@@ -1,7 +1,8 @@
 -- The watched faction (the one ticked "Show as Experience Bar" in the
 -- reputation panel) as a feed ("Reforged: Reputation") for the top bar's
--- slots and any other LibDataBroker display: its name in its standing's
--- colour and how far along the standing it is, with the details in the
+-- slots and any other LibDataBroker display: its progress through its
+-- standing by default (a right-click steps through its name, standing,
+-- progress and what's left to the next standing), with the details in the
 -- tooltip. A click opens the reputation panel. The hero screen's strip
 -- under the experience bar (Hero.lua) shows the same faction.
 --
@@ -124,18 +125,65 @@ function Reputation.Fraction(w)
 	return math.min(1, w.cur / w.size)
 end
 
--- The feed's text: the faction's name in its standing's colour, and how
--- far along the standing (the standing's name at the top).
-function Reputation:FeedText(w)
+-- What the feed shows, in the order a right-click steps through them
+-- (consoleOpts.repFeed): the faction's name, its standing, the progress
+-- through the standing, or what's left to the next one.
+local MODES = { "name", "standing", "progress", "next" }
+Reputation.MODES = MODES
+local MODE_NAMES = { name = "faction name", standing = "standing", progress = "progress",
+	next = "progress to next standing" }
+
+function Reputation:Mode()
+	local mode = ns.db and ns.db.consoleOpts.repFeed
+	return MODE_NAMES[mode or ""] and mode or "progress"
+end
+
+function Reputation:CycleMode()
+	local mode = self:Mode()
+	for i, m in ipairs(MODES) do
+		if m == mode then
+			ns.db.consoleOpts.repFeed = MODES[i % #MODES + 1]
+			break
+		end
+	end
+	self:Update()
+end
+
+-- The next standing's name ("Honored"), or nil for friendships and the top.
+local function nextLabel(w)
+	if w.friend or w.top then
+		return nil
+	end
+	local label = _G["FACTION_STANDING_LABEL" .. tostring(w.reaction + 1)] or LABELS[w.reaction + 1]
+	return label
+end
+
+-- The feed's text in the chosen mode; the name and standing in the
+-- standing's colour. At the top standing the numbers give way to its name
+-- (or to the paragon's progress).
+function Reputation:FeedText(w, mode)
 	w = w or self:Watched()
 	if not w then
 		return "No faction"
 	end
-	local name = ("|cff%s%s|r"):format(hex(Reputation.Color(w.reaction)), w.name)
-	if w.top and not w.paragon then
-		return ("%s %s"):format(name, w.label)
+	mode = mode or self:Mode()
+	local color = hex(Reputation.Color(w.reaction))
+	if mode == "name" then
+		return ("|cff%s%s|r"):format(color, w.name)
 	end
-	return ("%s %d%%"):format(name, math.floor(Reputation.Fraction(w) * 100))
+	local top = w.top and not w.paragon
+	if mode == "standing" or top then
+		return ("|cff%s%s|r"):format(color, w.label)
+	end
+	local cur, size = w.cur, w.size
+	if w.paragon then
+		cur, size = w.paragon.value, w.paragon.threshold
+	end
+	if mode == "next" then
+		local label = w.paragon and "reward" or nextLabel(w) or "next"
+		return ("%s to %s"):format(number(size - cur), label)
+	end
+	return ("%s / %s"):format(number(cur), number(size))
 end
 
 -- Reputation gained this session, per faction: the first value seen since
@@ -187,6 +235,7 @@ function Reputation:Tooltip(tip)
 		tip:AddLine(AT_WAR or "At War", 1, 0.2, 0.2)
 	end
 	tip:AddLine(GREY .. "Click to open the reputation panel.|r")
+	tip:AddLine(("%sRight-click to show the next view (now: %s).|r"):format(GREY, MODE_NAMES[self:Mode()]))
 end
 
 -- The hero screen's info box for the strip under the experience bar
@@ -256,7 +305,13 @@ function Reputation:OnEnable()
 	if LDB then
 		self.feed = LDB:NewDataObject(FEED, {
 			type = "data source", label = REPUTATION or "Reputation", text = "", icon = ICON,
-			OnClick = function() Reputation:Open() end,
+			OnClick = function(_, button)
+				if button == "RightButton" then
+					Reputation:CycleMode()
+				else
+					Reputation:Open()
+				end
+			end,
 			OnTooltipShow = function(tip) Reputation:Tooltip(tip) end,
 		})
 	end

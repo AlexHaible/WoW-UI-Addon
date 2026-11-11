@@ -82,7 +82,11 @@ screen stays free on either side).
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
   Warrior stances, Druid forms, ...) stand in a row on the wall above the grid,
-  as in Warcraft III; these are Blizzard's buttons too. The pet bar starts in a
+  as in Warcraft III; these are Blizzard's buttons too. Open Edit Mode to drag
+  the row elsewhere by its blue outline (`/rui stance reset` puts it back), or
+  tick "Leave stance buttons to my bar addon" in the options (`/rui stance
+  off`, needs a reload) to let Blizzard's stance bar or your bar addon have
+  them; with Dominos loaded that happens by itself. The pet bar starts in a
   row just above them (on their row, for classes without stances), at about
   their size, and is Blizzard's Edit Mode bar, so you can move and resize it
   in Edit Mode.

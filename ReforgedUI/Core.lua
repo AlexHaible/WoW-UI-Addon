@@ -67,6 +67,8 @@ local DEFAULTS = {
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		totemSpot = false, -- where the player moved the totem timers ({ x, y } in console units), or on the wall over the grid
+		stanceSpot = false, -- where the player moved the stance buttons ({ x, y } in console units), or on the wall over the grid
+		leaveStance = false, -- leave the stance buttons where Blizzard or another bar addon puts them (reload)
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
@@ -306,6 +308,11 @@ end
 
 function ns:Unlock(frame)
 	locks[frame] = false
+end
+
+-- Run a frame's lock again (after what it places by has changed).
+function ns:Relock(frame)
+	runLock(frame)
 end
 
 -- Keep a frame's bottom edge at or above console height `limit()`.
@@ -1528,6 +1535,8 @@ local function usage()
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
+	print("  /rui stance reset  (put the stance buttons back on the wall; drag them in Edit Mode)")
+	print("  /rui stance off||on  (off: leave the stance buttons to Blizzard or your bar addon; needs /reload)")
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
@@ -1601,6 +1610,16 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "totems" and arg == "reset" and ns.modules.totems.enabled then
 		ns.modules.totems:ResetSpot()
 		ns:Print("totem timers back on the wall over the action bars.")
+	elseif cmd == "stance" and arg == "reset" and ns.modules.actionbars.enabled then
+		ns.modules.actionbars:ResetStanceSpot()
+		ns:Print("stance buttons back on the wall over the action bars.")
+	elseif cmd == "stance" and (arg == "on" or arg == "off") then
+		ns.db.consoleOpts.leaveStance = arg == "off"
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:AskReload(arg == "off" and "the stance buttons are left to Blizzard or your bar addon."
+			or "the stance buttons go back on the console's wall.")
 	elseif cmd == "repbar" and (arg == "on" or arg == "off") then
 		ns:SetRepBarShown(arg == "on")
 		ns:Print(arg == "on" and "reputation bar on, under the experience bar." or "reputation bar off.")

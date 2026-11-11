@@ -324,6 +324,12 @@ function Config:Build()
 
 	button(f, "Apply", 120, 20, -554, function() self:Apply() end)
 	button(f, "Reload UI", 120, 150, -554, ReloadUI)
+	-- Stance buttons left to Blizzard's stance bar or another bar addon
+	-- (moving them on the console is done in Edit Mode).
+	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -553, function(on)
+		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
+			or "the stance buttons go back on the console's wall.")
+	end)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).

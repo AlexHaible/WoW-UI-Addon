@@ -47,6 +47,7 @@ local CLASSIFICATION = {
 }
 
 local isSecret = issecretvalue or function() return false end
+local activeLayoutName -- below, with the aura spot checks
 
 local function font(fs, size)
 	if not ns:SetFont(fs, size) then
@@ -355,9 +356,90 @@ end
 function Target:SetMode(mode)
 	ns.db.consoleOpts.targetMode = mode == "plate" and "plate" or "swap"
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
-	-- Blizzard's aura icons follow, through the Edit Mode layout.
-	ns:RunOutOfCombat("target-auras", function() ns:SetupEditMode() end)
+	-- Blizzard's aura icons follow, through the Edit Mode layout, which the
+	-- game only takes in at a reload; and only in our layout.
+	ns:RunOutOfCombat("target-auras", function()
+		ns:SetupEditMode(("the target's buffs and debuffs move %s once the UI reloads."):format(self:AuraSpotName()))
+		local name = activeLayoutName()
+		if name ~= ns.EDIT_LAYOUT then
+			self:SayOtherLayout(name)
+		end
+	end)
 	self:Refresh()
+end
+
+-- Where the aura icons go in this mode, for messages.
+function Target:AuraSpotName()
+	return self:AuraSpot() == (self.layout and self.layout.targetAuras.plate) and "above the wall plate"
+		or "beside the target of target"
+end
+
+-- The name of the active Edit Mode layout (nil: one of Blizzard's presets,
+-- or unknown).
+activeLayoutName = function()
+	local api = C_EditMode
+	if not (api and api.GetLayouts) then
+		return nil
+	end
+	local ok, info = pcall(api.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.activeLayout) ~= "number" then
+		return nil
+	end
+	local presets = 2
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		presets = okP and type(list) == "table" and #list or presets
+	end
+	local layout = (info.layouts or {})[info.activeLayout - presets]
+	return layout and layout.layoutName or nil
+end
+
+function Target:SayOtherLayout(name)
+	ns:Print(("the target's buffs and debuffs are Blizzard's own and only go %s in the %q Edit Mode layout;"
+		.. " %s is active. Pick %q in Edit Mode, or move the target frame there yourself."):format(
+		self:AuraSpotName(), ns.EDIT_LAYOUT, name and ("%q"):format(name) or "a preset layout", ns.EDIT_LAYOUT))
+end
+
+-- Where Blizzard's target frame puts its first aura icon now, in UI units
+-- (nil when it can't tell), and how far that is from where we want it.
+function Target:AuraSpotNow()
+	local tf, spot = _G.TargetFrame, self:AuraSpot()
+	if not (tf and spot and tf.GetLeft) then
+		return nil
+	end
+	local ok, x, y, off = pcall(function()
+		local left, topY, scale = tf:GetLeft(), tf:GetTop(), tf:GetScale()
+		if type(left) ~= "number" or type(topY) ~= "number" or type(scale) ~= "number" or scale <= 0 then
+			return nil
+		end
+		local k = ns:ConsoleScale()
+		local ax, ay = (left + ns.TARGET_AURA_X) * scale, (topY + ns.TARGET_AURA_Y) * scale
+		return ax, ay, math.max(math.abs(ax - spot.x0 * k), math.abs(ay - spot.y * k))
+	end)
+	if ok and x then
+		return x, y, off
+	end
+	return nil
+end
+
+-- Once a session, a while after login: if the icons are not where they
+-- belong (another Edit Mode layout is active, or the game hasn't taken in
+-- ours yet), say why in chat. No reload popup: some games hand the layout
+-- back unchanged, and a popup at every login is worse than the icons.
+function Target:CheckAuraSpot()
+	local _, _, off = self:AuraSpotNow()
+	if not off or off <= 4 then
+		return
+	end
+	local name = activeLayoutName()
+	if name ~= ns.EDIT_LAYOUT then
+		self:SayOtherLayout(name)
+	else
+		ns:Print(("the target's buffs and debuffs are not %s yet: Blizzard's target frame is %.0f away from its"
+			.. " place in the %q Edit Mode layout. /reload should put it there."):format(
+			self:AuraSpotName(), off, ns.EDIT_LAYOUT))
+	end
 end
 
 function Target:CreateSwap()
@@ -761,6 +843,8 @@ function Target:DescribeAuras()
 	if spot and L then
 		local k = ns:ConsoleScale()
 		lines[#lines + 1] = ("wanted: first icon at %s,%s"):format(n(spot.x0 * k), n(spot.y * k))
+		local x, y, off = self:AuraSpotNow()
+		lines[#lines + 1] = x and ("now: first icon at %s,%s (%s off)"):format(n(x), n(y), n(off)) or "now: unknown"
 		local want, fit = ns:TargetAuraSize(spot)
 		lines[#lines + 1] = want and ("wanted size: %d%%, fits %d%%"):format(want, fit) or "wanted size: as Edit Mode has it"
 	end
@@ -809,6 +893,15 @@ function Target:OnEnable()
 		self:Refresh()
 	end)
 	ns:On("PLAYER_COMBO_POINTS", function() self:UpdateCombo() end)
+	ns:On("PLAYER_ENTERING_WORLD", function()
+		if self.auraSpotChecked then
+			return
+		end
+		self.auraSpotChecked = true
+		C_Timer.After(5, function()
+			ns:RunOutOfCombat("target-aura-check", function() self:CheckAuraSpot() end)
+		end)
+	end)
 	ns:On("UNIT_POWER_UPDATE", function(_, unit)
 		if unit == "player" then self:UpdateCombo() end
 	end)

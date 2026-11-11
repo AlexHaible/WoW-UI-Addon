@@ -630,7 +630,11 @@ function strsplit(sep, s, n)
 end
 SlashCmdList = {}
 local printed = {}
-function print(...) printed[#printed + 1] = table.concat({ tostringall and tostringall(...) or ... }, " ") end
+function print(...)
+	local parts = { ... }
+	for i = 1, select("#", ...) do parts[i] = tostring(parts[i]) end
+	printed[#printed + 1] = table.concat(parts, " ")
+end
 
 ----------------------------------------------------------------------------
 -- Load the addon in TOC order
@@ -924,6 +928,41 @@ do
 	auraAt(ns.layout.targetAuras.plate, "above the plate")
 	ns.modules.target:SetMode("swap")
 	auraAt(ns.layout.targetAuras.swap, "beside the target of target")
+	-- The game only takes the layout in at a reload, and only the active
+	-- layout counts: the login check says so in chat when the icons are off.
+	do
+		local T, tf = ns.modules.target, savedLayouts.layouts[3].systems[5]
+		local oldLeft, oldTop, oldScale, oldActive = TargetFrame.GetLeft, TargetFrame.GetTop, TargetFrame._scale,
+			savedLayouts.activeLayout
+		local dy = 0
+		TargetFrame._scale = 1
+		TargetFrame.GetLeft = function() return tf.anchorInfo.offsetX end
+		TargetFrame.GetTop = function() return tf.anchorInfo.offsetY + dy end
+		savedLayouts.activeLayout = 2 + 3
+		local said = #printed
+		T:CheckAuraSpot()
+		assert(#printed == said, "icons in place: nothing said")
+		dy = 100
+		T:CheckAuraSpot()
+		assert(#printed == said + 1 and printed[#printed]:find("/reload"), "icons off in our layout: reload hint")
+		savedLayouts.activeLayout = 3
+		T:CheckAuraSpot()
+		assert(printed[#printed]:find('"Mine" is active', 1, true), "icons off in another layout: names it")
+		local offered = #popups
+		T:SetMode("plate")
+		assert(#popups == offered + 1 and popups[#popups].text:find("above the wall plate"),
+			"switching to the plate says the icons move at a reload")
+		assert(printed[#printed]:find('"Mine" is active', 1, true), "and that another layout is active")
+		local now
+		for _, line in ipairs(T:DescribeAuras()) do
+			now = now or line:find("^now: first icon at %d+,%d+ %(%d+ off%)")
+		end
+		assert(now, "/rui auras shows where they are")
+		T:SetMode("swap")
+		auraAt(ns.layout.targetAuras.swap, "back beside the target of target")
+		TargetFrame.GetLeft, TargetFrame.GetTop, TargetFrame._scale = oldLeft, oldTop, oldScale
+		savedLayouts.activeLayout = oldActive
+	end
 	assert(L[1].systems[5].isInDefaultPosition, "other layouts keep their target frame")
 	assert(L[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
 	assert(cvars.raidFramesDisplayClassColor == "1" and cvars.raidFramesDisplayPowerBars == "1"

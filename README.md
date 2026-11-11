@@ -187,6 +187,12 @@ under the header and every bar, and Warcraft III's bar texture and font. It only
 art: the meter's numbers, its settings and its place (Edit Mode) are left to
 Blizzard.
 
+**Tooltips.** Reforged UI itself (`Tooltip.lua`) puts the same trim and inset
+around the game's tooltips (the main one, clicked item links and the
+comparison tooltips), with a unit's health bar inside the frame. Blizzard's
+border is only made invisible, so "Themed tooltips" in the options or
+`/rui tooltips off` brings it straight back.
+
 **Bags.** A third addon, *Reforged UI: Bags* (`ReforgedUI_Bags`), dresses the
 game's bag windows (each bag on its own, the combined backpack and the key
 ring) the same way: the theme's trim around each window, a dark inset, the
@@ -315,6 +321,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
 /rui repbar on|off               the reputation bar under the experience bar
+/rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui buffsfirst on|off           target buffs on the bottom rows, debuffs after them
@@ -385,7 +392,7 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   Human's until its own exist.
 - `python3 tools/render_preview.py` re-renders the previews in `docs/previews`
   (`tools/dump_layout.lua` prints the layout as JSON).
-- `Trim.lua` is the theme frame the damage meter and bags skins put around
+- `Trim.lua` is the theme frame the damage meter, tooltip and bags skins put around
   Blizzard's windows (`ReforgedUI.CreateTrim`). `python3 tools/make_trim.py
   [theme ...]` makes its own art (`Media/Trim/<theme>`): the rail from each
   theme's target plate, the mitred corner where the top bar's beam and post

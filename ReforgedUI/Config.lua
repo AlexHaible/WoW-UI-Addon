@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 594
+local W, H = 650, 620
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -233,6 +233,10 @@ function Config:Build()
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
+	-- The game's tooltips in the theme's frame, like the damage meter.
+	self:Check("Themed tooltips", "themeTooltips", x + 116, y - 14, function(on)
+		ns.modules.tooltip:SetEnabled(on)
+	end)
 	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 42)
 	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 84)
 	self:Edit("", "portraitX", x, y - 84)
@@ -332,7 +336,8 @@ function Config:Build()
 	button(f, "Reload UI", 120, 150, -554, ReloadUI)
 	-- Stance buttons left to Blizzard's stance bar or another bar addon
 	-- (moving them on the console is done in Edit Mode).
-	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -553, function(on)
+	-- (on the row under "Target buffs first": the two shared one spot.)
+	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -579, function(on)
 		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")
 	end)

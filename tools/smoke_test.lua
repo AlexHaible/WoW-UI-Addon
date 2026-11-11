@@ -405,6 +405,14 @@ local forbiddenMicro = new("button", nil, MicroMenu)
 forbiddenMicro._forbidden = true
 function forbiddenMicro:GetName() error("Attempt to access forbidden object") end
 GameTooltip = new("frame", "GameTooltip", UIParent)
+-- Blizzard's border and the unit health bar under it (SharedTooltipTemplates.xml).
+GameTooltip.NineSlice = new("frame", nil, GameTooltip)
+GameTooltip.StatusBar = new("frame", "GameTooltipStatusBar", GameTooltip)
+GameTooltip.StatusBar._shown = false
+ItemRefTooltip = new("frame", "ItemRefTooltip", UIParent)
+ItemRefTooltip.NineSlice = new("frame", nil, ItemRefTooltip)
+function methods:SetClampRectInsets(l, r, t, b) self._clamp = { l, r, t, b } end
+function SharedTooltip_SetBackdropStyle(tip) if tip.NineSlice then tip.NineSlice:SetAlpha(1) end end
 PlayerFrame = new("secure", "PlayerFrame", UIParent)
 PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
@@ -3365,6 +3373,47 @@ do
 	assert(not h.outline._shown and h._mouse == false, "the outline goes with Edit Mode")
 	SlashCmdList.REFORGEDUI("totems reset")
 	assert(ns.db.consoleOpts.totemSpot == false and mod:Spot().x == wall.x, "/rui totems reset")
+end
+
+-- Tooltips in the theme's frame, like the damage meter; off brings
+-- Blizzard's border back.
+do
+	local mod = ns.modules.tooltip
+	assert(mod.enabled, "the tooltip module runs")
+	for _, tip in ipairs({ GameTooltip, ItemRefTooltip }) do
+		assert(tip.NineSlice:GetAlpha() == 0, tip:GetName() .. ": Blizzard's border is invisible")
+		assert(tip._clamp[1] == -ReforgedUI.TRIM_OUT and tip._clamp[3] == 25, tip:GetName() .. ": the frame stays on screen")
+	end
+	SharedTooltip_SetBackdropStyle(GameTooltip)
+	assert(GameTooltip.NineSlice:GetAlpha() == 0, "a style change doesn't bring the border back")
+	-- The health bar goes inside the frame.
+	local trimBox
+	for _, f in ipairs(allFrames) do
+		if f._parent == GameTooltip and f._scripts.OnSizeChanged then trimBox = f end
+	end
+	assert(trimBox, "the tooltip has a trim")
+	GameTooltip.StatusBar:Show()
+	GameTooltip.StatusBar._hooks.OnShow(GameTooltip.StatusBar)
+	local bottom
+	for _, pt in ipairs(trimBox._points) do
+		if pt[1] == "BOTTOM" then bottom = pt end
+	end
+	assert(bottom and bottom[2] == GameTooltip.StatusBar, "the frame takes in the health bar")
+	GameTooltip.StatusBar:Hide()
+	-- A size made secret by secret text: no arithmetic on it.
+	local oldSecret, oldWidth = issecretvalue, methods.GetWidth
+	local SECRET = {}
+	issecretvalue = function(v) return v == SECRET end
+	trimBox.GetWidth = function() return SECRET end
+	trimBox._scripts.OnSizeChanged(trimBox)
+	trimBox.GetWidth, issecretvalue, methods.GetWidth = nil, oldSecret, oldWidth
+	SlashCmdList.REFORGEDUI("tooltips off")
+	assert(ns.db.consoleOpts.themeTooltips == false, "/rui tooltips off is saved")
+	assert(GameTooltip.NineSlice:GetAlpha() == 1 and GameTooltip._clamp[1] == 0, "off: Blizzard's border and clamp back")
+	SharedTooltip_SetBackdropStyle(GameTooltip)
+	assert(GameTooltip.NineSlice:GetAlpha() == 1, "off: the border stays")
+	SlashCmdList.REFORGEDUI("tooltips on")
+	assert(ns.db.consoleOpts.themeTooltips == true and GameTooltip.NineSlice:GetAlpha() == 0, "/rui tooltips on")
 end
 
 print("smoke test passed")

@@ -50,6 +50,7 @@ Minimap.lua
 Chat.lua
 Inventory.lua
 Blizzard.lua
+Tooltip.lua
 Config.lua
 
 #@debug@

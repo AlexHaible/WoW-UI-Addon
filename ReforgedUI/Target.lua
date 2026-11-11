@@ -428,6 +428,9 @@ end
 -- ours yet), say why in chat. No reload popup: some games hand the layout
 -- back unchanged, and a popup at every login is worse than the icons.
 function Target:CheckAuraSpot()
+	if ns.db.consoleOpts.targetAuraOwn then
+		return -- placed by the player in Edit Mode
+	end
 	local _, _, off = self:AuraSpotNow()
 	if not off or off <= 4 then
 		return
@@ -438,7 +441,8 @@ function Target:CheckAuraSpot()
 	else
 		ns:Print(("the target's buffs and debuffs are not %s yet: Blizzard's target frame is %.0f away from its"
 			.. " place in the %q Edit Mode layout. /reload should put it there."):format(
-			self:AuraSpotName(), off, ns.EDIT_LAYOUT))
+			self:AuraSpotName(), off, ns.EDIT_LAYOUT)
+			.. " Or move the Target Frame where you like them in Edit Mode.")
 	end
 end
 
@@ -843,6 +847,9 @@ function Target:DescribeAuras()
 	if spot and L then
 		local k = ns:ConsoleScale()
 		lines[#lines + 1] = ("wanted: first icon at %s,%s"):format(n(spot.x0 * k), n(spot.y * k))
+		if ns.db.consoleOpts.targetAuraOwn then
+			lines[#lines + 1] = "placed by you in Edit Mode (/rui auras reset puts them back)"
+		end
 		local x, y, off = self:AuraSpotNow()
 		lines[#lines + 1] = x and ("now: first icon at %s,%s (%s off)"):format(n(x), n(y), n(off)) or "now: unknown"
 		local want, fit = ns:TargetAuraSize(spot)

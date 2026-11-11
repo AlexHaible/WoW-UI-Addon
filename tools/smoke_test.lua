@@ -1000,8 +1000,11 @@ do
 		local function placedAt(size)
 			local scale = size / 100
 			assert(frameSize() == (size - 100) / 5, "target frame size saved as a slider step: " .. tostring(frameSize()))
-			assert(math.abs((tf.anchorInfo.offsetX + 5) * scale - spot.x0 * k) <= 2 * scale
-				and math.abs((tf.anchorInfo.offsetY - 15) * scale - spot.y * k) <= 2 * scale,
+			-- Edit Mode keeps offsets in UIParent units (ApplySystemAnchor
+			-- divides them by the frame's scale): only the icon's place inside
+			-- the frame scales.
+			assert(math.abs(tf.anchorInfo.offsetX + 5 * scale - spot.x0 * k) <= 2
+				and math.abs(tf.anchorInfo.offsetY - 15 * scale - spot.y * k) <= 2,
 				"target auras placed for their size " .. size)
 		end
 		SlashCmdList.REFORGEDUI("aurasize 123")
@@ -1016,6 +1019,34 @@ do
 		assert(fit == 100 or 122 * fit / 100 <= (spot.x1 - spot.x0) * k, "the aura rows fit on the wall")
 		placedAt(fit)
 		SlashCmdList.REFORGEDUI("aurasize 100")
+		placedAt(100)
+		-- Handed back by the game at a place we used before: still ours.
+		local back = ns.db.consoleOpts.targetAuraLast[2]
+		tf.anchorInfo.offsetX, tf.anchorInfo.offsetY = back.x, back.y
+		ns:SetupEditMode()
+		assert(not ns.db.consoleOpts.targetAuraOwn, "an earlier place of ours is not the player's")
+		placedAt(100)
+		-- Moved in Edit Mode: the player's from then on (size still applies),
+		-- until /rui auras reset.
+		tf.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+			offsetX = 700, offsetY = 300 }
+		offered = #popups
+		ns:SetupEditMode()
+		assert(ns.db.consoleOpts.targetAuraOwn and tf.anchorInfo.offsetX == 700 and #popups == offered,
+			"a target frame moved in Edit Mode stays put")
+		ns.modules.target:SetMode("plate")
+		assert(tf.anchorInfo.offsetX == 700, "even across a target mode change")
+		ns.modules.target:SetMode("swap")
+		local said = #printed
+		ns.modules.target:CheckAuraSpot()
+		assert(#printed == said, "no login hint for a frame the player placed")
+		SlashCmdList.REFORGEDUI("aurasize 125")
+		assert(frameSize() == 5 and tf.anchorInfo.offsetX == 700, "the size still applies where the player put it")
+		SlashCmdList.REFORGEDUI("aurasize 100")
+		offered = #popups
+		SlashCmdList.REFORGEDUI("auras reset")
+		assert(not ns.db.consoleOpts.targetAuraOwn and #popups == offered + 1
+			and popups[#popups].text:find("go back"), "/rui auras reset puts them back")
 		placedAt(100)
 		offered = #popups
 	end

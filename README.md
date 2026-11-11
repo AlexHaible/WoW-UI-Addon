@@ -68,6 +68,8 @@ screen stays free on either side).
   top) so the icons land there. "Target aura size" in the options (or
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
+  Move the Target Frame in Edit Mode and the icons stay where you put them
+  (the size option still applies); `/rui auras reset` puts them back.
   The game puts a hostile target's debuffs on the bottom rows and its buffs
   above them; "Target buffs first" (or `/rui buffsfirst on`) puts the buffs
   on the bottom rows, on the portrait, and the debuffs after them, for every
@@ -327,6 +329,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
+/rui auras reset                 target buffs and debuffs back on the wall after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs on the bottom rows, debuffs after them
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status

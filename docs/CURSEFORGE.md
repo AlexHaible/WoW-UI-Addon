@@ -51,6 +51,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - The target's cast bar works on players and creatures alike: gold while it casts, a draining green bar while it channels, with the spell's name inside.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it (above the plate in wall plate mode). They work in combat too: they're Blizzard's own aura icons, placed for you through the **Reforged UI** Edit Mode layout. After switching between swap and wall plate, reload when asked so they move along. If they ever sit in the wrong spot, the chat tells you why a few seconds after login (usually another Edit Mode layout is active, or a reload is due), and `/rui auras` shows where they are.
+- Want them somewhere else? Open **Edit Mode** and drag the **Target Frame**: the buffs and debuffs stay wherever you put them, in either target display. `/rui auras reset` puts them back on the wall.
 - Icons too small? Drag **Target aura size** in the options (or type `/rui aurasize 150`) to make them up to twice as big. They grow only as far as still fits on the wall beside the target's target.
 - Want the buffs first? Tick **Target buffs first** in the options (or type `/rui buffsfirst on`): the target's buffs sit on the bottom rows, right on top of its portrait, and its debuffs come after them, on every target. Normally the game puts an enemy's debuffs first. With it on you also see other players' debuffs on enemies, not just yours.
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power, and its cast bar just underneath while it casts. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
@@ -153,6 +154,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
 /rui aurasize 100-200            target buff and debuff icon size, in %
+/rui auras reset                 put the target's buffs and debuffs back after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs first, debuffs after them
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot

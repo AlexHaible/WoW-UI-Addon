@@ -233,6 +233,10 @@ function Config:Build()
 	-- Number boxes, right column.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
+	-- The game's tooltips in the theme's frame, like the damage meter.
+	self:Check("Themed tooltips", "themeTooltips", x + 116, y - 14, function(on)
+		ns.modules.tooltip:SetEnabled(on)
+	end)
 	self:Edit("HP Warning Threshold %", "hpWarning", x, y - 42)
 	label(f, "Portrait position (Base 100, 100) X: and Y:", x, y - 84)
 	self:Edit("", "portraitX", x, y - 84)

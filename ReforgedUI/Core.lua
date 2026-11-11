@@ -73,6 +73,7 @@ local DEFAULTS = {
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
+		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
 	},
 }
 
@@ -1529,6 +1530,7 @@ local function usage()
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
+	print("  /rui tooltips on||off  (tooltips in the theme's frame, like the damage meter)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
 	print("  /rui reset")
 end
@@ -1604,6 +1606,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "repbar" and (arg == "on" or arg == "off") then
 		ns:SetRepBarShown(arg == "on")
 		ns:Print(arg == "on" and "reputation bar on, under the experience bar." or "reputation bar off.")
+	elseif cmd == "tooltips" and (arg == "on" or arg == "off") and ns.modules.tooltip.enabled then
+		ns.modules.tooltip:SetEnabled(arg == "on")
+		ns:Print(arg == "on" and "tooltips in the theme's frame." or "tooltips as Blizzard draws them.")
 	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
 		local target = ns.modules.target
 		if arg == "reset" then

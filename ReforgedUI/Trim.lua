@@ -68,7 +68,14 @@ function Trim:Paint()
 	local p, box = self.pieces, self.box
 	local media = MEDIA .. theme.folder .. "\\"
 	local out = EDGE - INSET
-	local W, H = box:GetWidth() + 2 * out, box:GetHeight() + 2 * out
+	local w, h = box:GetWidth(), box:GetHeight()
+	if issecretvalue and (issecretvalue(w) or issecretvalue(h)) then
+		-- A box sized by secret text (a tooltip about an enemy, in an
+		-- instance) has a secret size: no arithmetic on it. The halves are
+		-- then pinned to the box's middles instead and stretch a little.
+		return self:PaintPinned(p, box, media, key)
+	end
+	local W, H = w + 2 * out, h + 2 * out
 	local own = OWN_EDGEV[key]
 	local edge = OWN_EDGE[key] and (TRIM .. key .. "\\edge") or (media .. "edge")
 	local post = own and (TRIM .. key .. "\\edgev") or (media .. "edgev")
@@ -92,6 +99,46 @@ function Trim:Paint()
 	half(p.rightB, post, box, "BOTTOMRIGHT", out, -out + EDGE, EDGE, hh, 1, 0, v1, v0)
 
 	-- join.tga is the top-left corner; mirrored for the rest.
+	local join = TRIM .. key .. "\\join"
+	half(p.tl, join, box, "TOPLEFT", -out, out, EDGE, EDGE, 0, 1, 0, 1)
+	half(p.tr, join, box, "TOPRIGHT", out, out, EDGE, EDGE, 1, 0, 0, 1)
+	half(p.bl, join, box, "BOTTOMLEFT", -out, -out, EDGE, EDGE, 0, 1, 1, 0)
+	half(p.br, join, box, "BOTTOMRIGHT", out, -out, EDGE, EDGE, 1, 0, 1, 0)
+end
+
+-- One half pinned between a corner and a side's middle: `from` of `box`
+-- (pushed `dx`, `dy` outwards) to `to` of `box` (pushed `tx`, `ty`).
+local function pinned(tex, file, box, from, dx, dy, to, tx, ty, w, h, l, r, t, b)
+	tex:SetTexture(file, "REPEAT", "REPEAT")
+	tex:ClearAllPoints()
+	tex:SetPoint(from, box, from, dx, dy)
+	tex:SetPoint(to, box, to, tx, ty)
+	if w then
+		tex:SetWidth(w)
+	else
+		tex:SetHeight(h)
+	end
+	tex:SetTexCoord(l, r, t, b)
+end
+
+-- Paint without the box's size: each half runs from its corner to the
+-- middle of its side, showing one period of the art (stretched to fit).
+function Trim:PaintPinned(p, box, media, key)
+	local out = EDGE - INSET
+	local own = OWN_EDGEV[key]
+	local edge = OWN_EDGE[key] and (TRIM .. key .. "\\edge") or (media .. "edge")
+	local post = own and (TRIM .. key .. "\\edgev") or (media .. "edgev")
+	local u0, u1 = 1 / 8, 1 / 8 + 1
+	pinned(p.topL, edge, box, "TOPLEFT", -out + EDGE, out, "TOP", 0, out, nil, EDGE, u0, u1, 0, 1)
+	pinned(p.topR, edge, box, "TOPRIGHT", out - EDGE, out, "TOP", 0, out, nil, EDGE, u1, u0, 0, 1)
+	pinned(p.bottomL, edge, box, "BOTTOMLEFT", -out + EDGE, -out, "BOTTOM", 0, -out, nil, EDGE, u0, u1, 1, 0)
+	pinned(p.bottomR, edge, box, "BOTTOMRIGHT", out - EDGE, -out, "BOTTOM", 0, -out, nil, EDGE, u1, u0, 1, 0)
+	local period = (own or 128) / 32
+	local v0, v1 = 1 / period, 1 / period + 1
+	pinned(p.leftT, post, box, "TOPLEFT", -out, out - EDGE, "LEFT", -out, 0, EDGE, nil, 0, 1, v0, v1)
+	pinned(p.leftB, post, box, "BOTTOMLEFT", -out, -out + EDGE, "LEFT", -out, 0, EDGE, nil, 0, 1, v1, v0)
+	pinned(p.rightT, post, box, "TOPRIGHT", out, out - EDGE, "RIGHT", out, 0, EDGE, nil, 1, 0, v0, v1)
+	pinned(p.rightB, post, box, "BOTTOMRIGHT", out, -out + EDGE, "RIGHT", out, 0, EDGE, nil, 1, 0, v1, v0)
 	local join = TRIM .. key .. "\\join"
 	half(p.tl, join, box, "TOPLEFT", -out, out, EDGE, EDGE, 0, 1, 0, 1)
 	half(p.tr, join, box, "TOPRIGHT", out, out, EDGE, EDGE, 1, 0, 0, 1)

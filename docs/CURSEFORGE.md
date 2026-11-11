@@ -24,7 +24,7 @@ The theme follows your character's race automatically, and you can pick any them
   - **High Order** (Alliance mages): arcane violet leaves, frost-white blossoms, silver-lilac stone and pale silvered wood
   - **Windshapers** (Horde shamans): deep storm-blue leaves, ember-gold blossoms, slate stone and dark warm wood
 
-Each theme has its own top bar, clock frame, target plate, end caps, damage meter frame and bag frame.
+Each theme has its own top bar, clock frame, target plate, end caps, and the frame around the damage meter, tooltips and bags.
 
 ---
 
@@ -87,6 +87,10 @@ Each theme has its own top bar, clock frame, target plate, end caps, damage mete
 - It follows your theme as you switch, and you still move and size the meter in Edit Mode.
 - It comes as a separate addon in the same download, **Reforged UI: Damage Meter**. Untick it in the addon list if you'd rather keep Blizzard's look or use another meter.
 
+**Tooltips**
+- The game's tooltips wear the same frame as the damage meter: the top bar's trim all round and a dark inset in your theme's colour, with a unit's health bar tucked inside. Item links you click open in a matching frame, and so do the comparison tooltips beside them. They follow your theme as you switch.
+- Prefer Blizzard's tooltips, or another tooltip addon? Untick **Themed tooltips** in the options (or `/rui tooltips off`).
+
 **Bags**
 - Your bag windows wear your theme too: the top bar's trim around each bag, a dark inset, the theme's rail under the title, and the bag's icon in Warcraft III's steel button frame on the corner. Click the icon for Blizzard's bag menu as before.
 - Using **BetterBags**? Pick the **Reforged UI** theme in BetterBags' settings and its bag, bank and option windows match, following your theme as you switch. Without BetterBags installed, that part simply stays off.
@@ -144,6 +148,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui target swap|plate           target on the hero screen, or a plate on the wall
 /rui pet reset                   put the pet icon back beside the target's target
 /rui repbar on|off               the reputation bar under the experience bar
+/rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
 /rui aurasize 100-200            target buff and debuff icon size, in %
 /rui feeds                       list data feeds, game panels and top bar slots

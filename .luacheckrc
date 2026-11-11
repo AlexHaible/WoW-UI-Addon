@@ -51,4 +51,9 @@ read_globals = {
 	"GetTotemInfo", "GetTotemTimeLeft",
 	-- reputation feed
 	"C_Reputation", "C_GossipInfo", "GetWatchedFactionInfo", "REPUTATION", "AT_WAR",
+	-- loot method feed
+	"C_PartyInfo", "GetLootMethod", "SetLootMethod", "GetLootThreshold", "SetLootThreshold", "IsInGroup", "IsInRaid",
+	"GetNumGroupMembers",
+	-- the group finder's eye (named differently per client)
+	"QueueStatusButton", "QueueStatusMinimapButton", "MiniMapLFGFrame",
 }

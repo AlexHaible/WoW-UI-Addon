@@ -127,7 +127,12 @@ screen stays free on either side).
   and the calendar a click away; a reputation feed shows the faction ticked
   "Show as Experience Bar" and its progress through the standing (right-click
   for its name, standing or what's left to the next standing; details and
-  this session's gain in the tooltip, a click opens the reputation panel). Right-click an empty
+  this session's gain in the tooltip, a click opens the reputation panel);
+  a loot feed shows the group's loot method and, for Group Loot, Need before
+  Greed and Master Looter, the loot threshold in its quality colour ("Solo"
+  out of a group; the tooltip explains the method and names the master
+  looter; the group leader right-clicks it to change method, master looter
+  or threshold, Loot.lua). Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),

@@ -39,6 +39,7 @@ Art.lua
 Console.lua
 TopBar.lua
 Calendar.lua
+Reputation.lua
 Hero.lua
 Target.lua
 Pet.lua

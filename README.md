@@ -109,7 +109,9 @@ screen stays free on either side).
   home latency and bandwidth); a zone feed shows where you are, coloured by
   PvP status like the minimap's; a calendar feed shows what is on now (or the
   next event and when) and waiting invitations, with the week in its tooltip
-  and the calendar a click away. Right-click an empty
+  and the calendar a click away; a reputation feed shows the faction ticked
+  "Show as Experience Bar" and its progress (details and this session's gain
+  in the tooltip, a click opens the reputation panel). Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),

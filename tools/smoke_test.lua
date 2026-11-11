@@ -253,6 +253,17 @@ C_Calendar = {
 	GetDayEvent = function(offset, day, i) return calEvents[offset .. ":" .. day][i] end,
 }
 function ToggleCalendar() calendarToggles = calendarToggles + 1 end
+-- Reputation: the watched faction (absolute standing values, as the
+-- client gives them), and a paragon one for later.
+local watchedFaction = { factionID = 2600, name = "Nightclaw Druids", description = "Secretive druids.",
+	reaction = 5, currentReactionThreshold = 3000, nextReactionThreshold = 9000, currentStanding = 5300,
+	atWarWith = false }
+local paragonFactions = {}
+C_Reputation = {
+	GetWatchedFactionData = function() return watchedFaction end,
+	IsFactionParagon = function(id) return paragonFactions[id] ~= nil end,
+	GetFactionParagonInfo = function(id) local p = paragonFactions[id]; return p[1], p[2], 0, p[3] end,
+}
 -- A forbidden frame among UIParent's children: touching it is an error.
 local forbiddenFrame = new("frame", nil, UIParent)
 forbiddenFrame._forbidden = true
@@ -1295,6 +1306,52 @@ do
 	y, m, d = cal.CivilFromDays(cal.DaysFromCivil(2028, 2, 28) + 1)
 	assert(y == 2028 and m == 2 and d == 29, "leap years")
 	calNow = { year = 2026, month = 11, monthDay = 10, weekday = 3, hour = 14, minute = 30 }
+end
+do
+	-- The reputation feed: the watched faction's name in its standing's
+	-- colour and its progress, details in the tooltip.
+	local rep = ns.modules.reputation
+	local feed = LibStub("LibDataBroker-1.1"):GetDataObjectByName(rep.FEED)
+	assert(feed and feed.text:find("Nightclaw Druids|r 38%", 1, true), "the feed: " .. tostring(feed and feed.text))
+	local function tooltip()
+		local lines = {}
+		feed.OnTooltipShow({
+			AddLine = function(_, t) lines[#lines + 1] = t end,
+			AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+		})
+		return table.concat(lines, "\n")
+	end
+	local text = tooltip()
+	assert(text:find("Standing=Friendly", 1, true) and text:find("Progress=2300 / 6000 (38.3 %)", 1, true)
+		and text:find("To next standing=3700", 1, true), "the tooltip: " .. text)
+	assert(not text:find("This session", 1, true), "nothing gained yet")
+	watchedFaction.currentStanding = 5550
+	fire("UPDATE_FACTION")
+	flushTimers()
+	assert(tooltip():find("This session=+250", 1, true), "the session's gain")
+	-- Exalted: the standing's name; with a paragon level, its progress.
+	watchedFaction = { factionID = 2601, name = "Argent Dawn", description = "", reaction = 8,
+		currentReactionThreshold = 42000, nextReactionThreshold = 42000, currentStanding = 42000 }
+	fire("UPDATE_FACTION")
+	flushTimers()
+	assert(feed.text:find("Argent Dawn|r Exalted", 1, true), "exalted: " .. feed.text)
+	assert(tooltip():find("Highest standing reached", 1, true), "nothing left to gain")
+	paragonFactions[2601] = { 12500, 10000, true }
+	fire("UPDATE_FACTION")
+	flushTimers()
+	assert(feed.text:find("Argent Dawn|r 25%", 1, true), "paragon: " .. feed.text)
+	assert(tooltip():find("A paragon reward is waiting", 1, true), "the reward")
+	-- No watched faction.
+	watchedFaction = nil
+	fire("UPDATE_FACTION")
+	flushTimers()
+	assert(feed.text == "No faction" and tooltip():find("Show as Experience Bar", 1, true), "none watched")
+	local opened
+	local toggle = ToggleCharacter
+	ToggleCharacter = function(tab) opened = tab end
+	feed.OnClick()
+	ToggleCharacter = toggle
+	assert(opened == "ReputationFrame", "a click opens the reputation panel")
 end
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")

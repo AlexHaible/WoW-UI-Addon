@@ -73,6 +73,7 @@ local DEFAULTS = {
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
+		repFeed = "progress", -- what the reputation feed shows: name, standing, progress or next (right-click cycles)
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them

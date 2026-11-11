@@ -1336,11 +1336,22 @@ do
 	calNow = { year = 2026, month = 11, monthDay = 10, weekday = 3, hour = 14, minute = 30 }
 end
 do
-	-- The reputation feed: the watched faction's name in its standing's
-	-- colour and its progress, details in the tooltip.
+	-- The reputation feed: the watched faction's progress, details in the
+	-- tooltip.
 	local rep = ns.modules.reputation
 	local feed = LibStub("LibDataBroker-1.1"):GetDataObjectByName(rep.FEED)
-	assert(feed and feed.text:find("Nightclaw Druids|r 38%", 1, true), "the feed: " .. tostring(feed and feed.text))
+	-- Progress by default; a right-click steps through the name, the
+	-- standing, what's left to the next standing and back, and is saved.
+	assert(feed and feed.text == "2300 / 6000", "the feed: " .. tostring(feed and feed.text))
+	local views = {}
+	for i = 1, 4 do
+		feed.OnClick(nil, "RightButton")
+		views[i] = feed.text
+	end
+	assert(views[1] == "3700 to Honored", "next: " .. views[1])
+	assert(views[2]:find("Nightclaw Druids|r", 1, true), "name: " .. views[2])
+	assert(views[3]:find("Friendly|r", 1, true), "standing: " .. views[3])
+	assert(views[4] == "2300 / 6000" and ns.db.consoleOpts.repFeed == "progress", "and back to progress")
 	local function tooltip()
 		local lines = {}
 		feed.OnTooltipShow({
@@ -1387,12 +1398,13 @@ do
 		currentReactionThreshold = 42000, nextReactionThreshold = 42000, currentStanding = 42000 }
 	fire("UPDATE_FACTION")
 	flushTimers()
-	assert(feed.text:find("Argent Dawn|r Exalted", 1, true), "exalted: " .. feed.text)
+	assert(feed.text:find("Exalted|r", 1, true), "exalted: " .. feed.text)
 	assert(tooltip():find("Highest standing reached", 1, true), "nothing left to gain")
 	paragonFactions[2601] = { 12500, 10000, true }
 	fire("UPDATE_FACTION")
 	flushTimers()
-	assert(feed.text:find("Argent Dawn|r 25%", 1, true), "paragon: " .. feed.text)
+	assert(feed.text == "2500 / 10000", "paragon: " .. feed.text)
+	assert(rep:FeedText(nil, "next") == "7500 to reward", "paragon, next: " .. rep:FeedText(nil, "next"))
 	assert(tooltip():find("A paragon reward is waiting", 1, true), "the reward")
 	-- No watched faction.
 	watchedFaction = nil

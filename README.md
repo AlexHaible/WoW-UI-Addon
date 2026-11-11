@@ -38,7 +38,9 @@ screen stays free on either side).
   (HealPrediction.lua).
 - **Hero screen**: name, level and class, the experience bar with rested
   experience (hover for the numbers, right-click for its colour: purple,
-  blue or none) and four stat icons. Each shows main hand, off hand (block
+  blue or none), a thin reputation strip under it for the faction ticked
+  "Show as Experience Bar" (in its standing's colour; hover for the numbers,
+  click for the reputation panel) and four stat icons. Each shows main hand, off hand (block
   chance and value with a shield), ranged, ammo (yellow under 400, red under
   200), attack power (ranged for hunters), spell power, healing, armour
   (the default for the fourth), dodge chance, parry chance, resistances

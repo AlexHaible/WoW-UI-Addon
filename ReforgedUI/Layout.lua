@@ -402,24 +402,34 @@ end
 -- The original addon's experience bar: three caps around a bar, the name over it and the
 -- level line on it. `s` sets its size (the hero's uses the console's scale;
 -- the target plate's a smaller one).
-local function levelPlate(x, y, s)
+-- `squash` (default 1) makes the plate that much as tall, keeping its top
+-- edge and the name where they were: the hero's is a little flatter, to
+-- leave room for the reputation strip under it.
+local function levelPlate(x, y, s, squash)
 	local xs = 0.375
-	local capW, capH = 0.05924 * s * xs, 0.2370 * s * xs
+	local k = squash or 1
+	local capW, fullH = 0.05924 * s * xs, 0.2370 * s * xs
+	local capH = fullH * k
+	local nameY = y + fullH / 2 + 0.080 * s
+	y = y + fullH - capH
 	local midW = 1.70 * s * xs
 	local total = 2 * capW + midW
 	return {
 		left = rect(x, y, capW, capH),
 		middle = rect(x + capW, y, midW, capH),
 		right = rect(x + capW + midW, y, capW, capH),
-		bar = rect(x, y, 0.6814 * s, 0.083 * s), -- at 100%
-		hover = rect(x + capW, y, total, 0.08 * s),
-		nameY = y + capH / 2 + 0.080 * s,
+		bar = rect(x, y, 0.6814 * s, 0.083 * s * k), -- at 100%
+		hover = rect(x + capW, y, total, 0.08 * s * k),
+		nameY = nameY,
 		levelY = y + capH / 2,
 		cx = x + capW + midW / 2,
 		width = total,
 	}
 end
 Layout.LevelPlate = levelPlate
+-- How tall the hero's experience bar is against the target plates'.
+local XP_SQUASH = 0.8
+Layout.XP_SQUASH = XP_SQUASH
 -- Width of a level plate per unit of its `s`.
 local LEVEL_PLATE_W = 2 * 0.05924 * 0.375 + 1.70 * 0.375
 
@@ -967,8 +977,18 @@ local function build(W, H, o, X0, chatW)
 
 	-- Hero screen: experience bar and the four stat icons.
 	local xpX, xpY = PT.x + 0.23 * s, 0.3 * s
-	L.xp = levelPlate(xpX, xpY, s)
+	L.xp = levelPlate(xpX, xpY, s, XP_SQUASH)
 	local total = L.xp.width
+	-- The watched faction's strip, under the experience bar and as wide as
+	-- the plate's middle, in the room the flatter plate leaves above the
+	-- stat icons.
+	do
+		local mid = L.xp.middle
+		local h = 0.02 * s
+		L.rep = rect(mid.x, mid.y - 0.004 * s - h, mid.w, h)
+		L.rep.hover = rect(mid.x, mid.y - 0.008 * s - h, mid.w, h + 0.008 * s)
+		L.rep.border = rect(mid.x - 1, mid.y - 0.004 * s - h - 1, mid.w + 2, h + 2)
+	end
 	local iconSize = total * 0.17
 	local extraSpace = s <= 250 and 1 or 0
 	local function statIcon(dx, dy, labelX, valueY, valueH)

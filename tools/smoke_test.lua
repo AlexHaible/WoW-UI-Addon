@@ -1325,6 +1325,18 @@ do
 	assert(text:find("Standing=Friendly", 1, true) and text:find("Progress=2300 / 6000 (38.3 %)", 1, true)
 		and text:find("To next standing=3700", 1, true), "the tooltip: " .. text)
 	assert(not text:find("This session", 1, true), "nothing gained yet")
+	-- The strip under the experience bar: between the plate and the stat
+	-- icons, filled to the same 38 %.
+	local hero, RL = ns.modules.hero, ns.layout
+	assert(RL.rep.y + RL.rep.h <= RL.xp.middle.y and RL.rep.y >= RL.statIcons[1].y + RL.statIcons[1].h,
+		"the rep strip sits between the experience bar and the stat icons")
+	assert(hero.rep.fill:IsShown() and math.abs(hero.rep.fill._w - RL.rep.w * 2300 / 6000) < 0.01,
+		"the strip at 38%")
+	hero.rep.hover:GetScript("OnEnter")(hero.rep.hover)
+	assert(hero.xp.level._text == "Nightclaw Druids 2300 / 6000", "hovering the strip: " .. tostring(hero.xp.level._text))
+	assert(ns.modules.reputation:InfoText():find("Until next standing:|r 3700", 1, true), "the strip's info box")
+	hero.rep.hover:GetScript("OnLeave")(hero.rep.hover)
+	assert(not hero.xp.level._text:find("Nightclaw", 1, true), "and back to the level line")
 	watchedFaction.currentStanding = 5550
 	fire("UPDATE_FACTION")
 	flushTimers()
@@ -1346,6 +1358,7 @@ do
 	fire("UPDATE_FACTION")
 	flushTimers()
 	assert(feed.text == "No faction" and tooltip():find("Show as Experience Bar", 1, true), "none watched")
+	assert(not hero.rep.fill:IsShown() and not hero.rep.hover:IsShown(), "no faction, no strip")
 	local opened
 	local toggle = ToggleCharacter
 	ToggleCharacter = function(tab) opened = tab end

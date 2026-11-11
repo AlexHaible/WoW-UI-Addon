@@ -358,6 +358,75 @@ function Hero:CreateXP(holder)
 	self.xp = xp
 end
 
+-- The watched faction's strip under the experience bar (Reputation.lua
+-- reads the faction): a dark trough with the fill in the standing's colour.
+-- Hovering it shows the details and puts the faction's progress on the
+-- level line; a click opens the reputation panel.
+function Hero:CreateRep(holder)
+	local rep = {}
+	-- A thin rim in the plate's gold, so the empty part shows on the black.
+	rep.border = holder:CreateTexture(nil, "BACKGROUND")
+	rep.border:SetTexture(ns:ArtPath("other\\white_background"))
+	rep.border:SetVertexColor(0.55, 0.43, 0.12, 1)
+	rep.bg = holder:CreateTexture(nil, "BORDER")
+	rep.bg:SetTexture(ns:ArtPath("other\\white_background"))
+	rep.bg:SetVertexColor(0.06, 0.06, 0.06, 1)
+	rep.fill = holder:CreateTexture(nil, "ARTWORK")
+	rep.fill:SetTexture(ns:ArtPath("other\\xpProgressBar"))
+	local hover = CreateFrame("Button", nil, holder)
+	hover:RegisterForClicks("AnyUp")
+	hover:SetScript("OnEnter", function(f)
+		self.repHovering = true
+		self:UpdateXP()
+		showInfo(f, function()
+			local mod = ns.modules.reputation
+			return mod and mod:InfoText()
+		end, 30)
+	end)
+	hover:SetScript("OnLeave", function()
+		self.repHovering = false
+		self:UpdateXP()
+		hideInfo()
+	end)
+	hover:SetScript("OnClick", function()
+		local mod = ns.modules.reputation
+		if mod then
+			mod:Open()
+		end
+	end)
+	rep.hover = hover
+	self.rep = rep
+end
+
+-- The watched faction, or nil when there is none or the strip is hidden.
+function Hero:Watched()
+	local mod = ns.modules.reputation
+	if self.viewUnit ~= "player" or not (mod and mod.enabled) then
+		return nil
+	end
+	return mod:Watched()
+end
+
+function Hero:UpdateRep()
+	local rep, L = self.rep, ns.layout
+	if not (rep and L and L.rep) then
+		return
+	end
+	local w = self:Watched()
+	rep.border:SetShown(w ~= nil)
+	rep.bg:SetShown(w ~= nil)
+	rep.fill:SetShown(w ~= nil)
+	rep.hover:SetShown(w ~= nil)
+	if not w then
+		self.repHovering = false
+		return
+	end
+	local mod = ns.modules.reputation
+	local c = mod.Color(w.reaction)
+	rep.fill:SetVertexColor(c.r, c.g, c.b, 1)
+	rep.fill:SetWidth(math.max(1, L.rep.w * mod.Fraction(w)))
+end
+
 Hero.RESTED_COLORS = {
 	{ "Purple", { 0.5, 0, 0.5, 0.5 } },
 	{ "Blue", { 0, 0, 1, 0.5 } },
@@ -424,7 +493,10 @@ function Hero:UpdateXP()
 
 	ns:FitText(xp.name, ns:FullName("player"))
 	xp.name:SetTextColor(1, 1, 1)
-	if self.hovering and not atMax then
+	local watched = self.repHovering and self:Watched()
+	if watched then
+		ns:FitText(xp.level, ns.modules.reputation:LevelText(watched))
+	elseif self.hovering and not atMax then
 		ns:FitText(xp.level, ("XP %d / %d"):format(cur, max))
 	else
 		ns:FitText(xp.level, ("%s %d %s"):format(LEVEL or "Level", UnitLevel("player"), (UnitClass("player"))))
@@ -872,6 +944,7 @@ function Hero:SetView(unit)
 	end
 	self.hovering = false
 	self:UpdateXP()
+	self:UpdateRep()
 	self:UpdateStats()
 end
 
@@ -932,6 +1005,7 @@ function Hero:OnEnable()
 	ns:AddHealPrediction(self.health)
 	self.power = makeBar(holder, 4, 9)
 	self:CreateXP(holder)
+	self:CreateRep(holder)
 	self.stats = {}
 	for i = 1, 4 do
 		self.stats[i] = self:CreateStatIcon(holder, i)
@@ -977,6 +1051,7 @@ function Hero:Update()
 	self:UpdateHealth()
 	self:UpdatePower()
 	self:UpdateXP()
+	self:UpdateRep()
 	self:UpdateStats()
 	self:UpdateStatusIcons()
 end
@@ -994,6 +1069,10 @@ function Hero:OnLayout(L)
 	Hero.PlaceLevelPlate(xp, X)
 	place(xp.rested, X.bar)
 	place(xp.hover, X.hover)
+	place(self.rep.border, L.rep.border)
+	place(self.rep.bg, L.rep)
+	place(self.rep.fill, L.rep)
+	place(self.rep.hover, L.rep.hover)
 
 	for i, f in ipairs(self.stats) do
 		local r = L.statIcons[i]

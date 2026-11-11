@@ -341,6 +341,12 @@ def render(path, w, theme, s=240, m=10, target=None):
         name, frac = T["cast"]
         bar(c, S["cast"], frac, (255, 179, 0), name, 9)
     else:
+        # The watched faction's strip under it (Friendly, 38 %).
+        rp = L["rep"]
+        bd = rp["border"]
+        c.rect(bd["x"], bd["y"], bd["w"], bd["h"], fill=(140, 110, 31, 255))
+        c.rect(rp["x"], rp["y"], rp["w"], rp["h"], fill=(15, 15, 15, 255))
+        c.rect(rp["x"], rp["y"], rp["w"] * 0.38, rp["h"], fill=(0, 153, 26, 255))
         c.text(xp["cx"] - 100, xp["nameY"] - 10, 200, 20, "Thrall", 16, (255, 209, 0))
         c.text(xp["cx"] - 100, xp["levelY"] - 8, 200, 16, "Level 12 Shaman", 12, (255, 255, 255))
     for i, (r, (lab, val)) in enumerate(zip(L["statIcons"], [("Damage:", "10 - 16"), ("Damage:", "N/A"), ("Spell:", "70"),

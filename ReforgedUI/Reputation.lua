@@ -2,7 +2,8 @@
 -- reputation panel) as a feed ("Reforged: Reputation") for the top bar's
 -- slots and any other LibDataBroker display: its name in its standing's
 -- colour and how far along the standing it is, with the details in the
--- tooltip. A click opens the reputation panel.
+-- tooltip. A click opens the reputation panel. The hero screen's strip
+-- under the experience bar (Hero.lua) shows the same faction.
 --
 -- Reads C_Reputation.GetWatchedFactionData where the client has it, else
 -- the older GetWatchedFactionInfo; friendship factions and paragon levels
@@ -31,6 +32,7 @@ local LABELS = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honor
 local FRIEND_REACTION = 5
 
 local GREY = "|cffcccccc"
+local GOLD = "|cffffd100"
 
 local function number(n)
 	n = math.floor((n or 0) + 0.5)
@@ -187,6 +189,46 @@ function Reputation:Tooltip(tip)
 	tip:AddLine(GREY .. "Click to open the reputation panel.|r")
 end
 
+-- The hero screen's info box for the strip under the experience bar
+-- (Hero.lua), in the experience bar's words.
+function Reputation:InfoText()
+	local w = self:Watched()
+	if not w then
+		return nil
+	end
+	local c = Reputation.Color(w.reaction)
+	local lines = {
+		("%s%s|r"):format(GREY, w.name),
+		("%sStanding:|r |cff%s%s|r"):format(GOLD, hex(c), w.label),
+	}
+	if w.paragon then
+		local p = w.paragon
+		lines[#lines + 1] = ("%sParagon:|r %s / %s (%.2f %%)"):format(GOLD, number(p.value), number(p.threshold),
+			p.value / p.threshold * 100)
+	elseif not w.top then
+		lines[#lines + 1] = ("%sReputation:|r %s / %s (%.2f %%)"):format(GOLD, number(w.cur), number(w.size),
+			w.cur / w.size * 100)
+		lines[#lines + 1] = ("%sUntil next standing:|r %s"):format(GOLD, number(w.size - w.cur))
+	end
+	local base = w.factionID and start[w.factionID]
+	local gained = base and total(w) - base or 0
+	if gained ~= 0 then
+		lines[#lines + 1] = ("%sThis session:|r %s%s"):format(GOLD, gained > 0 and "+" or "", number(gained))
+	end
+	return table.concat(lines, "\n")
+end
+
+-- The level line while the strip is hovered.
+function Reputation:LevelText(w)
+	if w.paragon then
+		return ("%s %s / %s"):format(w.name, number(w.paragon.value), number(w.paragon.threshold))
+	end
+	if w.top then
+		return ("%s %s"):format(w.name, w.label)
+	end
+	return ("%s %s / %s"):format(w.name, number(w.cur), number(w.size))
+end
+
 function Reputation:Open()
 	if ToggleCharacter then
 		ToggleCharacter("ReputationFrame")
@@ -200,6 +242,13 @@ function Reputation:Update()
 	end
 	if self.feed then
 		self.feed.text = self:FeedText(w)
+	end
+	local hero = ns.modules.hero
+	if hero and hero.enabled and hero.rep then
+		hero:UpdateRep()
+		if hero.repHovering then
+			hero:UpdateXP()
+		end
 	end
 end
 

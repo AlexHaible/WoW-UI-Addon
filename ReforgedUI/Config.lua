@@ -321,6 +321,12 @@ function Config:Build()
 		slider:SetValue(slider:GetValue() + delta * 5)
 		placeAuras()
 	end)
+	-- Under it, beside the buttons: the target's buffs on the bottom rows,
+	-- nearest its portrait, and its debuffs after them (the game puts a
+	-- hostile target's debuffs first).
+	self:Check("Target buffs first", "targetBuffsFirst", 290, -553, function(on)
+		ns.modules.target:SetBuffsFirst(on)
+	end)
 
 	button(f, "Apply", 120, 20, -554, function() self:Apply() end)
 	button(f, "Reload UI", 120, 150, -554, ReloadUI)

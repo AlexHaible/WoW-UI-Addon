@@ -609,6 +609,47 @@ function Target:KeepBlizzardAuras()
 	ns:RunOutOfCombat("target-frame-mouse", function() tf:EnableMouse(false) end)
 end
 
+-- The order of the aura icons. Blizzard's aura container lays out two
+-- groups, one after the other from the frame's edge (buffs on top: from the
+-- bottom row up): buffs first for a friendly target, debuffs first for any
+-- other. With "Target buffs first" (consoleOpts.targetBuffsFirst) every
+-- target counts as friendly to the container, so its buffs stand on the
+-- bottom rows, on the portrait, and its debuffs come after them. The same
+-- flag lets the container show other players' debuffs on hostile creatures
+-- too, as the game's own "show all debuffs on target" option does.
+-- Blizzard sets the flag again on each aura update (ConfigureAuraContainer,
+-- hooked below), so turning the option off needs nothing more.
+local function auraContainer(tf)
+	local ok, c = pcall(function() return tf:GetAuraContainer() end)
+	return ok and c or nil
+end
+
+local function putBuffsFirst(tf)
+	if not ns.db.consoleOpts.targetBuffsFirst then
+		return
+	end
+	local c = auraContainer(tf)
+	if c then
+		pcall(function() c:SetTargetIsFriendly(true) end)
+	end
+end
+
+function Target:HookAuraOrder()
+	local tf = TargetFrame
+	if self.auraOrderHooked or not (tf and type(tf.ConfigureAuraContainer) == "function") then
+		return
+	end
+	self.auraOrderHooked = true
+	hooksecurefunc(tf, "ConfigureAuraContainer", putBuffsFirst)
+end
+
+function Target:SetBuffsFirst(on)
+	ns.db.consoleOpts.targetBuffsFirst = on and true or false
+	if on and TargetFrame then
+		putBuffsFirst(TargetFrame)
+	end
+end
+
 -- For /rui auras: where Blizzard's target frame and its aura icons are.
 function Target:DescribeAuras()
 	local function n(v)
@@ -661,6 +702,15 @@ function Target:DescribeAuras()
 	end
 	scan(tf, "TargetFrame", 1)
 	lines[#lines + 1] = ("children (%d): %s"):format(#kids, table.concat(kids, ", "))
+	local c = auraContainer(tf)
+	-- The flag can be secret (Blizzard sets it from UnitIsFriend).
+	local okF, order = pcall(function()
+		local friendly = c:IsTargetFriendly()
+		return friendly == true and "buffs first" or friendly == false and "debuffs first" or "?"
+	end)
+	lines[#lines + 1] = ("aura order: %s (buffs first wanted: %s, hooked: %s)"):format(
+		not c and "no aura container" or okF and order or "unreadable",
+		tostring(ns.db.consoleOpts.targetBuffsFirst and true or false), tostring(self.auraOrderHooked or false))
 	-- Anything of the frame still drawn, besides the aura icons.
 	local drawn = {}
 	local function regions(frame, path, depth)
@@ -719,6 +769,7 @@ end
 
 function Target:OnEnable()
 	self:KeepBlizzardAuras()
+	self:HookAuraOrder()
 
 	self:CreateSwap()
 	self:CreatePlate()

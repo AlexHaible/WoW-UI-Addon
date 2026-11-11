@@ -346,6 +346,13 @@ MainMenuBarBackpackButton = new("button", "MainMenuBarBackpackButton", UIParent)
 for i = 0, 3 do new("button", "CharacterBag" .. i .. "Slot", UIParent) end
 TargetFrame = new("secure", "TargetFrame", UIParent)
 TargetFrameToT = new("secure", "TargetFrameToT", TargetFrame)
+-- Blizzard's aura container (modern clients): the target counts as
+-- friendly or not, which decides whether buffs or debuffs come first.
+local targetAuraContainer = { friendly = false }
+function targetAuraContainer:SetTargetIsFriendly(v) self.friendly = v == true end
+function targetAuraContainer:IsTargetFriendly() return self.friendly end
+function TargetFrame:GetAuraContainer() return targetAuraContainer end
+function TargetFrame:ConfigureAuraContainer() targetAuraContainer:SetTargetIsFriendly(false) end
 TargetFrame.TargetFrameContainer = new("frame", nil, TargetFrame)
 TargetFrame.TargetFrameContent = new("frame", nil, TargetFrame)
 local targetHealthArt = new("texture", nil, TargetFrame.TargetFrameContent)
@@ -1195,6 +1202,19 @@ do
 	SlashCmdList.REFORGEDUI("auras")
 end
 assert(TargetFrame:GetParent() == UIParent and TargetFrameToT:GetParent() == TargetFrame, "target frames keep their parents")
+-- "Target buffs first": off, the game's order stays; on, every target
+-- counts as friendly to the aura container after each of Blizzard's updates.
+TargetFrame:ConfigureAuraContainer()
+assert(targetAuraContainer.friendly == false, "the game's aura order by default")
+SlashCmdList.REFORGEDUI("buffsfirst on")
+assert(ReforgedUIDB.consoleOpts.targetBuffsFirst == true and targetAuraContainer.friendly == true, "buffs first at once")
+TargetFrame:ConfigureAuraContainer()
+assert(targetAuraContainer.friendly == true, "buffs first after Blizzard's aura update")
+assert(table.concat(ns.modules.target:DescribeAuras(), "\n"):find("aura order: buffs first"), "/rui auras shows the order")
+SlashCmdList.REFORGEDUI("buffsfirst off")
+TargetFrame:ConfigureAuraContainer()
+assert(ReforgedUIDB.consoleOpts.targetBuffsFirst == false and targetAuraContainer.friendly == false,
+	"the game's order again when off")
 assert(MinimapCluster:GetParent() == UIParent and MinimapCluster._alpha == nil and #MinimapCluster._points == 0,
 	"the minimap cluster must be left alone")
 assert(Minimap:GetParent() == UIParent, "the minimap keeps its parent")

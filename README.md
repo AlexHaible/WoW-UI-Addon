@@ -38,7 +38,10 @@ screen stays free on either side).
   (HealPrediction.lua).
 - **Hero screen**: name, level and class, the experience bar with rested
   experience (hover for the numbers, right-click for its colour: purple,
-  blue or none) and four stat icons. Each shows main hand, off hand (block
+  blue or none), a thin reputation strip under it for the faction ticked
+  "Show as Experience Bar" (in its standing's colour; hover for the numbers,
+  click for the reputation panel; "Reputation bar" in the options or
+  `/rui repbar off` turns it off) and four stat icons. Each shows main hand, off hand (block
   chance and value with a shield), ranged, ammo (yellow under 400, red under
   200), attack power (ranged for hunters), spell power, healing, armour
   (the default for the fourth), dodge chance, parry chance, resistances
@@ -109,7 +112,9 @@ screen stays free on either side).
   home latency and bandwidth); a zone feed shows where you are, coloured by
   PvP status like the minimap's; a calendar feed shows what is on now (or the
   next event and when) and waiting invitations, with the week in its tooltip
-  and the calendar a click away. Right-click an empty
+  and the calendar a click away; a reputation feed shows the faction ticked
+  "Show as Experience Bar" and its progress (details and this session's gain
+  in the tooltip, a click opens the reputation panel). Right-click an empty
   slot (Alt-right-click a filled one) to choose any feed, or one of the
   game's own panels (character, spellbook, talents, skills, quest log,
   social, guild, world map, game menu, ...: whichever the client has),
@@ -299,6 +304,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
 /rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui repbar on|off               the reputation bar under the experience bar
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)

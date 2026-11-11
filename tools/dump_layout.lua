@@ -6,7 +6,7 @@ local s, m = tonumber(arg[3]) or 240, tonumber(arg[4]) or 10
 local here = (arg[0]:match("^(.*)[/\\]") or ".")
 local ns = {}
 assert(loadfile(here .. "/../ReforgedUI/Layout.lua"))("ReforgedUI", ns)
-local L = ns.Layout.Compute(W, 768, { s = s, m = m, theme = theme, zoneTextPos = 1 })
+local L = ns.Layout.Compute(W, 768, { s = s, m = m, theme = theme, zoneTextPos = 1, repBar = true })
 L.byKey = nil
 -- The top bar has its own scale (0.75 by default: 1024 units tall), with
 -- nine of Retail's micro buttons (32x40).

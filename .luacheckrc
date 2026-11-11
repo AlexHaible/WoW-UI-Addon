@@ -49,4 +49,6 @@ read_globals = {
 	"UnitIsUnit",
 	-- totem timers
 	"GetTotemInfo", "GetTotemTimeLeft",
+	-- reputation feed
+	"C_Reputation", "C_GossipInfo", "GetWatchedFactionInfo", "REPUTATION", "AT_WAR",
 }

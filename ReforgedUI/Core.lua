@@ -67,12 +67,15 @@ local DEFAULTS = {
 		transparency = 0, -- how see-through the console's art is, 0-100 %
 		petIconSpot = false, -- where the player moved the pet's icon ({ x, y } in console units), or beside the target of target
 		totemSpot = false, -- where the player moved the totem timers ({ x, y } in console units), or on the wall over the grid
+		stanceSpot = false, -- where the player moved the stance buttons ({ x, y } in console units), or on the wall over the grid
+		leaveStance = false, -- leave the stance buttons where Blizzard or another bar addon puts them (reload)
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
+		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
 	},
 }
@@ -307,6 +310,11 @@ end
 
 function ns:Unlock(frame)
 	locks[frame] = false
+end
+
+-- Run a frame's lock again (after what it places by has changed).
+function ns:Relock(frame)
+	runLock(frame)
 end
 
 -- Keep a frame's bottom edge at or above console height `limit()`.
@@ -1525,10 +1533,13 @@ local function usage()
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
+	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
+	print("  /rui stance reset  (put the stance buttons back on the wall; drag them in Edit Mode)")
+	print("  /rui stance off||on  (off: leave the stance buttons to Blizzard or your bar addon; needs /reload)")
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
 	print("  /rui tooltips on||off  (tooltips in the theme's frame, like the damage meter)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
@@ -1577,6 +1588,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:SayTargetAuraSize()
+	elseif cmd == "buffsfirst" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
+		ns.modules.target:SetBuffsFirst(arg == "on")
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print(arg == "on" and "target buffs first, debuffs after them." or "target auras in the game's order.")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)
@@ -1603,6 +1620,16 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "totems" and arg == "reset" and ns.modules.totems.enabled then
 		ns.modules.totems:ResetSpot()
 		ns:Print("totem timers back on the wall over the action bars.")
+	elseif cmd == "stance" and arg == "reset" and ns.modules.actionbars.enabled then
+		ns.modules.actionbars:ResetStanceSpot()
+		ns:Print("stance buttons back on the wall over the action bars.")
+	elseif cmd == "stance" and (arg == "on" or arg == "off") then
+		ns.db.consoleOpts.leaveStance = arg == "off"
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:AskReload(arg == "off" and "the stance buttons are left to Blizzard or your bar addon."
+			or "the stance buttons go back on the console's wall.")
 	elseif cmd == "repbar" and (arg == "on" or arg == "off") then
 		ns:SetRepBarShown(arg == "on")
 		ns:Print(arg == "on" and "reputation bar on, under the experience bar." or "reputation bar off.")

@@ -75,6 +75,8 @@ local DEFAULTS = {
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 		repFeed = "progress", -- what the reputation feed shows: name, standing, progress or next (right-click cycles)
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
+		targetAuraOwn = nil, -- true: the player moved the target frame (its aura icons) in Edit Mode
+		targetAuraLast = nil, -- our last few places for the target frame in our Edit Mode layout ({ x, y }, newest first)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
@@ -1142,7 +1144,10 @@ function ns:SayTargetAuraSize()
 	end
 end
 
--- Places the target frame in `layout`; true if that changed it.
+-- Places the target frame in `layout`; true if that changed it, and where
+-- it went (to remember once the layout is saved). Once the player has moved
+-- it in Edit Mode (anywhere but where we put it last) it is theirs: only
+-- its settings are kept, until `/rui auras reset`.
 function ns:PlaceTargetAuras(layout)
 	local frames, sys = Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem
 	local target = self.modules.target
@@ -1151,30 +1156,51 @@ function ns:PlaceTargetAuras(layout)
 	if not (spot and tf) then
 		return false
 	end
+	local o = self.db.consoleOpts
+	local a = tf.anchorInfo or {}
+	local atOurs = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
+		and a.relativePoint == "BOTTOMLEFT" and not tf.isInDefaultPosition
+	-- Our last few places count as ours: a game that hands a layout back
+	-- unchanged must not make the frame look moved by the player.
+	local last, ours = o.targetAuraLast, false
+	for _, p in ipairs(type(last) == "table" and last or {}) do
+		ours = ours or (atOurs and near(a.offsetX, p.x) and near(a.offsetY, p.y))
+	end
+	if not o.targetAuraOwn and type(last) == "table" and #last > 0 and not tf.isInDefaultPosition and not ours then
+		o.targetAuraOwn = true
+	end
+	local own = o.targetAuraOwn and not tf.isInDefaultPosition
+	if not own then
+		o.targetAuraOwn = nil
+	end
 	local k = self:ConsoleScale()
 	local sizeSetting = Enum.EditModeUnitFrameSetting and Enum.EditModeUnitFrameSetting.FrameSize
-	local _, size = self:TargetAuraSize(spot)
+	local _, size = self:TargetAuraSize(not own and spot or nil)
 	size = sizeSetting and size
 	local scale = size and size / 100 or TargetFrame and TargetFrame:GetScale() or 1
 	if not scale or scale <= 0 then
 		scale = 1
 	end
-	local x = math.floor(spot.x0 * k / scale - TARGET_AURA_X + 0.5)
-	local y = math.floor(spot.y * k / scale - TARGET_AURA_Y + 0.5)
-	-- The game hands saved offsets back rounded its own way, so a pixel or
-	-- two either way counts as already in place (otherwise every login
-	-- would save the layout again and ask for a reload).
-	local a = tf.anchorInfo or {}
-	local inPlace = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
-		and a.relativePoint == "BOTTOMLEFT" and near(a.offsetX, x) and near(a.offsetY, y)
-		and not tf.isInDefaultPosition
-	local changed = not inPlace
-	if inPlace then
-		x, y = a.offsetX, a.offsetY
+	-- Edit Mode keeps offsets in UIParent units and divides them by the
+	-- frame's scale itself (EditModeSystemMixin:ApplySystemAnchor); only the
+	-- first icon's place inside the frame scales with it.
+	local x = math.floor(spot.x0 * k - TARGET_AURA_X * scale + 0.5)
+	local y = math.floor(spot.y * k - TARGET_AURA_Y * scale + 0.5)
+	local changed, at = false, nil
+	if not own then
+		-- The game hands saved offsets back rounded its own way, so a pixel
+		-- or two either way counts as already in place (otherwise every
+		-- login would save the layout again and ask for a reload).
+		local inPlace = atOurs and near(a.offsetX, x) and near(a.offsetY, y)
+		changed = not inPlace
+		if inPlace then
+			x, y = a.offsetX, a.offsetY
+		end
+		tf.anchorInfo = { point = "TOPLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = x, offsetY = y }
+		tf.anchorInfo2 = nil
+		tf.isInDefaultPosition = false
+		at = { x = x, y = y }
 	end
-	tf.anchorInfo = { point = "TOPLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = x, offsetY = y }
-	tf.anchorInfo2 = nil
-	tf.isInDefaultPosition = false
 	local onTop = Enum.EditModeUnitFrameSetting and Enum.EditModeUnitFrameSetting.BuffsOnTop
 	if onTop then
 		local set = false
@@ -1196,7 +1222,7 @@ function ns:PlaceTargetAuras(layout)
 		changed = changed or was ~= stored
 		setSetting(tf, sizeSetting, stored)
 	end
-	return changed
+	return changed, at
 end
 
 -- With "Let Edit Mode place the action bars", bars 1-3 keep their buttons
@@ -1364,7 +1390,10 @@ function ns:SetupEditMode(why)
 		end
 	end
 
-	local placed = index and self:PlaceTargetAuras(info.layouts[index])
+	local placed, auraAt = false, nil
+	if index then
+		placed, auraAt = self:PlaceTargetAuras(info.layouts[index])
+	end
 	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
 	placed = placed or barsPlaced
 
@@ -1423,6 +1452,15 @@ function ns:SetupEditMode(why)
 	self.db.consoleOpts.spotKey = spotKey
 	if barsPlaced then
 		self.db.consoleOpts.barsPlaced = true
+	end
+	if auraAt then
+		local places = type(self.db.consoleOpts.targetAuraLast) == "table" and self.db.consoleOpts.targetAuraLast or {}
+		local newest = places[1]
+		if not (newest and newest.x == auraAt.x and newest.y == auraAt.y) then
+			table.insert(places, 1, auraAt)
+			places[5] = nil
+		end
+		self.db.consoleOpts.targetAuraLast = places
 	end
 	if made then
 		for name, value in pairs(RAID_CVARS) do
@@ -1535,6 +1573,7 @@ local function usage()
 		.. " pet, totems, topbar, config; needs /reload)")
 	print("  /rui status")
 	print("  /rui auras  (where your target's buff and debuff icons are)")
+	print("  /rui auras reset  (put them back on the wall after moving the Target Frame in Edit Mode)")
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
 	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
@@ -1651,6 +1690,13 @@ SlashCmdList.REFORGEDUI = function(msg)
 		if ns.modules.config.frame then
 			ns.modules.config:Refresh()
 		end
+	elseif cmd == "auras" and arg == "reset" and ns.modules.target.enabled then
+		ns.db.consoleOpts.targetAuraOwn, ns.db.consoleOpts.targetAuraLast = nil, nil
+		ns:RunOutOfCombat("target-auras", function()
+			ns:SetupEditMode(("the target's buffs and debuffs go back %s once the UI reloads."):format(
+				ns.modules.target:AuraSpotName()))
+		end)
+		ns:Print("target buffs and debuffs: back to their place on the wall.")
 	elseif cmd == "auras" and ns.modules.target.enabled then
 		for _, line in ipairs(ns.modules.target:DescribeAuras()) do
 			ns:Print(line)

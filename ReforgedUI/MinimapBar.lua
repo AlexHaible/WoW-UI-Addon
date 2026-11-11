@@ -141,16 +141,13 @@ local function updateCount(b)
 	pcall(b.count.SetText, b.count, text)
 end
 
--- Greyed out when unusable, blue when out of power, red when out of range.
+-- Greyed out when unusable, blue when out of power.
 local function updateUsable(b)
 	if not hasAction(b.slot) then
 		return
 	end
 	local usable, noPower = call("IsUsableAction", b.slot)
-	local inRange = b.checksRange and call("IsActionInRange", b.slot)
-	if plain(inRange) and inRange == false then
-		b.icon:SetVertexColor(0.8, 0.1, 0.1)
-	elseif not plain(usable) or usable then
+	if not plain(usable) or usable then
 		b.icon:SetVertexColor(1, 1, 1)
 	elseif plain(noPower) and noPower then
 		b.icon:SetVertexColor(0.5, 0.5, 1)
@@ -164,6 +161,25 @@ local function updateState(b)
 	b:SetChecked((plain(current) and current or plain(repeating) and repeating) and true or false)
 end
 
+-- Out of range of the target: the key turns red, as on Blizzard's buttons
+-- (the icon keeps its colour). `checks` is false when there is nothing to
+-- measure (no target, or an action without a range).
+local function setRange(b, checks, inRange)
+	local red = plain(checks) and checks and plain(inRange) and not inRange
+	if red then
+		b.hotkey:SetTextColor(1, 0.1, 0.1)
+	else
+		b.hotkey:SetTextColor(b.keyR, b.keyG, b.keyB)
+	end
+end
+
+-- Clients without range check events: IsActionInRange is nil when range
+-- can't be told (no target), else true or false.
+local function pollRange(b)
+	local inRange = hasAction(b.slot) and call("IsActionInRange", b.slot)
+	setRange(b, plain(inRange) and inRange ~= nil, inRange)
+end
+
 local function updateHotkey(b)
 	local key = GetBindingKey(BINDING:format(b.index))
 	local text = key and GetBindingText and GetBindingText(key, 1) or key or ""
@@ -171,9 +187,6 @@ local function updateHotkey(b)
 end
 
 local function updateAll(b)
-	local has = hasAction(b.slot)
-	local ranged = call("HasRangeRequirements", b.slot)
-	b.checksRange = has and (type(ranged) == "nil" or yes(ranged))
 	updateIcon(b)
 	updateCooldown(b)
 	updateCount(b)
@@ -246,6 +259,8 @@ function MinimapBar:CreateButton(i)
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
 	b.hotkey = text:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmallGray")
 	b.hotkey:SetPoint("TOPRIGHT", -2, -2)
+	b.keyR, b.keyG, b.keyB = b.hotkey:GetTextColor()
+	b.keyR, b.keyG, b.keyB = b.keyR or 0.6, b.keyG or 0.6, b.keyB or 0.6
 	b:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	local checked = b:CreateTexture(nil, "OVERLAY")
@@ -288,20 +303,32 @@ function MinimapBar:OnEnable()
 	for _, event in ipairs({ "BAG_UPDATE_DELAYED", "UNIT_INVENTORY_CHANGED" }) do
 		ns:On(event, each(updateCount))
 	end
-	-- Range is polled, as Blizzard's own buttons do.
-	local ticker = CreateFrame("Frame", nil, ns.root)
-	local elapsed = 0
-	ticker:SetScript("OnUpdate", function(_, dt)
-		elapsed = elapsed + dt
-		if elapsed >= RANGE_INTERVAL then
-			elapsed = 0
+	-- Range: the client reports it per slot once asked to (as for
+	-- Blizzard's own buttons); older clients are polled.
+	if api("EnableActionRangeCheck") then
+		for _, b in ipairs(self.buttons) do
+			call("EnableActionRangeCheck", b.slot, true)
+		end
+		ns:On("ACTION_RANGE_CHECK_UPDATE", function(_, slot, inRange, checks)
 			for _, b in ipairs(self.buttons) do
-				if b.checksRange then
-					updateUsable(b)
+				if b.slot == slot then
+					setRange(b, checks, inRange)
 				end
 			end
-		end
-	end)
+		end)
+	else
+		local ticker = CreateFrame("Frame", nil, ns.root)
+		local elapsed = 0
+		ticker:SetScript("OnUpdate", function(_, dt)
+			elapsed = elapsed + dt
+			if elapsed >= RANGE_INTERVAL then
+				elapsed = 0
+				for _, b in ipairs(self.buttons) do
+					pollRange(b)
+				end
+			end
+		end)
+	end
 
 	ns:On("PLAYER_ENTERING_WORLD", function()
 		-- Whether the addon turned Action Bar 8 on in an earlier session

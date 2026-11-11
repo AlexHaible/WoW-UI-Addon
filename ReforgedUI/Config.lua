@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 594
+local W, H = 650, 620
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -336,7 +336,8 @@ function Config:Build()
 	button(f, "Reload UI", 120, 150, -554, ReloadUI)
 	-- Stance buttons left to Blizzard's stance bar or another bar addon
 	-- (moving them on the console is done in Edit Mode).
-	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -553, function(on)
+	-- (on the row under "Target buffs first": the two shared one spot.)
+	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -579, function(on)
 		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")
 	end)

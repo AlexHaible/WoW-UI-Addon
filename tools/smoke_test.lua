@@ -509,6 +509,19 @@ Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3, PetActi
 Enum.EditModeActionBarSetting = { IconSize = 3, IconPadding = 4, HideBarArt = 6, HideBarScrolling = 7,
 	AlwaysShowButtons = 8 }
 Enum.EditModeLayoutType = { Account = 1 }
+-- Loot rules: solo until a test puts us in a group.
+Enum.LootMethod = { Freeforall = 0, Roundrobin = 1, Masterlooter = 2, Group = 3, Needbeforegreed = 4, Personal = 5 }
+local loot = { inGroup = false, leader = false, method = 3, threshold = 2, sets = {} }
+function IsInGroup() return loot.inGroup end
+function IsInRaid() return false end
+function UnitIsGroupLeader(u) return u == "player" and loot.leader end
+function GetLootThreshold() return loot.threshold end
+function SetLootThreshold(q) loot.sets[#loot.sets + 1] = "threshold " .. q; loot.threshold = q end
+C_PartyInfo = {
+	GetLootMethod = function() return loot.method, loot.partyID, loot.raidID end,
+	IsLootMethodAvailable = function(m) return m ~= 5 end,
+	SetLootMethod = function(m, who) loot.sets[#loot.sets + 1] = "method " .. m .. " " .. tostring(who) end,
+}
 local cvars = { raidFramesDisplayClassColor = "0", raidFramesDisplayPowerBars = "0" }
 C_CVar = { GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end }
 local activeLayout
@@ -1492,6 +1505,79 @@ do
 	feed.OnClick()
 	ToggleCharacter = toggle
 	assert(opened == "ReputationFrame", "a click opens the reputation panel")
+end
+do
+	-- The loot feed: "Solo" out of a group; in one, the method with the
+	-- threshold in its colour, details in the tooltip.
+	local lootMod = ns.modules.loot
+	local feed = LibStub("LibDataBroker-1.1"):GetDataObjectByName(lootMod.FEED)
+	assert(feed and feed.text:find("Solo", 1, true), "the loot feed solo: " .. tostring(feed and feed.text))
+	local function tooltip()
+		local lines = {}
+		feed.OnTooltipShow({
+			AddLine = function(_, t) lines[#lines + 1] = t end,
+			AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+		})
+		return table.concat(lines, "\n")
+	end
+	assert(tooltip():find("not in a group", 1, true), "solo tooltip")
+	local printedBefore = #printed
+	feed.OnClick(nil, "RightButton")
+	assert(#printed == printedBefore + 1 and printed[#printed]:find("not in a group", 1, true), "no menu solo")
+	loot.inGroup = true
+	fire("GROUP_ROSTER_UPDATE")
+	flushTimers()
+	assert(feed.text == "Group Loot |cff1eff00Uncommon|r", "group loot: " .. feed.text)
+	local text = tooltip()
+	assert(text:find("Method=Group Loot", 1, true) and text:find("Loot threshold=Uncommon", 1, true)
+		and text:find("Only the group leader", 1, true), "group loot tooltip: " .. text)
+	feed.OnClick(nil, "RightButton")
+	assert(printed[#printed]:find("only the group leader", 1, true), "no menu for others")
+	-- Free for All has no threshold to show; Master Looter names who.
+	loot.method = 0
+	assert(lootMod:FeedText() == "Free for All", "ffa: " .. lootMod:FeedText())
+	loot.method, loot.partyID = 2, 0
+	assert(lootMod:FeedText():find("^Master Looter "), "master: " .. lootMod:FeedText())
+	assert(tooltip():find("Master looter=Thrall", 1, true), "the master looter: " .. tooltip())
+	-- The leader's menu: the methods the client offers (no personal here),
+	-- the group under Master Looter, and the thresholds.
+	loot.leader = true
+	local function newDesc(text)
+		local d = { text = text, children = {} }
+		function d:CreateTitle(t) local c = newDesc(t); c.title = true; self.children[#self.children + 1] = c; return c end
+		function d:CreateRadio(t, sel, fn)
+			local c = newDesc(t); c.selected, c.fn = sel, fn; self.children[#self.children + 1] = c; return c
+		end
+		function d:SetTooltip(fn) self.tip = fn end
+		return d
+	end
+	local menuRoot
+	local oldMenu, oldExists = MenuUtil, UnitExists
+	MenuUtil = { CreateContextMenu = function(_, gen) menuRoot = newDesc(); gen(nil, menuRoot) end }
+	UnitExists = function(u) return u == "player" or u == "party1" end
+	feed.OnClick(nil, "RightButton")
+	MenuUtil = oldMenu
+	assert(menuRoot, "the leader gets a menu")
+	local labels, byText = {}, {}
+	for _, c in ipairs(menuRoot.children) do
+		labels[#labels + 1] = c.text
+		byText[c.text] = c
+	end
+	assert(table.concat(labels, ",") == "Loot Method,Free for All,Round Robin,Master Looter,Group Loot,"
+		.. "Need before Greed,Loot Threshold,|cff1eff00Uncommon|r,|cff0070ddRare|r,|cffa335eeEpic|r",
+		"the menu: " .. table.concat(labels, ","))
+	local master = byText["Master Looter"]
+	assert(master.selected() and #master.children == 2, "master looter is on, with two members")
+	master.children[2].fn()
+	assert(loot.sets[#loot.sets] == "method 2 Thrall", "set the master looter: " .. loot.sets[#loot.sets])
+	byText["Need before Greed"].fn()
+	assert(loot.sets[#loot.sets] == "method 4 nil", "set need before greed")
+	byText["|cff0070ddRare|r"].fn()
+	assert(loot.threshold == 3 and byText["|cff0070ddRare|r"].selected(), "set the threshold to rare")
+	UnitExists = oldExists
+	loot.inGroup, loot.leader, loot.method = false, false, 3
+	fire("GROUP_ROSTER_UPDATE")
+	flushTimers()
 end
 local _, _, _, _, iy = IssueReporterButton:GetPoint(1)
 assert(iy > 100, "the issue reporter should sit above the console")

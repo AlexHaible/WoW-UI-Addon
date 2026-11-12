@@ -9,7 +9,7 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 620
+local W, H = 650, 646
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -277,11 +277,19 @@ function Config:Build()
 		self.iconButtons[i] = b
 	end
 
-	-- A free-standing target health bar, for nearer the middle of the screen.
-	self.targetBarCheck = self:Check("Target bar (Shift-drag or Edit Mode)", "targetBar", x, -362, function(on)
+	-- Free-standing target and target of target windows, to put anywhere
+	-- (Shift-drag, or in Edit Mode).
+	self.targetBarCheck = self:Check("Target bar", "targetBar", x, -362, function(on)
 		ns.modules.target:SetBarEnabled(on)
 		if on then
 			ns:Print("target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
+		end
+	end)
+	self.totBarCheck = self:Check("Target of target bar", "totBar", x + 100, -362, function(on)
+		local target = ns.modules.target
+		target:SetBarEnabled(on, target.totBar)
+		if on then
+			ns:Print("target of target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
 		end
 	end)
 
@@ -325,23 +333,26 @@ function Config:Build()
 		slider:SetValue(slider:GetValue() + delta * 5)
 		placeAuras()
 	end)
+	-- Bigger target and target of target bars.
+	self:Slider("Target bar size", "targetBarSize", ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX, 20, -548, 300,
+		function(v) ns.modules.target:SetBarSize(v) end)
 	-- Under it, beside the buttons: the target's buffs on the bottom rows,
 	-- nearest its portrait, and its debuffs after them (the game puts a
 	-- hostile target's debuffs first).
-	self:Check("Target buffs first", "targetBuffsFirst", 290, -553, function(on)
+	self:Check("Target buffs first", "targetBuffsFirst", 290, -579, function(on)
 		ns.modules.target:SetBuffsFirst(on)
 	end)
 
-	button(f, "Apply", 120, 20, -554, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -554, ReloadUI)
+	button(f, "Apply", 120, 20, -580, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, -580, ReloadUI)
 	-- Stance buttons left to Blizzard's stance bar or another bar addon
 	-- (moving them on the console is done in Edit Mode).
 	-- (on the row under "Target buffs first": the two shared one spot.)
 	-- Or hidden altogether (their key bindings still work), left of it.
-	self:Check("Hide stance buttons", "hideStance", 20, -579, function(on)
+	self:Check("Hide stance buttons", "hideStance", 20, -605, function(on)
 		ns.modules.actionbars:SetStanceShown(not on)
 	end)
-	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -579, function(on)
+	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -605, function(on)
 		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")
 	end)
@@ -396,9 +407,11 @@ function Config:Refresh()
 		b:SetEnabled(target.enabled and target:Mode() ~= b.mode)
 	end
 	-- Greyed out like the buttons above while the target module is off.
-	self.targetBarCheck:SetEnabled(target.enabled and true or false)
 	local shade = target.enabled and 1 or 0.5
-	self.targetBarCheck.label:SetTextColor(shade, shade, shade)
+	for _, cb in ipairs({ self.targetBarCheck, self.totBarCheck }) do
+		cb:SetEnabled(target.enabled and true or false)
+		cb.label:SetTextColor(shade, shade, shade)
+	end
 	self.zoneButton:SetText(ZONE_TEXT[o.zoneText] or ZONE_TEXT[1])
 	local topbar = ns.modules.topbar
 	self.clockTimeButton:SetText(CLOCK_TIME[topbar:TimeMode()])

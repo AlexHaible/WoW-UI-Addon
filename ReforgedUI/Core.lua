@@ -54,6 +54,9 @@ local DEFAULTS = {
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
 		targetBar = false, -- a movable target health and power bar, besides the target display
 		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
+		totBar = false, -- the same window for the target's target
+		totBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
+		targetBarSize = 100, -- both bars' size, 100-200 %
 		barsEnabled = {}, -- characters whose bars 2 and 3 (and up to 1.11, bar 8) were turned on once
 		minimapBarMoved = {}, -- characters whose Action Bar 8 slots and keys moved to the minimap bar once
 		editLayout = {}, -- characters switched to the Reforged UI Edit Mode layout once
@@ -1697,6 +1700,8 @@ local function usage()
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
 	print("  /rui tooltips on||off  (tooltips in the theme's frame, like the damage meter)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
+	print("  /rui totbar on||off||reset  (the same for the target's target)")
+	print("  /rui barsize 100-200  (both bars' size, in %)")
 	print("  /rui reset")
 end
 
@@ -1800,15 +1805,24 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "tooltips" and (arg == "on" or arg == "off") and ns.modules.tooltip.enabled then
 		ns.modules.tooltip:SetEnabled(arg == "on")
 		ns:Print(arg == "on" and "tooltips in the theme's frame." or "tooltips as Blizzard draws them.")
-	elseif cmd == "targetbar" and (arg == "on" or arg == "off" or arg == "reset") and ns.modules.target.enabled then
+	elseif (cmd == "targetbar" or cmd == "totbar") and (arg == "on" or arg == "off" or arg == "reset")
+		and ns.modules.target.enabled then
 		local target = ns.modules.target
+		local v = cmd == "totbar" and target.totBar or target.bar
+		local what = cmd == "totbar" and "target of target bar" or "target bar"
 		if arg == "reset" then
-			target:ResetBarSpot()
-			ns:Print("target bar back in its first place.")
+			target:ResetBarSpot(v)
+			ns:Print(what .. " back in its first place.")
 		else
-			target:SetBarEnabled(arg == "on")
-			ns:Print(arg == "on" and "target bar on: hold Shift and drag it, or move it in Edit Mode." or "target bar off.")
+			target:SetBarEnabled(arg == "on", v)
+			ns:Print(arg == "on" and what .. " on: hold Shift and drag it, or move it in Edit Mode." or what .. " off.")
 		end
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+	elseif cmd == "barsize" and tonumber(arg) and ns.modules.target.enabled then
+		local pct = ns.modules.target:SetBarSize(tonumber(arg))
+		ns:Print(("target bars at %d%%."):format(pct))
 		if ns.modules.config.frame then
 			ns.modules.config:Refresh()
 		end

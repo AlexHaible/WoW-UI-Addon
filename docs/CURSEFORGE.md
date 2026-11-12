@@ -55,6 +55,8 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - Icons too small? Drag **Target aura size** in the options (or type `/rui aurasize 150`) to make them up to twice as big. They grow only as far as still fits on the wall beside the target's target.
 - Want the buffs first? Tick **Target buffs first** in the options (or type `/rui buffsfirst on`): the target's buffs sit on the bottom rows, right on top of its portrait, and its debuffs come after them, on every target. Normally the game puts an enemy's debuffs first. With it on you also see other players' debuffs on enemies, not just yours.
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power, and its cast bar just underneath while it casts. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
+- Want the target's target in a window like that too? Turn on the **target of target bar** (or `/rui totbar on`): the same window with its name, level, health and power, placed on its own. Put both wherever suits you, for example on the right over your bags, together with the buffs and debuffs (the **Target Frame** in Edit Mode).
+- Hard to read? Drag **Target bar size** in the options (or type `/rui barsize 150`) to make both bars up to twice as big. Each stays where you put it.
 
 **Pet**
 - Your pet gets its own unit icon beside the target's target, in your theme's frame: name, portrait, health and power (focus, mana or energy).
@@ -132,6 +134,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - chat width and height
 - target aura size, for bigger target buff and debuff icons (100-200%, also `/rui aurasize 150`)
 - target buffs first, with the debuffs after them (also `/rui buffsfirst on`)
+- movable target and target of target bars, and their size (100-200%, also `/rui barsize 150`)
 - portrait position
 - low-health warning threshold
 - zone text position
@@ -155,6 +158,8 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui repbar on|off               the reputation bar under the experience bar
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)
+/rui totbar on|off|reset         the same for the target's target
+/rui barsize 100-200             both bars' size, in %
 /rui aurasize 100-200            target buff and debuff icon size, in %
 /rui auras reset                 put the target's buffs and debuffs back after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs first, debuffs after them

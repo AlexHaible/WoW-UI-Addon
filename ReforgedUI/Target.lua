@@ -14,7 +14,8 @@
 --
 -- Optionally, in either mode, a small target bar (name, level, health and
 -- power, and its cast bar under it while it casts) stands on its own where
--- the player drags it (see "The target bar").
+-- the player drags it, and the same for the target's target (see "The
+-- target bar").
 --
 -- In both, the target's target is a small unit icon in the theme's trim on
 -- the wall above the portrait (your pet's, Pet.lua, stands beside it), and
@@ -1119,15 +1120,43 @@ end
 -- (in combat Shift is left to the player's own keybinds). Its place is
 -- its own (db.consoleOpts.targetBarPos, from the screen's centre) and never
 -- feeds the Edit Mode layout.
+--
+-- The target of target bar (db.consoleOpts.totBar, off by default) is the
+-- same window for the target's target, without a cast bar, placed on its
+-- own (totBarPos); it starts to the right of the target bar. Both share a
+-- size (db.consoleOpts.targetBarSize, 100-200 %), for players who want them
+-- bigger.
 
 local BAR_W, BAR_NAME_H, BAR_HEALTH_H, BAR_POWER_H, BAR_CAST_H = 230, 16, 18, 10, 14
 local BAR_SPOT = { x = 0, y = -150 }
 -- After the level, as on Blizzard's own target frames.
 local BAR_CLASS = { elite = "+", rareelite = "R+", rare = "R", worldboss = "" }
+ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX = 100, 200
 
-function Target:CreateBar()
-	local f = CreateFrame("Frame", "ReforgedUITargetBar", UIParent, "BackdropTemplate")
-	f:SetFrameStrata("MEDIUM")
+-- One spec per bar: its unit, its settings and the words it uses.
+local BAR_SPECS = {
+	{
+		id = "target", unit = "target", global = "ReforgedUITargetBar", key = "targetBar", posKey = "targetBarPos",
+		spot = BAR_SPOT, cast = true, title = "target bar", standIn = "Target", slash = "targetbar",
+	},
+	{
+		id = "tot", unit = "targettarget", global = "ReforgedUITargetTargetBar", key = "totBar", posKey = "totBarPos",
+		spot = { x = BAR_SPOT.x + BAR_W + 20, y = BAR_SPOT.y }, title = "target of target bar",
+		standIn = "Target of target", slash = "totbar",
+	},
+}
+
+-- The bars' size, 100-200 % (a bad saved value reads as 100).
+function ns:TargetBarSize()
+	local p = tonumber(self.db.consoleOpts.targetBarSize) or self.TARGET_BAR_SIZE_MIN
+	return math.max(self.TARGET_BAR_SIZE_MIN, math.min(self.TARGET_BAR_SIZE_MAX, math.floor(p + 0.5)))
+end
+
+function Target:MakeUnitBar(spec)
+	local f = CreateFrame("Frame", spec.global, UIParent, "BackdropTemplate")
+	-- Above the console's buttons (the bag slots, the action grid), so it can
+	-- stand over them; it lets clicks through to them.
+	f:SetFrameStrata("HIGH")
 	f:SetSize(BAR_W, BAR_NAME_H + BAR_HEALTH_H + BAR_POWER_H + 12)
 	f:SetClampedToScreen(true)
 	f:SetMovable(true)
@@ -1143,7 +1172,7 @@ function Target:CreateBar()
 		f:SetBackdropBorderColor(0.8, 0.7, 0.4, 1)
 	end
 	f:Hide()
-	local v = { frame = f }
+	local v = { frame = f, spec = spec, unit = spec.unit }
 	v.name = f:CreateFontString(nil, "OVERLAY")
 	font(v.name, 12)
 	v.name:SetJustifyH("LEFT")
@@ -1165,11 +1194,13 @@ function Target:CreateBar()
 	v.power:SetPoint("TOPLEFT", v.health, "BOTTOMLEFT", 0, -1)
 	v.power:SetPoint("TOPRIGHT", v.health, "BOTTOMRIGHT", 0, -1)
 	v.power:SetHeight(BAR_POWER_H)
-	-- The target's cast, hung just under the frame while it casts.
-	v.cast = makeCast(f, f:GetFrameLevel() + 1, 9)
-	v.cast:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 5, -2)
-	v.cast:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", -5, -2)
-	v.cast:SetHeight(BAR_CAST_H)
+	if spec.cast then
+		-- The target's cast, hung just under the frame while it casts.
+		v.cast = makeCast(f, f:GetFrameLevel() + 1, 9)
+		v.cast:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 5, -2)
+		v.cast:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", -5, -2)
+		v.cast:SetHeight(BAR_CAST_H)
+	end
 	-- While it can be moved: Edit Mode's blue, and its name.
 	v.highlight = f:CreateTexture(nil, "OVERLAY")
 	v.highlight:SetAllPoints()
@@ -1183,7 +1214,7 @@ function Target:CreateBar()
 	f:SetScript("OnDragStop", function(frame)
 		frame.dragging = nil
 		frame:StopMovingOrSizing()
-		self:SaveBarSpot()
+		self:SaveBarSpot(v)
 	end)
 	-- Hidden mid-drag (Edit Mode closed, the target lost): end the drag here,
 	-- or it would never let go of the mouse.
@@ -1191,68 +1222,124 @@ function Target:CreateBar()
 		if frame.dragging then
 			frame.dragging = nil
 			frame:StopMovingOrSizing()
-			self:SaveBarSpot()
+			self:SaveBarSpot(v)
 			self:UpdateBarMouse()
 		end
 	end)
 	f:SetScript("OnEnter", function(frame)
 		GameTooltip_SetDefaultAnchor(GameTooltip, frame)
-		GameTooltip:SetText("Reforged UI: target bar")
-		GameTooltip:AddLine("Drag to move it. /rui targetbar reset puts it back.", 1, 1, 1, true)
+		GameTooltip:SetText("Reforged UI: " .. spec.title)
+		GameTooltip:AddLine(("Drag to move it. /rui %s reset puts it back."):format(spec.slash), 1, 1, 1, true)
 		GameTooltip:Show()
 	end)
 	f:SetScript("OnLeave", GameTooltip_Hide)
-	self.bar = v
+	if spec.unit ~= "target" then
+		-- The target's target has few events of its own; poll it while shown.
+		local elapsed = 0
+		f:SetScript("OnUpdate", function(_, dt)
+			elapsed = elapsed + dt
+			if elapsed > 0.2 then
+				elapsed = 0
+				if UnitExists(v.unit) then
+					self:UpdateBar(v)
+				elseif not self.barEditing then
+					self:RefreshBar()
+				end
+			end
+		end)
+	end
+	return v
+end
+
+function Target:CreateBar()
+	self.bars = {}
+	for _, spec in ipairs(BAR_SPECS) do
+		local v = self:MakeUnitBar(spec)
+		self.bars[#self.bars + 1] = v
+		self[spec.id == "target" and "bar" or "totBar"] = v
+	end
 
 	for _, e in ipairs({ "MODIFIER_STATE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
 		ns:On(e, function() self:UpdateBarMouse() end)
 	end
+	-- The target picked a new target: the target of target bar shows or hides.
+	ns:On("UNIT_TARGET", function(_, unit)
+		if unit == "target" then
+			self:RefreshBar()
+		end
+	end)
 	-- Shown and movable while Edit Mode is open, target or not.
 	local editMode = _G.EditModeManagerFrame
 	if editMode and editMode.HookScript then
 		editMode:HookScript("OnShow", function() self:SetBarEditing(true) end)
 		editMode:HookScript("OnHide", function() self:SetBarEditing(false) end)
 	end
-	self:PlaceBar()
+	self:ApplyBarSize()
 end
 
-function Target:BarEnabled()
-	return self.bar and ns.db.consoleOpts.targetBar and true or false
+-- The target bar by default; `v` names another (Target.totBar).
+function Target:BarEnabled(v)
+	v = v or self.bar
+	return v and ns.db.consoleOpts[v.spec.key] and true or false
 end
 
-function Target:SetBarEnabled(on)
-	ns.db.consoleOpts.targetBar = on and true or false
+function Target:SetBarEnabled(on, v)
+	v = v or self.bar
+	ns.db.consoleOpts[v.spec.key] = on and true or false
 	self:RefreshBar()
 end
 
-function Target:PlaceBar()
-	local f, spot = self.bar.frame, ns.db.consoleOpts.targetBarPos
-	if type(spot) ~= "table" or type(spot.x) ~= "number" or type(spot.y) ~= "number" then
-		spot = BAR_SPOT
+-- Both bars at the size option, each kept in its place.
+function Target:ApplyBarSize()
+	local k = ns:TargetBarSize() / 100
+	for _, v in ipairs(self.bars or {}) do
+		v.frame:SetScale(k)
+		self:PlaceBar(v)
 	end
+end
+
+function Target:SetBarSize(pct)
+	ns.db.consoleOpts.targetBarSize = pct
+	ns.db.consoleOpts.targetBarSize = ns:TargetBarSize()
+	self:ApplyBarSize()
+	return ns.db.consoleOpts.targetBarSize
+end
+
+-- Saved spots are in UIParent units from its centre; the frame's own
+-- offsets are in its scale's units.
+function Target:PlaceBar(v)
+	v = v or self.bar
+	local f, spot = v.frame, ns.db.consoleOpts[v.spec.posKey]
+	if type(spot) ~= "table" or type(spot.x) ~= "number" or type(spot.y) ~= "number" then
+		spot = v.spec.spot
+	end
+	local k = f:GetScale()
+	k = (type(k) == "number" and k > 0) and k or 1
 	f:ClearAllPoints()
-	f:SetPoint("CENTER", UIParent, "CENTER", spot.x, spot.y)
+	f:SetPoint("CENTER", UIParent, "CENTER", spot.x / k, spot.y / k)
 end
 
 -- After a drag: kept as an offset from the screen's centre, so it stays put
 -- through resolution and UI scale changes.
-function Target:SaveBarSpot()
-	local f = self.bar.frame
+function Target:SaveBarSpot(v)
+	v = v or self.bar
+	local f = v.frame
 	local x, y = f:GetCenter()
 	local ux, uy = UIParent:GetCenter()
 	if x and ux then
 		local k = f:GetEffectiveScale() / UIParent:GetEffectiveScale()
-		ns.db.consoleOpts.targetBarPos = { x = math.floor(x * k - ux + 0.5), y = math.floor(y * k - uy + 0.5) }
+		ns.db.consoleOpts[v.spec.posKey] = { x = math.floor(x * k - ux + 0.5), y = math.floor(y * k - uy + 0.5) }
 	end
 	if f.SetUserPlaced then
 		f:SetUserPlaced(false) -- ours to save, not the client's layout cache
 	end
-	self:PlaceBar()
+	self:PlaceBar(v)
 end
 
-function Target:ResetBarSpot()
-	ns.db.consoleOpts.targetBarPos = false
-	self:PlaceBar()
+function Target:ResetBarSpot(v)
+	v = v or self.bar
+	ns.db.consoleOpts[v.spec.posKey] = false
+	self:PlaceBar(v)
 end
 
 function Target:SetBarEditing(on)
@@ -1262,50 +1349,45 @@ end
 
 -- Click-through unless it can be moved; never let go of in mid-drag.
 function Target:UpdateBarMouse()
-	local v = self.bar
-	if not v then
-		return
-	end
 	local shift = IsShiftKeyDown and IsShiftKeyDown() and not InCombatLockdown() and true or false
-	local movable = self:BarEnabled() and (self.barEditing or shift)
-	if movable or not v.frame.dragging then
-		v.frame:EnableMouse(movable)
+	for _, v in ipairs(self.bars or {}) do
+		local movable = self:BarEnabled(v) and (self.barEditing or shift)
+		if movable or not v.frame.dragging then
+			v.frame:EnableMouse(movable)
+		end
+		v.highlight:SetShown(movable and self.barEditing)
 	end
-	v.highlight:SetShown(movable and self.barEditing)
 end
 
 function Target:RefreshBar()
-	local v = self.bar
-	if not v then
-		return
-	end
-	local has = UnitExists("target") and true or false
-	local show = self:BarEnabled() and (has or self.barEditing)
-	v.frame:SetShown(show)
-	self:UpdateBarMouse()
-	if not (show and has) then
-		stopCast(v.cast)
-	end
-	if not show then
-		return
-	end
-	if has then
-		self:UpdateBar()
-		self:UpdateCast()
-	else
-		-- Edit Mode without a target: a stand-in to place.
-		v.name:SetText("Target")
-		v.name:SetTextColor(1, 1, 1)
-		v.level:SetText("")
-		for _, bar in ipairs({ v.health, v.power }) do
-			bar:SetMinMaxValues(0, 1)
-			bar:SetValue(1)
-			bar.text:SetText("")
-			bar:Show()
+	for _, v in ipairs(self.bars or {}) do
+		local has = UnitExists(v.unit) and true or false
+		local show = self:BarEnabled(v) and (has or self.barEditing)
+		v.frame:SetShown(show)
+		if v.cast and not (show and has) then
+			stopCast(v.cast)
 		end
-		v.health:SetStatusBarColor(0.1, 0.85, 0.1)
-		v.power:SetStatusBarColor(0.2, 0.4, 1)
+		if show and has then
+			self:UpdateBar(v)
+			if v.cast then
+				self:UpdateCast()
+			end
+		elseif show then
+			-- Edit Mode without the unit: a stand-in to place.
+			v.name:SetText(v.spec.standIn)
+			v.name:SetTextColor(1, 1, 1)
+			v.level:SetText("")
+			for _, bar in ipairs({ v.health, v.power }) do
+				bar:SetMinMaxValues(0, 1)
+				bar:SetValue(1)
+				bar.text:SetText("")
+				bar:Show()
+			end
+			v.health:SetStatusBarColor(0.1, 0.85, 0.1)
+			v.power:SetStatusBarColor(0.2, 0.4, 1)
+		end
 	end
+	self:UpdateBarMouse()
 end
 
 -- At or under the options' HP warning threshold (red then, like the hero's
@@ -1321,33 +1403,35 @@ function Target:BarLow(cur, max)
 end
 
 -- Name and level, health and power, all as guarded as the console's own.
-function Target:UpdateBar()
-	local v = self.bar
-	if not (v and v.frame:IsShown() and UnitExists("target")) then
+-- The target bar by default (unit events pass the module only).
+function Target:UpdateBar(v)
+	v = v or self.bar
+	local unit = v and v.unit
+	if not (v and v.frame:IsShown() and UnitExists(unit)) then
 		return
 	end
-	ns:FitText(v.name, ns:FullName("target"))
-	v.name:SetTextColor(nameColor("target"))
+	ns:FitText(v.name, ns:FullName(unit))
+	v.name:SetTextColor(nameColor(unit))
 	local level = "??"
 	pcall(function()
-		local n = UnitLevel("target")
+		local n = UnitLevel(unit)
 		if not isSecret(n) and n and n > 0 then
 			level = tostring(n)
 		end
 	end)
 	pcall(function()
-		local class = BAR_CLASS[UnitClassification("target") or ""]
+		local class = BAR_CLASS[UnitClassification(unit) or ""]
 		if class then
 			level = level .. class
 		end
 	end)
 	v.level:SetText(level)
 
-	local cur, max = UnitHealth("target"), UnitHealthMax("target")
+	local cur, max = UnitHealth(unit), UnitHealthMax(unit)
 	v.health:SetMinMaxValues(0, max)
 	v.health:SetValue(cur)
-	ns:UpdateHealPrediction(v.health, "target", max)
-	local tapped = UnitIsTapDenied and UnitIsTapDenied("target")
+	ns:UpdateHealPrediction(v.health, unit, max)
+	local tapped = UnitIsTapDenied and UnitIsTapDenied(unit)
 	if not isSecret(tapped) and tapped then
 		v.health:SetStatusBarColor(unpack(TAPPED))
 	elseif self:BarLow(cur, max) then
@@ -1357,8 +1441,8 @@ function Target:UpdateBar()
 	end
 	setPair(v.health.text, cur, max)
 
-	local ptype, token = UnitPowerType("target")
-	local pcur, pmax = UnitPower("target", ptype), UnitPowerMax("target", ptype)
+	local ptype, token = UnitPowerType(unit)
+	local pcur, pmax = UnitPower(unit, ptype), UnitPowerMax(unit, ptype)
 	v.power:SetMinMaxValues(0, pmax)
 	v.power:SetValue(pcur)
 	local r, g, b = 0.2, 0.4, 1

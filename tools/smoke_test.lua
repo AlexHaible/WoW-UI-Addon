@@ -3268,6 +3268,68 @@ do
 		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
 		target.enabled = true
 		config:Refresh()
+		-- The target of target bar: the same window for the target's target,
+		-- placed on its own, right of the target bar; both share a size.
+		local tb = target.totBar
+		assert(tb and tb.frame ~= bar.frame and not tb.frame:IsShown() and not tb.cast,
+			"the target of target bar is off by default, without a cast bar")
+		assert(tb.frame._kind ~= "secure" and tb.frame:GetParent() == UIParent, "it is a plain frame too")
+		SlashCmdList.REFORGEDUI("totbar on")
+		assert(ReforgedUIDB.consoleOpts.totBar and tb.frame:IsShown() and tb.name._text == "Thrall",
+			"/rui totbar on shows the target's target")
+		assert(tb.health.text._text and tb.health.text._text ~= "", "target of target bar: health")
+		assert(not bar.frame:IsShown() and not tb.frame._mouse, "the target bar stays off; click-through")
+		local t0 = tb.frame._points[1]
+		assert(t0[1] == "CENTER" and t0[2] == UIParent and t0[4] > 0 and t0[5] == p0[5],
+			"it starts right of the target bar's place")
+		-- The target loses its target: hidden; and back.
+		local oldExists = UnitExists
+		UnitExists = function(u) if u == "targettarget" then return false end return oldExists(u) end
+		fire("UNIT_TARGET", "target")
+		assert(not tb.frame:IsShown(), "no target of target, no bar")
+		UnitExists = oldExists
+		fire("UNIT_TARGET", "target")
+		assert(tb.frame:IsShown(), "back with the target's target")
+		-- Moved in Edit Mode, its own place.
+		EditModeManagerFrame._hooks.OnShow()
+		assert(tb.frame._mouse and tb.highlight:IsShown(), "movable in Edit Mode")
+		UIParent.GetCenter = function() return screenW / 2, screenH / 2 end
+		tb.frame.GetCenter = function() return screenW / 2 + 300, screenH / 2 - 200 end
+		tb.frame._scripts.OnDragStart(tb.frame)
+		tb.frame._scripts.OnDragStop(tb.frame)
+		EditModeManagerFrame._hooks.OnHide()
+		local ts = ReforgedUIDB.consoleOpts.totBarPos
+		assert(ts and ts.x == 300 and ts.y == -200 and tb.frame._points[1][4] == 300, "its dragged place is saved")
+		assert(ReforgedUIDB.consoleOpts.targetBarPos == false, "the target bar's place is left alone")
+		-- Bigger, both, each kept in its place on the screen.
+		SlashCmdList.REFORGEDUI("barsize 150")
+		assert(ReforgedUIDB.consoleOpts.targetBarSize == 150 and tb.frame._scale == 1.5 and bar.frame._scale == 1.5,
+			"/rui barsize scales both bars")
+		local t1 = tb.frame._points[1]
+		assert(t1[4] == 200 and math.abs(t1[5] + 200 / 1.5) < 0.01, "a bigger bar keeps its place")
+		SlashCmdList.REFORGEDUI("barsize 999")
+		assert(ReforgedUIDB.consoleOpts.targetBarSize == 200 and tb.frame._scale == 2, "at most 200 %")
+		local slider
+		for _, sl in ipairs(config.sliders) do
+			if sl.key == "targetBarSize" then slider = sl end
+		end
+		assert(slider, "the options menu has a target bar size slider")
+		slider._scripts.OnValueChanged(slider, 100)
+		assert(ReforgedUIDB.consoleOpts.targetBarSize == 100 and tb.frame._scale == 1, "the slider sets it")
+		SlashCmdList.REFORGEDUI("totbar reset")
+		assert(not ReforgedUIDB.consoleOpts.totBarPos and tb.frame._points[1][4] == t0[4], "/rui totbar reset")
+		local totBox
+		for _, cb in ipairs(config.checks) do
+			if cb.key == "totBar" then totBox = cb end
+		end
+		assert(totBox, "the options menu has a target of target bar checkbox")
+		totBox._checked = false
+		totBox._scripts.OnClick(totBox)
+		assert(not tb.frame:IsShown() and not ReforgedUIDB.consoleOpts.totBar, "the checkbox turns it off")
+		SlashCmdList.REFORGEDUI("totbar on")
+		SlashCmdList.REFORGEDUI("totbar off")
+		assert(not tb.frame:IsShown(), "/rui totbar off")
+		tb.frame.GetCenter = nil
 		IsShiftKeyDown = nil
 		bar.frame.GetCenter, UIParent.GetCenter = nil, nil
 	end

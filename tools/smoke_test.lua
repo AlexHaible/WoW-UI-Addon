@@ -980,6 +980,30 @@ do
 		TargetFrame.GetLeft, TargetFrame.GetTop, TargetFrame._scale = oldLeft, oldTop, oldScale
 		savedLayouts.activeLayout = oldActive
 	end
+	-- Leaving our layout says once in chat that the pieces are the player's to place.
+	do
+		local oldActive = savedLayouts.activeLayout
+		savedLayouts.activeLayout = 2 + 3
+		fire("EDIT_MODE_LAYOUTS_UPDATED")
+		flushTimers()
+		local said = #printed
+		fire("EDIT_MODE_LAYOUTS_UPDATED")
+		flushTimers()
+		assert(#printed == said, "staying in our layout: nothing said")
+		savedLayouts.activeLayout = 3
+		fire("EDIT_MODE_LAYOUTS_UPDATED")
+		flushTimers()
+		assert(#printed == said + 1 and printed[#printed]:find('left the "Reforged UI" Edit Mode layout', 1, true)
+			and printed[#printed]:find('"Mine" does not place', 1, true), "leaving our layout: told once")
+		fire("EDIT_MODE_LAYOUTS_UPDATED")
+		flushTimers()
+		assert(#printed == said + 1, "not again while in the other layout")
+		savedLayouts.activeLayout = 1
+		ns:CheckEditLayoutChange()
+		assert(#printed == said + 1, "nor between other layouts")
+		savedLayouts.activeLayout = oldActive
+		ns:CheckEditLayoutChange()
+	end
 	assert(L[1].systems[5].isInDefaultPosition, "other layouts keep their target frame")
 	assert(L[2].systems[1].isInDefaultPosition, "a cast bar locked to the player frame stays")
 	assert(cvars.raidFramesDisplayClassColor == "1" and cvars.raidFramesDisplayPowerBars == "1"

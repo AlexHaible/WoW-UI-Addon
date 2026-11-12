@@ -184,6 +184,9 @@ Edit Mode. In your other layouts a cast bar still in its default place is
 moved above the console too. In every layout the pet bar, while still in its
 default place (over the console), starts just above the stance row on the
 console wall; once you move it in Edit Mode it stays where you put it.
+Beyond those, other layouts don't place anything around the console: if you
+switch away from "Reforged UI", the addon says so in chat, and placing the
+action bars, party and target frames there is up to you.
 After any such change the addon offers a reload: Blizzard applies layout
 changes made by an addon as addon code, and its party frames would otherwise
 error later (for example when Edit Mode closes).

@@ -374,25 +374,8 @@ function Target:AuraSpotName()
 		or "beside the target of target"
 end
 
--- The name of the active Edit Mode layout (nil: one of Blizzard's presets,
--- or unknown).
 activeLayoutName = function()
-	local api = C_EditMode
-	if not (api and api.GetLayouts) then
-		return nil
-	end
-	local ok, info = pcall(api.GetLayouts)
-	if not ok or type(info) ~= "table" or type(info.activeLayout) ~= "number" then
-		return nil
-	end
-	local presets = 2
-	local manager = _G.EditModePresetLayoutManager
-	if manager and manager.GetCopyOfPresetLayouts then
-		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
-		presets = okP and type(list) == "table" and #list or presets
-	end
-	local layout = (info.layouts or {})[info.activeLayout - presets]
-	return layout and layout.layoutName or nil
+	return ns:ActiveEditLayoutName()
 end
 
 function Target:SayOtherLayout(name)

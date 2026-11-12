@@ -1474,7 +1474,8 @@ function ns:SetupEditMode(why)
 		and pcall(C_EditMode.SetActiveLayout, presets + index) then
 		switched[key] = true
 		self:AskReload(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party"
-			.. " frames). Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
+			.. " frames). You can pick another layout in Edit Mode, but there you place the bars and frames"
+			.. " around the console yourself."):format(ns.EDIT_LAYOUT))
 	elseif raised > 0 then
 		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
 	elseif buffsMoved > 0 then
@@ -1496,6 +1497,55 @@ function ns:SetupEditMode(why)
 		self:AskReload(("renamed %d extra %q Edit Mode layout(s) (delete them in Edit Mode if you don't use them).")
 			:format(renamed, ns.EDIT_LAYOUT))
 	end
+end
+
+-- The name of the active Edit Mode layout (nil: one of Blizzard's presets,
+-- or unknown).
+function ns:ActiveEditLayoutName()
+	if not (C_EditMode and C_EditMode.GetLayouts) then
+		return nil
+	end
+	local ok, info = pcall(C_EditMode.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.activeLayout) ~= "number" then
+		return nil
+	end
+	local presets = 2
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		presets = okP and type(list) == "table" and #list or presets
+	end
+	local layout = (info.layouts or {})[info.activeLayout - presets]
+	return layout and layout.layoutName or nil
+end
+
+-- Only our layout places Blizzard's pieces around the console. When the
+-- player switches from it to another layout, say once in chat that the
+-- pieces are theirs to place there.
+function ns:CheckEditLayoutChange()
+	if not editModeReady() then
+		return -- the list may still be incomplete
+	end
+	local name = self:ActiveEditLayoutName()
+	if self.editLayoutSeen == ns.EDIT_LAYOUT and name ~= ns.EDIT_LAYOUT then
+		self:Print(("you left the %q Edit Mode layout. %s does not place Blizzard's action bars, party and target"
+			.. " frames around the console, so move them in Edit Mode yourself, or pick"
+			.. " %q again to have them placed for you."):format(ns.EDIT_LAYOUT,
+			name and ("%q"):format(name) or "A preset layout", ns.EDIT_LAYOUT))
+	end
+	self.editLayoutSeen = name
+end
+
+function ns:WatchEditLayout()
+	local function later()
+		C_Timer.After(0, function() ns:CheckEditLayoutChange() end)
+	end
+	self:On("EDIT_MODE_LAYOUTS_UPDATED", later)
+	local manager = _G.EditModeManagerFrame
+	if manager and type(manager.SelectLayout) == "function" then
+		hooksecurefunc(manager, "SelectLayout", later)
+	end
+	self:CheckEditLayoutChange()
 end
 
 ----------------------------------------------------------------------------
@@ -1537,6 +1587,7 @@ local function init()
 	ns:Relayout()
 	ns:ApplyTheme()
 	ns:SetupEditMode()
+	ns:WatchEditLayout()
 
 	ns:On("DISPLAY_SIZE_CHANGED", function() ns:Relayout() end)
 	ns:On("UI_SCALE_CHANGED", function() ns:Relayout() end)

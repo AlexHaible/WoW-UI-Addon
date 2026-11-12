@@ -75,17 +75,31 @@ local DEFAULTS = {
 		hideStance = false, -- the stance buttons on the console are invisible and click-through (key bindings still work)
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
+		clockTime = "server", -- the time in the capsule under the clock: server, local or off
+		clockHours = 24, -- on a 24 or 12 hour clock
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
 		uiSize = 100, -- the console and top bar at this share of their usual size, 70-100 %
 		repFeed = "progress", -- what the reputation feed shows: name, standing, progress or next (right-click cycles)
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
-		targetAuraOwn = nil, -- true: the player moved the target frame (its aura icons) in Edit Mode
-		targetAuraLast = nil, -- our last few places for the target frame in our Edit Mode layout ({ x, y }, newest first)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
 	},
 }
+
+-- Options without a default: unset until first used.
+local UNSET_OPTIONS = {
+	targetAuraOwn = true, -- true: the player moved the target frame (its aura icons) in Edit Mode
+	targetAuraLast = true, -- our last few places for the target frame in our Edit Mode layout ({ x, y }, newest first)
+}
+
+-- Whether consoleOpts[key] is an option of this version: every one is
+-- listed above with what it is for, so two features can't take the same
+-- key for different things unnoticed (tools/smoke_test.lua fails on an
+-- option read or set that isn't).
+function ns:KnownOption(key)
+	return DEFAULTS.consoleOpts[key] ~= nil or UNSET_OPTIONS[key] or false
+end
 
 -- Settings saved by older versions.
 local function migrate(db)

@@ -69,7 +69,8 @@ screen stays free on either side).
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
   Move the Target Frame in Edit Mode and the icons stay where you put them
-  (the size option still applies); `/rui auras reset` puts them back.
+  (the size option still applies); a target display switch or `/rui auras
+  reset` puts them back in that display's place.
   The game puts a hostile target's debuffs on the bottom rows and its buffs
   above them; "Target buffs first" (or `/rui buffsfirst on`) puts the buffs
   on the bottom rows, on the portrait, and the debuffs after them, for every

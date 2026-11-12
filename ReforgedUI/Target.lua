@@ -358,6 +358,13 @@ function Target:SetMode(mode)
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
 	-- Blizzard's aura icons follow, through the Edit Mode layout, which the
 	-- game only takes in at a reload; and only in our layout.
+	-- A frame the player placed in Edit Mode was placed for the other
+	-- display: it comes along too (they can move it again).
+	local placed = ns.db.consoleOpts.targetAuraOwn
+	ns.db.consoleOpts.targetAuraOwn, ns.db.consoleOpts.targetAuraLast = nil, nil
+	if placed then
+		ns:Print("the target frame you moved in Edit Mode goes with the target display; move it again there if you like.")
+	end
 	ns:RunOutOfCombat("target-auras", function()
 		ns:SetupEditMode(("the target's buffs and debuffs move %s once the UI reloads."):format(self:AuraSpotName()))
 		local name = activeLayoutName()

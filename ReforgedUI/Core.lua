@@ -1106,7 +1106,45 @@ end
 -- Blizzard puts the first aura icon's bottom-left corner this far from its
 -- target frame's top-left corner when buffs are on top (TargetFrame.lua).
 local TARGET_AURA_X, TARGET_AURA_Y = 5, -15
+local targetFrameCorner -- below
 ns.TARGET_AURA_X, ns.TARGET_AURA_Y = TARGET_AURA_X, TARGET_AURA_Y
+
+-- A target frame within this many UI units of where we put it is still ours.
+local TARGET_MOVE_SLACK = 8
+
+-- Where an Edit Mode anchor puts the target frame's top-left corner, as
+-- UIParent BOTTOMLEFT offsets like ours (nil: anchored to another frame).
+-- Edit Mode offsets are in UIParent units (ApplySystemAnchor divides them
+-- by the frame's scale itself).
+local POINT_X = { LEFT = 0, CENTER = 0.5, RIGHT = 1 }
+local POINT_Y = { BOTTOM = 0, CENTER = 0.5, TOP = 1 }
+local function pointFraction(point)
+	if type(point) ~= "string" then
+		return nil
+	end
+	local v = point:match("^(TOP)") or point:match("^(BOTTOM)") or "CENTER"
+	local h = point:match("(LEFT)$") or point:match("(RIGHT)$") or "CENTER"
+	return POINT_X[h], POINT_Y[v]
+end
+
+targetFrameCorner = function(a)
+	if not (type(a.offsetX) == "number" and type(a.offsetY) == "number")
+		or not (a.relativeTo == nil or a.relativeTo == "UIParent") then
+		return nil
+	end
+	local px, py = pointFraction(a.point)
+	local rx, ry = pointFraction(a.relativePoint or a.point)
+	local tf, ui = _G.TargetFrame, _G.UIParent
+	local ok, w, h, W, H = pcall(function()
+		local scale = tf:GetScale()
+		return tf:GetWidth() * scale, tf:GetHeight() * scale, ui:GetWidth(), ui:GetHeight()
+	end)
+	if not (px and rx and ok and type(w) == "number" and type(h) == "number" and type(W) == "number"
+		and type(H) == "number") then
+		return nil
+	end
+	return rx * W + a.offsetX - px * w, ry * H + a.offsetY + (1 - py) * h
+end
 
 -- The "Target aura size" option: Edit Mode's Frame Size for the target
 -- frame (100-200 % in steps of 5), which is all that makes its aura icons
@@ -1161,10 +1199,15 @@ function ns:PlaceTargetAuras(layout)
 	local atOurs = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
 		and a.relativePoint == "BOTTOMLEFT" and not tf.isInDefaultPosition
 	-- Our last few places count as ours: a game that hands a layout back
-	-- unchanged must not make the frame look moved by the player.
+	-- unchanged must not make the frame look moved by the player. Compared
+	-- by where the frame's top-left corner lands, a few units either way:
+	-- a click on it in Edit Mode re-anchors it (another point, snapped)
+	-- without really moving it.
 	local last, ours = o.targetAuraLast, false
+	local cx, cy = targetFrameCorner(a)
 	for _, p in ipairs(type(last) == "table" and last or {}) do
 		ours = ours or (atOurs and near(a.offsetX, p.x) and near(a.offsetY, p.y))
+			or (cx and math.abs(cx - p.x) <= TARGET_MOVE_SLACK and math.abs(cy - p.y) <= TARGET_MOVE_SLACK) or false
 	end
 	if not o.targetAuraOwn and type(last) == "table" and #last > 0 and not tf.isInDefaultPosition and not ours then
 		o.targetAuraOwn = true

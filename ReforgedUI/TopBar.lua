@@ -208,19 +208,83 @@ function TopBar:CreateFeeds()
 end
 
 -- Remember this character's money, so every character's gold can be listed.
--- Saved under the character's name; `name` is the full one to show (with the
--- surname on Forever, see ns:FullName).
+-- Saved under the character's full name (with the surname on Forever, see
+-- ns:FullName): Forever has many characters of the same first name on one
+-- realm (Jane Shimsham, Jane Skywall), and they mustn't overwrite each other.
+-- An entry saved under the bare first name by older versions is this same
+-- character, and goes.
 function TopBar:SaveMoney()
-	local name, realm = UnitName("player"), GetRealmName and GetRealmName()
-	if not (name and realm) then
+	local short, realm = UnitName("player"), GetRealmName and GetRealmName()
+	if not (short and realm) then
 		return
+	end
+	local name = ns:FullName("player")
+	if type(name) ~= "string" or (issecretvalue and issecretvalue(name)) or name == "" then
+		name = short
 	end
 	local _, class = UnitClass("player")
 	local byRealm = ns.db.money[realm] or {}
 	ns.db.money[realm] = byRealm
-	byRealm[name] = { money = GetMoney(), class = class, name = ns:FullName("player"),
+	local old = byRealm[short]
+	if short ~= name and old and (old.name == nil or old.name == name) then
+		byRealm[short] = nil
+	end
+	byRealm[name] = { money = GetMoney(), class = class, name = name,
 		faction = UnitFactionGroup and UnitFactionGroup("player") }
+	-- On Forever the server behind a ruleset may differ between logins: a
+	-- copy of this character under another server of the same ruleset is
+	-- out of date.
+	local rs = self.Ruleset(realm)
+	if rs then
+		for other, chars in pairs(ns.db.money) do
+			if other ~= realm and self.Ruleset(other) == rs then
+				chars[name] = nil
+				if chars[short] and chars[short].name == name then
+					chars[short] = nil
+				end
+				if next(chars) == nil then
+					ns.db.money[other] = nil
+				end
+			end
+		end
+	end
 end
+
+-- Forever has no realms to pick: players pick a ruleset, and the client's
+-- realm name is the server behind it ("CAMWOW EU5 Realm 1 PvE"). The client has no in-game call for the
+-- ruleset (only the realm list at the login screen knows isPvP/isRP), so it
+-- is read from the end of the realm name. Characters are grouped by ruleset
+-- under its clean name; a realm name without one (other clients' real
+-- realms) is its own group, as before.
+local RULESETS = {
+	{ label = "Normal", match = { "pve", "normal" } },
+	{ label = "PvP", match = { "pvp" } },
+	{ label = "RP", match = { "rp", "roleplay", "roleplaying" } },
+	{ label = "RP-PvP", match = { "rppvp", "rp-pvp", "rp pvp" } },
+	{ label = "Hardcore", match = { "hardcore", "hc" } },
+}
+
+local function ruleset(realm)
+	if type(realm) ~= "string" then
+		return nil
+	end
+	local lower = realm:lower():gsub("[%s%(%)%[%]]+$", "")
+	local best, bestLen
+	for i, r in ipairs(RULESETS) do
+		for _, m in ipairs(r.match) do
+			-- the token ends the name and starts a word
+			local from = #lower - #m + 1
+			if from >= 1 and lower:sub(from) == m and (from == 1 or lower:sub(from - 1, from - 1):find("[^%w]"))
+				and (not bestLen or #m > bestLen) then
+				best, bestLen = i, #m
+			end
+		end
+	end
+	if best then
+		return RULESETS[best].label, best
+	end
+end
+TopBar.Ruleset = ruleset
 
 -- Gold can't be mailed across factions, so each gets its own list and total.
 -- This character's faction comes first. Characters saved before factions
@@ -232,27 +296,36 @@ local FACTIONS = {
 }
 
 -- The gold feed's tooltip: a section per faction with every character's
--- gold, richest first, grouped by realm (this realm first), and the
--- faction's total.
+-- gold, richest first, grouped by ruleset on Forever or realm elsewhere (this
+-- character's first), and the faction's total.
 function TopBar:GoldTooltip(tip)
 	self:SaveMoney()
 	tip:AddLine("Gold", 1, 1, 1)
-	local here = GetRealmName and GetRealmName()
+	local function group(realm)
+		local label, rank = ruleset(realm)
+		return label or realm, rank or #RULESETS + 1
+	end
+	local here = GetRealmName and group(GetRealmName())
 	local mine = UnitFactionGroup and UnitFactionGroup("player")
 	local known = {}
 	for _, f in ipairs(FACTIONS) do
 		known[f.key] = true
 	end
 
-	-- faction -> realm -> characters
-	local byFaction, realmCount = {}, 0
+	-- faction -> group -> characters
+	local byFaction, groups, groupCount, rankOf = {}, {}, 0, {}
 	for realm, chars in pairs(ns.db.money) do
-		realmCount = realmCount + 1
+		local g, rank = group(realm)
+		rankOf[g] = rank
+		if not groups[g] then
+			groups[g] = true
+			groupCount = groupCount + 1
+		end
 		for key, info in pairs(chars) do
 			local faction = known[info.faction] and info.faction or "?"
 			byFaction[faction] = byFaction[faction] or {}
-			local list = byFaction[faction][realm] or {}
-			byFaction[faction][realm] = list
+			local list = byFaction[faction][g] or {}
+			byFaction[faction][g] = list
 			list[#list + 1] = { name = info.name or key, money = info.money or 0, class = info.class }
 		end
 	end
@@ -266,39 +339,42 @@ function TopBar:GoldTooltip(tip)
 		end
 	end
 	for _, f in ipairs(order) do
-		local realms = byFaction[f.key]
-		if realms then
+		local byGroup = byFaction[f.key]
+		if byGroup then
 			local names = {}
-			for realm in pairs(realms) do
-				names[#names + 1] = realm
+			for g in pairs(byGroup) do
+				names[#names + 1] = g
 			end
 			table.sort(names, function(a, b)
 				if (a == here) ~= (b == here) then
 					return a == here
+				end
+				if rankOf[a] ~= rankOf[b] then
+					return rankOf[a] < rankOf[b]
 				end
 				return a < b
 			end)
 			tip:AddLine(" ")
 			tip:AddLine(f.label, f.color[1], f.color[2], f.color[3])
 			local total = 0
-			for _, realm in ipairs(names) do
-				local chars = realms[realm]
+			for _, g in ipairs(names) do
+				local chars = byGroup[g]
 				table.sort(chars, function(a, b)
 					if a.money ~= b.money then
 						return a.money > b.money
 					end
 					return a.name < b.name
 				end)
-				if realmCount > 1 then
-					tip:AddLine(realm, 1, 0.82, 0)
+				if groupCount > 1 then
+					tip:AddLine(g, 1, 0.82, 0)
 				end
 				for _, c in ipairs(chars) do
 					local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
-					local r, g, b = 1, 1, 1
+					local r, g2, b = 1, 1, 1
 					if color and color.r then
-						r, g, b = color.r, color.g, color.b
+						r, g2, b = color.r, color.g, color.b
 					end
-					tip:AddDoubleLine(c.name, formatMoney(c.money), r, g, b, 1, 1, 1)
+					tip:AddDoubleLine(c.name, formatMoney(c.money), r, g2, b, 1, 1, 1)
 					total = total + c.money
 				end
 			end

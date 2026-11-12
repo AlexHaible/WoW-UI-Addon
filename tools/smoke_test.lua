@@ -2084,9 +2084,10 @@ assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the windo
 assert(tb.slots[1].text._text == tb.FormatMoney(1234567), "slot 1 should show the money")
 -- The gold tooltip lists every character's saved gold, richest first, under
 -- its faction (this one first), with a total per faction and none across them.
-assert(ReforgedUIDB.money.Forever.Thrall.money == 1234567, "this character's money is saved")
-assert(ReforgedUIDB.money.Forever.Thrall.name == "Thrall Son of Durotan", "with the full name")
-assert(ReforgedUIDB.money.Forever.Thrall.faction == "Horde", "and the faction")
+local thrall = ReforgedUIDB.money.Forever["Thrall Son of Durotan"]
+assert(thrall and thrall.money == 1234567, "this character's money is saved, under the full name")
+assert(thrall.name == "Thrall Son of Durotan", "with the full name")
+assert(thrall.faction == "Horde", "and the faction")
 ReforgedUIDB.money.Forever.Garrosh = { money = 5000000, class = "WARRIOR", faction = "Horde" }
 ReforgedUIDB.money.Forever.Jaina = { money = 7000000, class = "MAGE", faction = "Alliance", name = "Jaina Proudmoore" }
 ReforgedUIDB.money.Forever.Anduin = { money = 300, class = "PRIEST", faction = "Alliance" }
@@ -2110,7 +2111,49 @@ do
 	assert(at("Anduin=") < at("not known") and at("not known") < at("Old="), "unknown faction last")
 	assert(not text:find(tb.FormatMoney(5000000 + 1234567 + 100 + 7000000 + 300), 1, true), "no total across factions")
 end
-ReforgedUIDB.money = { Forever = { Thrall = ReforgedUIDB.money.Forever.Thrall } }
+-- Forever: realm names are servers behind a ruleset; the tooltip groups
+-- them by ruleset under its clean name, this character's first.
+do
+	local R = tb.Ruleset
+	assert(R("CAMWOW EU5 Realm 1 PvE") == "Normal" and R("CAMWOW EU5 Realm 7 PvE") == "Normal", "PvE is Normal")
+	assert(R("Realm 2 PvP") == "PvP" and R("Realm 3 RP") == "RP", "PvP, RP")
+	assert(R("Realm 4 RP-PvP") == "RP-PvP" and R("Realm 4 RPPvP") == "RP-PvP", "RP-PvP")
+	assert(R("Realm 5 Hardcore") == "Hardcore", "Hardcore")
+	assert(R("Forever") == nil and R("Stormrage") == nil and R("Skarp") == nil, "real realm names stay")
+	local realGetRealmName = GetRealmName
+	GetRealmName = function() return "CAMWOW EU5 Realm 1 PvE" end
+	ReforgedUIDB.money = {
+		["CAMWOW EU5 Realm 1 PvE"] = {
+			-- saved by older versions under the first name: this character
+			Thrall = { money = 1, class = "SHAMAN", faction = "Horde", name = "Thrall Son of Durotan" },
+			Jane = { money = 500, class = "SHAMAN", faction = "Horde", name = "Jane Shimsham" },
+		},
+		["CAMWOW EU5 Realm 7 PvE"] = {
+			["Jane Darnassus"] = { money = 85, class = "ROGUE", faction = "Horde" },
+			["Thrall Son of Durotan"] = { money = 2, class = "SHAMAN", faction = "Horde", name = "Thrall Son of Durotan" },
+		},
+		["CAMWOW EU5 Realm 2 PvP"] = { ["Jane Skywall"] = { money = 7, class = "MAGE", faction = "Horde" } },
+	}
+	local lines = {}
+	local fake = {
+		AddLine = function(_, text) lines[#lines + 1] = text end,
+		AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
+	}
+	tb.feeds.gold.OnTooltipShow(fake)
+	local text = table.concat(lines, "\n")
+	local function at(s) return assert(text:find(s, 1, true), s .. " missing from the gold tooltip") end
+	local realm1 = ReforgedUIDB.money["CAMWOW EU5 Realm 1 PvE"]
+	assert(realm1.Thrall == nil and realm1["Thrall Son of Durotan"].money == 1234567, "old first-name entry replaced")
+	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 7 PvE"]["Thrall Son of Durotan"] == nil, "stale copy on the same ruleset goes")
+	assert(not text:find("CAMWOW", 1, true), "no server names")
+	local _, normals = text:gsub("\nNormal\n", "")
+	assert(normals == 1, "both PvE servers under one Normal header")
+	assert(at("Normal") < at("Thrall Son of Durotan=") and at("Jane Darnassus=") < at("PvP\n"), "Normal (this ruleset) first")
+	assert(at("PvP\n") < at("Jane Skywall="), "then PvP")
+	assert(text:find("Total=" .. tb.FormatMoney(1234567 + 500 + 85 + 7), 1, true), "faction total")
+	GetRealmName = realGetRealmName
+end
+ReforgedUIDB.money = { Forever = { ["Thrall Son of Durotan"] = thrall } }
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
 assert(tb.slots[3].text._text:find("20%%"), "slot 3 should show durability")
 assert(tb.slots[4].text._text == "", "slot 4 should start empty")

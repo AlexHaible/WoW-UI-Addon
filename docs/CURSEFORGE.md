@@ -113,7 +113,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly. It moves each frame out of its default place only once per layout, so if you put one back, it stays there and you won't be asked again at every login.
 
-Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time. On a layout other than **"Reforged UI"**, though, Reforged UI doesn't place the target's buffs and debuffs or the cast bar for you: they sit wherever that layout has them, so move them yourself in Edit Mode. The chat reminds you a few seconds after login and when you close Edit Mode on another layout.
+Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time. On a layout other than **"Reforged UI"**, though, Reforged UI doesn't place the target's buffs and debuffs for you, and only moves the others out of their default place: anything else sits wherever that layout has it, so move it yourself in Edit Mode. The chat reminds you a few seconds after login and when you close Edit Mode on another layout.
 
 ---
 

@@ -1357,9 +1357,10 @@ function ns:ActiveEditLayout()
 	return layout and layout.layoutName or nil, ours
 end
 
--- With another Edit Mode layout active, Blizzard's frames we place (target
--- buffs, cast bar, buffs, pet bar...) are where that layout has them: say
--- so in chat, once per layout and session (`force`: again).
+-- With another Edit Mode layout active, the target frame (its aura icons)
+-- is where that layout has it, and other frames we place only leave their
+-- default place: say so in chat, once per layout and session (`force`:
+-- again).
 local saidLayout
 function ns:SayOtherEditLayout(force)
 	local name, ours = self:ActiveEditLayout()
@@ -1372,10 +1373,10 @@ function ns:SayOtherEditLayout(force)
 		return true
 	end
 	saidLayout = shown
-	self:Print(("you're on the %s Edit Mode layout, not %q. Reforged UI only places Blizzard's frames (the"
-		.. " target's buffs and debuffs, cast bar, your buffs, pet bar...) in %q, so here they stay where this"
-		.. " layout has them: move them yourself in Edit Mode, or switch back to %q there."):format(
-		shown, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT))
+	self:Print(("you're on the %s Edit Mode layout, not %q. Here Reforged UI doesn't place the target's buffs"
+		.. " and debuffs, and moves other Blizzard frames (cast bar, buffs, pet bar...) only out of their"
+		.. " default place: move them yourself in Edit Mode, or switch back to %q there."):format(
+		shown, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT))
 	return true
 end
 

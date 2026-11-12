@@ -128,16 +128,10 @@ end
 
 -- Cooldown numbers follow the game's "Show cooldown numbers" option
 -- (countdownForCooldowns), as on Blizzard's buttons; CooldownFrameTemplate
--- shows them always, in a font far too big for a slot this small.
+-- would show them always.
 local function updateCountdown(b)
 	local show = GetCVarBool and GetCVarBool("countdownForCooldowns") or false
 	b.cooldown:SetHideCountdownNumbers(not show)
-	local fs = show and b.cooldown.GetCountdownFontString and b.cooldown:GetCountdownFontString()
-	if fs then
-		local path, _, flags = fs:GetFont()
-		local size = math.max(8, math.floor((b:GetHeight() or 30) * 0.4))
-		fs:SetFont(path or STANDARD_TEXT_FONT, size, flags or "OUTLINE")
-	end
 end
 
 local function updateCount(b)
@@ -372,10 +366,22 @@ function MinimapBar:UpdateAll()
 	end
 end
 
+-- Built at an action button's own size and scaled down onto the slot, like
+-- the grid's buttons (ActionBars.lua), so the key, count and cooldown text
+-- come out at the same size as theirs.
+local BUTTON_SIZE = 45
+local function placeButton(b, r)
+	local scale = r.w / BUTTON_SIZE
+	b:SetSize(BUTTON_SIZE, BUTTON_SIZE)
+	b:SetScale(scale)
+	b:ClearAllPoints()
+	b:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x / scale, r.y / scale)
+end
+
 function MinimapBar:OnLayout(L)
 	ns:RunOutOfCombat("minimap-bar", function()
 		for i, b in ipairs(self.buttons) do
-			ns.modules.console.Place(b, L.minimapSlots[i])
+			placeButton(b, L.minimapSlots[i])
 		end
 	end)
 	for _, b in ipairs(self.buttons) do

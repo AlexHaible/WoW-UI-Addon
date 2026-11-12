@@ -1158,22 +1158,8 @@ function TopBar:CreateCapsule()
 	f.highlight:SetAllPoints()
 	f.highlight:SetColorTexture(0.25, 0.55, 1, 0.4)
 	f.highlight:Hide()
-	f:SetMovable(true)
 	f:SetClampedToScreen(true)
-	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", function(frame)
-		if self:CapsuleMovable() then
-			frame.dragging = true
-			frame:StartMoving()
-		end
-	end)
-	f:SetScript("OnDragStop", function(frame)
-		if frame.dragging then
-			frame.dragging = nil
-			frame:StopMovingOrSizing()
-			self:SaveCapsuleSpot()
-		end
-	end)
+	ns:MakeDraggable(f, function() self:SaveCapsuleSpot() end, function() return self:CapsuleMovable() end)
 	f:SetScript("OnEnter", function(owner)
 		GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
 		GameTooltip:SetText(TIMEMANAGER_TOOLTIP_TITLE or "Time", 1, 1, 1)
@@ -1190,11 +1176,7 @@ function TopBar:CreateCapsule()
 	end)
 	f:SetScript("OnLeave", GameTooltip_Hide)
 	self.capsule = f
-	local editMode = _G.EditModeManagerFrame
-	if editMode and editMode.HookScript then
-		editMode:HookScript("OnShow", function() self:SetCapsuleEditing(true) end)
-		editMode:HookScript("OnHide", function() self:SetCapsuleEditing(false) end)
-	end
+	ns:OnEditMode(function(open) self:SetCapsuleEditing(open) end)
 end
 
 function TopBar:UpdateCapsule()
@@ -1261,9 +1243,6 @@ function TopBar:SaveCapsuleSpot()
 	if x and cx then
 		ns.db.consoleOpts.clockSpot = { x = math.floor(x - cx + 0.5), y = math.floor(y - cy + 0.5) }
 	end
-	if f.SetUserPlaced then
-		f:SetUserPlaced(false) -- ours to save, not the client's layout cache
-	end
 	self:PlaceCapsule()
 end
 
@@ -1276,10 +1255,8 @@ function TopBar:SetCapsuleEditing(on)
 	self.capsuleEditing = on and true or false
 	local f = self.capsule
 	-- Edit Mode closed mid-drag: let go here, or it would follow the mouse.
-	if not on and f.dragging then
-		f.dragging = nil
-		f:StopMovingOrSizing()
-		self:SaveCapsuleSpot()
+	if not on then
+		ns:StopDrag(f)
 	end
 	self:UpdateCapsuleMouse()
 end

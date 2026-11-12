@@ -1381,6 +1381,57 @@ do
 	C_EditMode.SaveLayouts = save
 	savedLayouts = settled
 end
+-- Frames of ours the player moves all drag through Core.lua (ns:StartDrag,
+-- ns:StopDrag, ns:MakeDraggable), so each drag ends the same way; the
+-- options window is the one exception.
+do
+	for _, file in ipairs(files) do
+		if file ~= "Core.lua" and file ~= "Config.lua" and not file:find("^Libs/") then
+			local f = assert(io.open(ADDON .. file))
+			local n = 0
+			for line in f:lines() do
+				n = n + 1
+				local code = line:gsub("%-%-.*", "")
+				assert(not code:find("StartMoving", 1, true) and not code:find("StopMovingOrSizing", 1, true),
+					("%s:%d moves a frame itself: use ns:MakeDraggable, ns:StartDrag and ns:StopDrag"):format(file, n))
+				assert(not (code:find("EditModeManagerFrame", 1, true) and code:find("HookScript", 1, true)),
+					("%s:%d hooks Edit Mode itself: use ns:OnEditMode"):format(file, n))
+			end
+			f:close()
+		end
+	end
+	local may, drops = false, 0
+	local f = CreateFrame("Frame", nil, UIParent)
+	local userPlaced
+	f.SetUserPlaced = function(_, on) userPlaced = on end
+	ns:MakeDraggable(f, function(frame) assert(frame == f and not frame.dragging); drops = drops + 1 end,
+		function() return may end)
+	f._scripts.OnDragStart(f)
+	assert(not f.dragging and not f._moving, "no drag while it may not move")
+	f._scripts.OnDragStop(f)
+	assert(drops == 0 and not ns:StopDrag(f), "nothing to save without a drag")
+	may = true
+	f._scripts.OnDragStart(f)
+	assert(f.dragging and f._moving, "dragged while it may move")
+	f._scripts.OnDragStop(f)
+	assert(not f.dragging and not f._moving and drops == 1 and userPlaced == false,
+		"let go: saved once, its place left to us")
+	-- Cut short (hidden, Edit Mode closed): let go and saved all the same.
+	f._scripts.OnDragStart(f)
+	assert(ns:StopDrag(f) and not f._moving and drops == 2 and not ns:StopDrag(f), "a drag cut short is let go and saved")
+	-- Edit Mode opening and closing reaches every listener, also after one fails.
+	local heard = {}
+	local handler = geterrorhandler
+	local failed = 0
+	geterrorhandler = function() return function() failed = failed + 1 end end
+	local failing = true
+	ns:OnEditMode(function() if failing then error("a listener that fails") end end)
+	ns:OnEditMode(function(open) heard[#heard + 1] = open end)
+	EditModeManagerFrame._hooks.OnShow()
+	EditModeManagerFrame._hooks.OnHide()
+	geterrorhandler, failing = handler, false
+	assert(#heard == 2 and heard[1] == true and heard[2] == false and failed == 2, "Edit Mode tells every listener")
+end
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 for key, mod in pairs(ns.modules) do
 	assert(mod.enabled, key .. " failed to enable")

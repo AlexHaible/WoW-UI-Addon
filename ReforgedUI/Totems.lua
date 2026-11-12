@@ -28,18 +28,12 @@
 local _, ns = ...
 local Totems = ns:RegisterModule("totems", {})
 
-local function isSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local isSecret, plain = ns.IsSecret, ns.IsKnown
 local SLOTS = _G.MAX_TOTEMS or 4
 local CANCEL_HINT = "Right-click to cancel."
 local MOVE_HINT = "Shift-drag to move."
 
 local stopBinding -- below
-
-local function plain(v)
-	return v ~= nil and not isSecret(v)
-end
 
 -- Totem slots in display order, left to right: Blizzard's order for the
 -- class (earth, fire, water, air for shamans).

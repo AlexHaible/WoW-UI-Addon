@@ -38,11 +38,7 @@ for i, where in ipairs({ "top", "middle", "bottom" }) do
 	_G["BINDING_NAME_" .. BINDING:format(i)] = ("Minimap action slot %d (%s)"):format(i, where)
 end
 
-local isSecret = issecretvalue or function() return false end
-
-local function plain(v)
-	return v ~= nil and not isSecret(v)
-end
+local isSecret, plain = ns.IsSecret, ns.IsKnown
 
 -- C_ActionBar's version of an action API where the client has it, else the
 -- old global.

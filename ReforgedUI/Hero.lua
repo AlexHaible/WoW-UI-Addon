@@ -16,7 +16,7 @@ local Hero = ns:RegisterModule("hero", {})
 Hero.viewUnit = "player"
 
 local floor, ceil = math.floor, math.ceil
-local isSecret = issecretvalue or function() return false end
+local isSecret = ns.IsSecret
 
 local GOLD = "|cffffd100"
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"

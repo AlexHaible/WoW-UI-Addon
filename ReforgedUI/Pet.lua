@@ -25,7 +25,7 @@ local HAPPINESS_COORDS = {
 	{ 0, 0.1875, 0, 0.359375 }, -- happy
 }
 
-local isSecret = issecretvalue or function() return false end
+local isSecret, plain = ns.IsSecret, ns.IsNumber
 
 -- The pet's `i`th aura of `filter` ("HELPFUL", "HARMFUL"): true, its icon,
 -- stack count, duration and expiry; nil past the last. May error on secrets.
@@ -46,10 +46,6 @@ local function auraAt(i, filter)
 		return nil
 	end
 	return true, icon, count, duration, expires
-end
-
-local function plain(v)
-	return type(v) == "number" and not isSecret(v)
 end
 
 -- A hunter's pet's happiness (1-3), damage % and loyalty rate; nil for other

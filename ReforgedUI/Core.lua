@@ -195,6 +195,36 @@ ns:On("PLAYER_REGEN_ENABLED", function()
 end)
 
 ----------------------------------------------------------------------------
+-- Secret values
+--
+-- In instances the game hands addon code "secret" values for much of what
+-- it knows about other units (names, levels, health, casts, auras) and for
+-- anything derived from them, a font string's width once it holds a secret
+-- text included. A secret value may be passed on to a widget (SetText,
+-- SetValue, SetCooldown...) and nothing else: comparing it, testing it as
+-- true or false, doing sums with it or indexing a table by it is an error.
+-- So anything read from the game about a unit, an aura or a spell goes
+-- through one of these before the code looks at it; nothing else calls
+-- issecretvalue (tools/smoke_test.lua checks that).
+
+-- Whether `v` is secret. (Looked up on each call: older clients have no
+-- issecretvalue, where nothing is.)
+local function isSecret(v)
+	return issecretvalue ~= nil and issecretvalue(v) or false
+end
+ns.IsSecret = isSecret
+
+-- A value the code may look at: there, and not secret.
+function ns.IsKnown(v)
+	return v ~= nil and not isSecret(v)
+end
+
+-- A number the code may compare and do sums with.
+function ns.IsNumber(v)
+	return type(v) == "number" and not isSecret(v)
+end
+
+----------------------------------------------------------------------------
 -- Frame helpers
 
 -- Newer clients run Blizzard code with "secret" values that addon code must
@@ -464,11 +494,11 @@ function ns:FitText(fs, text)
 		self:ResizeFont(fs, size)
 	end
 	fs:SetText(text)
-	if issecretvalue and issecretvalue(text) then
+	if isSecret(text) then
 		return
 	end
 	local maxW = fs:GetWidth()
-	if not (path and size and maxW) or (issecretvalue and issecretvalue(maxW)) or maxW <= 0 then
+	if not (path and size and maxW) or isSecret(maxW) or maxW <= 0 then
 		return
 	end
 	local measure = fs.GetUnboundedStringWidth or fs.GetStringWidth
@@ -489,7 +519,7 @@ end
 -- can be shown but not compared, so it is passed on untouched.
 function ns:FullName(unit)
 	local name = GetUnitName and GetUnitName(unit, true)
-	if issecretvalue and issecretvalue(name) then
+	if isSecret(name) then
 		return name
 	end
 	if type(name) ~= "string" or name == "" then
@@ -513,7 +543,7 @@ function ns:SetUnitModel(model, flat, unit)
 	local has = true
 	if model.GetModelFileID then
 		local ok, id = pcall(model.GetModelFileID, model)
-		has = ok and not (issecretvalue and issecretvalue(id)) and type(id) == "number" and id > 0
+		has = ok and ns.IsNumber(id) and id > 0
 	end
 	if has then
 		flat:Hide()

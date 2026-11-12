@@ -3585,6 +3585,35 @@ do
 	GetTotemTimeLeft = function() return SECRET end
 	mod:UpdateTimes()
 	assert(fire.face.time._text == "", "a time left the client won't format shows nothing")
+	-- Then the client's own countdown text takes over, once per totem update.
+	local bindings = {}
+	C_DurationUtil = { CreateDurationTextBinding = function()
+		local bind = {}
+		function bind:SetFontString(fs) self.fs = fs end
+		function bind:SetFormatter(f) self.formatter = f end
+		function bind:SetDuration(d) self.duration = d end
+		function bind:SetEnabled(on) self.enabled = on; if on then self.fs:SetText("2m") end end
+		bindings[#bindings + 1] = bind
+		return bind
+	end }
+	C_StringUtil = { CreateSecondsFormatter = function() return {} end }
+	GetTotemDuration = function(slot) return { slot = slot } end
+	mod:Update()
+	local bind = fire.binding
+	assert(bind and bind.enabled and bind.fs == fire.face.time and bind.duration.slot == 1 and fire.bound,
+		"the client's countdown shows a time it won't format for us")
+	assert(fire.face.time._text == "2m" and fire.howTime == "client countdown", "countdown text: " .. tostring(fire.face.time._text))
+	mod:UpdateTimes()
+	assert(fire.face.time._text == "2m" and #bindings == 4, "the ticker leaves the countdown alone")
+	local lines = mod:Describe()
+	assert(#lines == 5 and lines[2]:find("slot 1: have secret") and lines[2]:find("client countdown"),
+		"/rui totems describes each slot: " .. tostring(lines[2]))
+	-- An empty slot answering nothing at all is no totem, not a secret one.
+	GetTotemInfo = function(slot) if slot == 1 then return SECRET, SECRET, SECRET, SECRET, 135825 end end
+	mod:Update()
+	assert(not mod.buttons[1].active and mod.buttons[1].face:GetAlpha() == 0, "a slot answering nothing draws nothing")
+	assert(fire.secret, "the secret totem stays")
+	C_DurationUtil, C_StringUtil, GetTotemDuration = nil, nil, nil
 	GetTotemInfo, issecretvalue, GetTotemTimeLeft = oldInfo, oldSecret, oldLeft
 	mod:Update()
 	assert(not fire.secret and fire.face.time._text == "43", "back to plain totem info")

@@ -29,7 +29,7 @@ read_globals = {
 	"ActionButton_UpdateAction", "BreakUpLargeNumbers", "PlayerFrame", "GetGameTime", "GetFramerate", "GetNetStats", "GetInventoryItemDurability", "GetMoney",
 	"MAINMENU_BUTTON", "QUESTLOG_BUTTON", "SOCIAL_BUTTON", "TIMEMANAGER_TOOLTIP_TITLE", "WORLD_MAP", "XP", "ChatFrame1", "geterrorhandler", "hooksecurefunc", "strsplit", "strtrim",
 	"AMMOSLOT", "ARMOR", "BAGSLOT", "BLOCK", "BOSS", "C_Item", "C_PaperDollInfo", "C_Timer", "DAMAGE", "DURABILITY",
-	"ELITE", "Enum", "FACTION_BAR_COLORS", "GetBlockChance", "GetCoinTextureString", "GetComboPoints",
+	"C_DurationUtil", "C_StringUtil", "ELITE", "Enum", "FACTION_BAR_COLORS", "GetBlockChance", "GetCoinTextureString", "GetComboPoints",
 	"GetInventoryItemCount", "GetInventoryItemID", "GetItemInfoInstant", "GetShieldBlock", "GetSpellBonusDamage",
 	"GetSpellBonusHealing", "IsAltKeyDown", "IsShiftKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
@@ -48,7 +48,7 @@ read_globals = {
 	"AbbreviateLargeNumbers", "GetTime", "TargetFrameToT", "UnitCanAttack", "UnitCastingInfo", "UnitChannelInfo",
 	"UnitIsUnit",
 	-- totem timers
-	"GetTotemInfo", "GetTotemTimeLeft",
+	"GetTotemDuration", "GetTotemInfo", "GetTotemTimeLeft",
 	-- reputation feed
 	"C_Reputation", "C_GossipInfo", "GetWatchedFactionInfo", "REPUTATION", "AT_WAR",
 	-- loot method feed

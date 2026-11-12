@@ -1580,6 +1580,7 @@ local function usage()
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
+	print("  /rui totems  (what each totem slot reports and how its time is shown)")
 	print("  /rui stance reset  (put the stance buttons back on the wall; drag them in Edit Mode)")
 	print("  /rui stance off||on  (off: leave the stance buttons to Blizzard or your bar addon; needs /reload)")
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
@@ -1662,6 +1663,10 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "totems" and arg == "reset" and ns.modules.totems.enabled then
 		ns.modules.totems:ResetSpot()
 		ns:Print("totem timers back on the wall over the action bars.")
+	elseif cmd == "totems" and ns.modules.totems.enabled then
+		for _, line in ipairs(ns.modules.totems:Describe()) do
+			ns:Print(line)
+		end
 	elseif cmd == "stance" and arg == "reset" and ns.modules.actionbars.enabled then
 		ns.modules.actionbars:ResetStanceSpot()
 		ns:Print("stance buttons back on the wall over the action bars.")

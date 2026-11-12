@@ -337,6 +337,10 @@ function Config:Build()
 	-- Stance buttons left to Blizzard's stance bar or another bar addon
 	-- (moving them on the console is done in Edit Mode).
 	-- (on the row under "Target buffs first": the two shared one spot.)
+	-- Or hidden altogether (their key bindings still work), left of it.
+	self:Check("Hide stance buttons", "hideStance", 20, -579, function(on)
+		ns.modules.actionbars:SetStanceShown(not on)
+	end)
 	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -579, function(on)
 		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")

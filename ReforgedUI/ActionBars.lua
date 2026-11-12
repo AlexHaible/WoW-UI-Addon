@@ -358,6 +358,9 @@ function ActionBars:OnLayout(L)
 	if self.stanceHolder then
 		self:PlaceStanceHolder()
 	end
+	if ns.db.consoleOpts.hideStance then
+		self:ApplyStanceShown()
+	end
 end
 
 ----------------------------------------------------------------------------
@@ -425,17 +428,60 @@ function ActionBars:PlaceStanceHolder()
 	ns.modules.console.Place(h, { x = r.x, y = r.y, w = n * r.step - (r.step - r.size), h = r.size })
 end
 
--- Edit Mode open: the outline shows over the row and can be dragged.
+-- Edit Mode open: the outline shows over the row and can be dragged
+-- (not while the row is hidden).
 function ActionBars:SetEditing(on)
 	self.editing = on
 	local h = self.stanceHolder
-	if on then
+	local show = on and not ns.db.consoleOpts.hideStance
+	if show then
 		self:PlaceStanceHolder()
 	else
 		self:StopStanceDrag()
 	end
-	h:SetShown(on and true or false)
-	h:EnableMouse(on and true or false)
+	h:SetShown(show and true or false)
+	h:EnableMouse(show and true or false)
+end
+
+----------------------------------------------------------------------------
+-- Hiding the stance row (consoleOpts.hideStance, /rui stance hide|show)
+--
+-- For players who never click them (a warrior on key bindings). The
+-- buttons are Blizzard's protected ones, so they aren't hidden (Blizzard's
+-- stance bar shows them again whenever forms change): they turn invisible
+-- and click-through, and their key bindings keep working.
+
+local stanceAlphaHooked = setmetatable({}, { __mode = "k" })
+
+function ActionBars:ApplyStanceShown()
+	local hide = ns.db.consoleOpts.hideStance and true or false
+	for _, btn in pairs(self.rows and self.rows.stance or {}) do
+		if hide and not stanceAlphaHooked[btn] then
+			stanceAlphaHooked[btn] = true
+			local busy
+			hooksecurefunc(btn, "SetAlpha", function(b)
+				if ns.db.consoleOpts.hideStance and not busy then
+					busy = true
+					b:SetAlpha(0)
+					busy = false
+				end
+			end)
+		end
+		btn:SetAlpha(hide and 0 or 1)
+	end
+	ns:RunOutOfCombat("stance-mouse", function()
+		for _, btn in pairs(self.rows and self.rows.stance or {}) do
+			btn:EnableMouse(not hide)
+		end
+	end)
+	if self.stanceHolder then
+		self:SetEditing(self.editing)
+	end
+end
+
+function ActionBars:SetStanceShown(on)
+	ns.db.consoleOpts.hideStance = not on
+	self:ApplyStanceShown()
 end
 
 function ActionBars:StartStanceDrag()

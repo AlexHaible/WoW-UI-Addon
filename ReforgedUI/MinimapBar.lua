@@ -126,6 +126,20 @@ local function updateCooldown(b)
 	end
 end
 
+-- Cooldown numbers follow the game's "Show cooldown numbers" option
+-- (countdownForCooldowns), as on Blizzard's buttons; CooldownFrameTemplate
+-- shows them always, in a font far too big for a slot this small.
+local function updateCountdown(b)
+	local show = GetCVarBool and GetCVarBool("countdownForCooldowns") or false
+	b.cooldown:SetHideCountdownNumbers(not show)
+	local fs = show and b.cooldown.GetCountdownFontString and b.cooldown:GetCountdownFontString()
+	if fs then
+		local path, _, flags = fs:GetFont()
+		local size = math.max(8, math.floor((b:GetHeight() or 30) * 0.4))
+		fs:SetFont(path or STANDARD_TEXT_FONT, size, flags or "OUTLINE")
+	end
+end
+
 local function updateCount(b)
 	local slot = b.slot
 	local text = ""
@@ -330,6 +344,14 @@ function MinimapBar:OnEnable()
 		end)
 	end
 
+	ns:On("CVAR_UPDATE", function(_, name)
+		if type(name) == "string" and name:lower() == "countdownforcooldowns" then
+			for _, b in ipairs(self.buttons) do
+				updateCountdown(b)
+			end
+		end
+	end)
+
 	ns:On("PLAYER_ENTERING_WORLD", function()
 		-- Whether the addon turned Action Bar 8 on in an earlier session
 		-- (read before this session's EnableBars runs).
@@ -356,6 +378,9 @@ function MinimapBar:OnLayout(L)
 			ns.modules.console.Place(b, L.minimapSlots[i])
 		end
 	end)
+	for _, b in ipairs(self.buttons) do
+		updateCountdown(b)
+	end
 	self:UpdateAll()
 end
 

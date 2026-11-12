@@ -1854,6 +1854,23 @@ do
 	fire("ACTION_RANGE_CHECK_UPDATE", 110, false, false)
 	assert(b.hotkey._textColor[2] > 0.2 and (normal == nil or b.hotkey._textColor[1] == normal), "no target: key colour back")
 end
+-- Cooldown numbers follow the game's option, sized to the slot when shown.
+do
+	local mb, b = ns.modules.minimapbar, ReforgedUIMinimapButton1
+	local hidden
+	function b.cooldown:SetHideCountdownNumbers(h) hidden = h end
+	local digits = new("fontstring", nil, b.cooldown)
+	digits._font, digits._size = "Fonts\\ARIALN.TTF", 30
+	function b.cooldown:GetCountdownFontString() return digits end
+	local cvarOn = false
+	GetCVarBool = function(name) return name == "countdownForCooldowns" and cvarOn end
+	fire("CVAR_UPDATE", "countdownForCooldowns")
+	assert(hidden == true and digits._size == 30, "cooldown numbers hidden while the option is off")
+	cvarOn = true
+	fire("CVAR_UPDATE", "countdownForCooldowns")
+	assert(hidden == false and digits._size < b._h and digits._size >= 8, "cooldown numbers shown, sized to the slot")
+	GetCVarBool = nil
+end
 assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"], "moved once per character")
 actions[171] = "Earth Shock"
 ns.modules.minimapbar:MoveFromBar8()

@@ -104,8 +104,65 @@ local function layoutKey(layout)
 	return name
 end
 
--- Moves a default-placed cast bar (not locked to the player frame) to `y`.
-local function raiseCastBar(layout, y, fresh)
+----------------------------------------------------------------------------
+-- Frames placed in every layout
+--
+-- Each has an entry in PLACEMENTS (further down), and they all follow one
+-- rule (wantsPlacing): a frame is ours to place while it is still in its
+-- default place in a layout we haven't placed it in yet, or still where we
+-- put it last after a setting all characters share has changed. Anywhere
+-- else it is the player's, and stays.
+
+local function near(v, want)
+	return type(v) == "number" and math.abs(v - want) <= 2
+end
+
+-- Whether an Edit Mode anchor holds a frame by `corner` to the same corner
+-- of the screen, at `spot`.
+local function anchoredAt(a, corner, spot)
+	return a.point == corner and (a.relativeTo == nil or a.relativeTo == "UIParent") and a.relativePoint == corner
+		and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
+end
+
+-- `last`: where we put it last (nil unless it is to follow from there);
+-- `fresh`: the layout hasn't been placed before; `spots`: other spots that
+-- count as in place too.
+local function wantsPlacing(entry, corner, spot, last, fresh, spots)
+	if entry.isInDefaultPosition and fresh then
+		return true
+	end
+	local a = entry.anchorInfo or {}
+	if not (last and anchoredAt(a, corner, last)) or anchoredAt(a, corner, spot) then
+		return false
+	end
+	for _, other in ipairs(spots or {}) do
+		if anchoredAt(a, corner, other) then
+			return false
+		end
+	end
+	return true
+end
+
+local function anchorTo(entry, corner, spot)
+	entry.anchorInfo = { point = corner, relativeTo = "UIParent", relativePoint = corner,
+		offsetX = spot.x, offsetY = spot.y }
+	entry.anchorInfo2 = nil
+	entry.isInDefaultPosition = false
+end
+
+-- The cast bar goes just above the console (never follows: once raised it
+-- is the player's), unless it is locked to the player frame.
+local function castBarSpot(self)
+	local bar = _G.PlayerCastingBarFrame
+	local scale = bar and bar:GetScale() or 1
+	if not scale or scale <= 0 then
+		scale = 1
+	end
+	return { x = 0, y = math.floor((self.layout.consoleTop * self:ConsoleScale() + CAST_BAR_GAP) / scale + 0.5) }
+end
+
+local function raiseCastBar(_, layout, spot, _, fresh)
+	local y = spot.y
 	local sys = findSystem(layout, Enum.EditModeSystem.CastBar)
 	if not (sys and sys.isInDefaultPosition and fresh) then
 		return false
@@ -130,10 +187,6 @@ end
 -- they only follow after a shared setting changes (EditSpotKey).
 local BUFF_GAP, BUFF_RIGHT = 6, 12
 
-local function near(v, want)
-	return type(v) == "number" and math.abs(v - want) <= 2
-end
-
 function ns:BuffSpot()
 	local buffs = _G.BuffFrame
 	if not (buffs and not forbidden(buffs) and self.topRoot and self.topLayout) then
@@ -144,23 +197,15 @@ function ns:BuffSpot()
 	return { x = math.floor(-BUFF_RIGHT * s + 0.5), y = math.floor(-(barH + BUFF_GAP) * s + 0.5) }
 end
 
-local function placeBuffs(layout, spot, last, fresh)
+local function placeBuffs(_, layout, spot, last, fresh)
 	local sys, indices = Enum.EditModeSystem, Enum.EditModeAuraFrameSystemIndices
 	local buffs = sys.AuraFrame and indices and findSystem(layout, sys.AuraFrame, indices.BuffFrame)
 	if not (buffs and spot) then
 		return false
 	end
 	local changed = false
-	local a = buffs.anchorInfo or {}
-	local atOurs = a.point == "TOPRIGHT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
-		and a.relativePoint == "TOPRIGHT"
-	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
-	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	if (buffs.isInDefaultPosition and fresh) or (ours and not inPlace) then
-		buffs.anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT",
-			offsetX = spot.x, offsetY = spot.y }
-		buffs.anchorInfo2 = nil
-		buffs.isInDefaultPosition = false
+	if wantsPlacing(buffs, "TOPRIGHT", spot, last, fresh) then
+		anchorTo(buffs, "TOPRIGHT", spot)
 		changed = true
 	end
 	local debuffs = findSystem(layout, sys.AuraFrame, indices.DebuffFrame)
@@ -243,22 +288,11 @@ local function setIconSize(entry, settings, scale, padding)
 	setSetting(entry, settings.IconPadding, indexed and padding - 2 or padding)
 end
 
-local function placePetBar(layout, spot, last, fresh, spots)
+local function placePetBar(self, layout, spot, last, fresh)
 	local sys, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
 	local pet = spot and sys.ActionBar and indices and indices.PetActionBar
 		and findSystem(layout, sys.ActionBar, indices.PetActionBar)
-	if not pet then
-		return false
-	end
-	local a = pet.anchorInfo or {}
-	local atOurs = a.point == "BOTTOMLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
-		and a.relativePoint == "BOTTOMLEFT"
-	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
-	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	for _, other in ipairs(spots or {}) do
-		inPlace = inPlace or (atOurs and near(a.offsetX, other.x) and near(a.offsetY, other.y))
-	end
-	if not ((pet.isInDefaultPosition and fresh) or (ours and not inPlace)) then
+	if not (pet and wantsPlacing(pet, "BOTTOMLEFT", spot, last, fresh, self:PetBarSpots())) then
 		return false
 	end
 	-- Placed the first time at about the stance buttons' size, so the row
@@ -267,10 +301,7 @@ local function placePetBar(layout, spot, last, fresh, spots)
 	if pet.isInDefaultPosition and settings and settings.IconSize then
 		setIconSize(pet, settings, spot.size / PET_BUTTON_SIZE, math.max(2, math.floor(spot.padding + 0.5)))
 	end
-	pet.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
-		offsetX = spot.x, offsetY = spot.y }
-	pet.anchorInfo2 = nil
-	pet.isInDefaultPosition = false
+	anchorTo(pet, "BOTTOMLEFT", spot)
 	return true
 end
 
@@ -306,25 +337,67 @@ function ns:EditSpotKey()
 		tostring(o.chatWiden), tostring(not not o.hideTopBar), tostring(self.db.theme) }, " ")
 end
 
-local function placeLeaveButton(layout, spot, last, fresh)
+local function placeLeaveButton(_, layout, spot, last, fresh)
 	local entry = spot and findSystem(layout, Enum.EditModeSystem.VehicleLeaveButton)
-	if not entry then
+	if not (entry and wantsPlacing(entry, "BOTTOMLEFT", spot, last, fresh)) then
 		return false
 	end
-	local a = entry.anchorInfo or {}
-	local atOurs = a.point == "BOTTOMLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
-		and a.relativePoint == "BOTTOMLEFT"
-	local ours = atOurs and last and near(a.offsetX, last.x) and near(a.offsetY, last.y)
-	local inPlace = atOurs and near(a.offsetX, spot.x) and near(a.offsetY, spot.y)
-	if not ((entry.isInDefaultPosition and fresh) or (ours and not inPlace)) then
-		return false
-	end
-	entry.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
-		offsetX = spot.x, offsetY = spot.y }
-	entry.anchorInfo2 = nil
-	entry.isInDefaultPosition = false
+	anchorTo(entry, "BOTTOMLEFT", spot)
 	return true
 end
+
+-- The frames placed in every layout, in the order their reload messages
+-- take precedence. To place another Blizzard frame, add an entry:
+--   key      its name here (and in the smoke test);
+--   saved    the consoleOpts key that remembers where we put it last, for
+--            it to follow from (none: placed once, never follows);
+--   spot     function(ns): where it goes now as { x, y } (nil: not placed);
+--   place    function(ns, layout, spot, last, fresh): moves it in `layout`
+--            if it is ours to place (wantsPlacing), true if it did;
+--   message  function(n, moved): what the reload popup says after it was
+--            placed in n layouts (`moved`: the count for every key).
+-- Each entry needs an Edit Mode system and a `saved` key of its own
+-- (tools/smoke_test.lua checks the keys, and that placing twice changes
+-- nothing the second time).
+local PLACEMENTS = {
+	{
+		key = "castBar",
+		spot = castBarSpot,
+		place = raiseCastBar,
+		message = function(n)
+			return ("moved the cast bar above the console in %d Edit Mode layout(s)."):format(n)
+		end,
+	},
+	{
+		key = "buffs", saved = "buffSpot",
+		spot = function(self) return self:BuffSpot() end,
+		place = placeBuffs,
+		message = function(n, moved)
+			return ("placed your buffs below the top bar%s in %d Edit Mode layout(s); move them there as you"
+				.. " like."):format(moved.petBar > 0 and " and the pet bar on the console wall" or "",
+				math.max(n, moved.petBar))
+		end,
+	},
+	{
+		key = "petBar", saved = "petSpot",
+		spot = function(self) return self:PetBarSpot() end,
+		place = placePetBar,
+		message = function(n)
+			return ("placed the pet bar on the console wall in %d Edit Mode layout(s); move it there as"
+				.. " you like."):format(n)
+		end,
+	},
+	{
+		key = "leaveButton", saved = "leaveSpot",
+		spot = function(self) return self:LeaveButtonSpot() end,
+		place = placeLeaveButton,
+		message = function(n)
+			return ("placed the leave vehicle (and flight path stop) button above the minimap in %d Edit Mode"
+				.. " layout(s); move it there as you like."):format(n)
+		end,
+	},
+}
+ns.EditPlacements = PLACEMENTS
 
 local function setCVar(name, value)
 	local cvars = _G.C_CVar
@@ -650,13 +723,6 @@ function ns:SetupEditMode(why)
 		end
 	end
 
-	local bar = _G.PlayerCastingBarFrame
-	local scale = bar and bar:GetScale() or 1
-	if not scale or scale <= 0 then
-		scale = 1
-	end
-	local castY = math.floor((self.layout.consoleTop * self:ConsoleScale() + CAST_BAR_GAP) / scale + 0.5)
-
 	local index, made
 	-- Older versions could make the layout more than once. Layout names
 	-- are meant to be unique (Edit Mode errors on two alike), so the first
@@ -723,10 +789,11 @@ function ns:SetupEditMode(why)
 	local barsPlaced = index and self:PlaceActionBars(info.layouts[index])
 	placed = placed or barsPlaced
 
-	local raised, buffsMoved, petMoved, leaveMoved = 0, 0, 0, 0
-	local spot, last = self:BuffSpot(), self.db.consoleOpts.buffSpot
-	local petSpot, petLast, petSpots = self:PetBarSpot(), self.db.consoleOpts.petSpot, self:PetBarSpots()
-	local leaveSpot, leaveLast = self:LeaveButtonSpot(), self.db.consoleOpts.leaveSpot
+	local o = self.db.consoleOpts
+	local moved, spots, lasts, anyMoved = {}, {}, {}, false
+	for _, p in ipairs(PLACEMENTS) do
+		moved[p.key], spots[p.key], lasts[p.key] = 0, p.spot(self), p.saved and o[p.saved] or nil
+	end
 	-- Frames we placed follow only after a shared setting changed (none
 	-- saved yet, from an older version: they stay as they are).
 	local spotKey, spotKeyLast = self:EditSpotKey(), self.db.consoleOpts.spotKey
@@ -740,24 +807,16 @@ function ns:SetupEditMode(why)
 	for _, layout in ipairs(info.layouts) do
 		local key = layoutKey(layout)
 		local fresh = not placedOnce[key]
-		if raiseCastBar(layout, castY, fresh) then
-			raised = raised + 1
-		end
-		if placeBuffs(layout, spot, follow and last or nil, fresh) then
-			buffsMoved = buffsMoved + 1
-		end
-		if placePetBar(layout, petSpot, follow and petLast or nil, fresh, petSpots) then
-			petMoved = petMoved + 1
-		end
-		if placeLeaveButton(layout, leaveSpot, follow and leaveLast or nil, fresh) then
-			leaveMoved = leaveMoved + 1
+		for _, p in ipairs(PLACEMENTS) do
+			if p.place(self, layout, spots[p.key], follow and lasts[p.key] or nil, fresh) then
+				moved[p.key], anyMoved = moved[p.key] + 1, true
+			end
 		end
 		if fresh then
 			newlyPlaced[#newlyPlaced + 1] = key
 		end
 	end
-	if (made or placed or renamed > 0 or raised > 0 or buffsMoved > 0 or petMoved > 0 or leaveMoved > 0)
-		and not pcall(C_EditMode.SaveLayouts, info) then
+	if (made or placed or renamed > 0 or anyMoved) and not pcall(C_EditMode.SaveLayouts, info) then
 		return
 	end
 	for _, key in ipairs(newlyPlaced) do
@@ -766,14 +825,11 @@ function ns:SetupEditMode(why)
 	-- Where we put them last: kept while nothing moved, so another
 	-- character's (or login's) spot doesn't make them look moved by the
 	-- player.
-	if spot and (buffsMoved > 0 or not last) then
-		self.db.consoleOpts.buffSpot = spot
-	end
-	if petSpot and (petMoved > 0 or not petLast) then
-		self.db.consoleOpts.petSpot = { x = petSpot.x, y = petSpot.y }
-	end
-	if leaveSpot and (leaveMoved > 0 or not leaveLast) then
-		self.db.consoleOpts.leaveSpot = leaveSpot
+	for _, p in ipairs(PLACEMENTS) do
+		local spot = spots[p.key]
+		if p.saved and spot and (moved[p.key] > 0 or not lasts[p.key]) then
+			o[p.saved] = { x = spot.x, y = spot.y }
+		end
 	end
 	self.db.consoleOpts.spotKey = spotKey
 	if barsPlaced then
@@ -801,18 +857,13 @@ function ns:SetupEditMode(why)
 		switched[key] = true
 		self:AskReload(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party"
 			.. " frames). Pick another layout in Edit Mode any time."):format(ns.EDIT_LAYOUT))
-	elseif raised > 0 then
-		self:AskReload(("moved the cast bar above the console in %d Edit Mode layout(s)."):format(raised))
-	elseif buffsMoved > 0 then
-		self:AskReload(("placed your buffs below the top bar%s in %d Edit Mode layout(s); move them there as you"
-			.. " like."):format(petMoved > 0 and " and the pet bar on the console wall" or "",
-			math.max(buffsMoved, petMoved)))
-	elseif petMoved > 0 then
-		self:AskReload(("placed the pet bar on the console wall in %d Edit Mode layout(s); move it there as"
-			.. " you like."):format(petMoved))
-	elseif leaveMoved > 0 then
-		self:AskReload(("placed the leave vehicle (and flight path stop) button above the minimap in %d Edit Mode"
-			.. " layout(s); move it there as you like."):format(leaveMoved))
+	elseif anyMoved then
+		for _, p in ipairs(PLACEMENTS) do
+			if moved[p.key] > 0 then
+				self:AskReload(p.message(moved[p.key], moved))
+				break
+			end
+		end
 	elseif barsPlaced then
 		self:AskReload(("placed action bars 1-3 over the console in the %q Edit Mode layout; move or resize"
 			.. " them there as you like."):format(ns.EDIT_LAYOUT))

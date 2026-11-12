@@ -590,7 +590,7 @@ end
 -- auras ("cannot be accessed when secret while tainted"), only Blizzard's
 -- own code. So Blizzard's target frame stays, showing nothing but its aura
 -- icons: its portrait, bars, art, cast bar and target of target are made
--- invisible, and the "Reforged UI" Edit Mode layout (Core.lua) places it,
+-- invisible, and the "Reforged UI" Edit Mode layout (EditMode.lua) places it,
 -- buffs on top, so the icons stand on the wall beside the target of target
 -- (above the plate in plate mode).
 

@@ -961,7 +961,7 @@ local function build(W, H, o, X0, chatW)
 	local eye = 0.11 * s
 	L.queueEye = rect(MT.x + 1, 1, eye, eye)
 	-- Where the leave vehicle / request stop button's bottom-left corner
-	-- starts (Core.lua places it in the Edit Mode layout): just above the
+	-- starts (EditMode.lua places it in the Edit Mode layout): just above the
 	-- map's top-left corner, across the map from the compartment.
 	L.leaveButton = { x = mm.x, y = top(mm) + 2 }
 

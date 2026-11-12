@@ -106,7 +106,7 @@ end
 -- a negative scale and failed to load the layouts at login. Keep the
 -- cluster at its own size (only the size: it stays where Edit Mode puts it).
 local function plainSize(v)
-	return type(v) == "number" and not (issecretvalue and issecretvalue(v)) and v > 0 and v <= 400
+	return ns.IsNumber(v) and v > 0 and v <= 400
 end
 
 function MinimapModule:KeepClusterSize()

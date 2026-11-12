@@ -666,6 +666,37 @@ for _, file in ipairs(files) do
 	assert(loadfile(ADDON .. file))("ReforgedUI", ns)
 end
 
+-- Secret values go through Core.lua's helpers, which say what the code may
+-- do with a value; no other file asks the game itself (each used to have a
+-- helper of its own, no two meaning quite the same).
+do
+	for _, file in ipairs(files) do
+		if file ~= "Core.lua" and not file:find("^Libs/") then
+			local f = assert(io.open(ADDON .. file))
+			local n = 0
+			for line in f:lines() do
+				n = n + 1
+				assert(not line:gsub("%-%-.*", ""):find("issecretvalue"),
+					("%s:%d calls issecretvalue: use ns.IsSecret, ns.IsKnown or ns.IsNumber"):format(file, n))
+			end
+			f:close()
+		end
+	end
+	local hidden = newproxy(true)
+	local mt = getmetatable(hidden)
+	mt.__eq = function() error("compared a secret value") end
+	mt.__lt, mt.__le = mt.__eq, mt.__eq
+	local was = issecretvalue
+	issecretvalue = function(v) return rawequal(v, hidden) end
+	assert(ns.IsSecret(hidden) == true and ns.IsSecret(nil) == false and ns.IsSecret(5) == false, "IsSecret")
+	assert(not ns.IsKnown(hidden) and not ns.IsKnown(nil) and ns.IsKnown(false) and ns.IsKnown(0), "IsKnown")
+	assert(not ns.IsNumber(hidden) and not ns.IsNumber(nil) and not ns.IsNumber("5") and ns.IsNumber(5), "IsNumber")
+	-- A client without secret values: nothing is.
+	issecretvalue = nil
+	assert(ns.IsSecret(hidden) == false and ns.IsKnown(1) and ns.IsNumber(1), "no secret values on older clients")
+	issecretvalue = was
+end
+
 -- The game's damage meter (Blizzard_DamageMeter), as far as Reforged UI:
 -- Damage Meter touches it: one window with a bar in its list, its own bar for
 -- the player and a breakdown window with a bar.
@@ -2998,7 +3029,7 @@ do
 		end
 		local sName, sStart, sEnd = secretValue(), secretValue(), secretValue()
 		local oldCast, oldChannel = UnitCastingInfo, UnitChannelInfo
-		secret = true -- Target.lua's isSecret is the stub's, read at load
+		secret = true
 		local casting = true
 		UnitCastingInfo = function(u)
 			if u == "target" and casting then return sName, sName, 136, sStart, sEnd end
@@ -3815,6 +3846,128 @@ do
 	assert(GameTooltip.NineSlice:GetAlpha() == 1, "off: the border stays")
 	SlashCmdList.REFORGEDUI("tooltips on")
 	assert(ns.db.consoleOpts.themeTooltips == true and GameTooltip.NineSlice:GetAlpha() == 0, "/rui tooltips on")
+end
+
+-- In an instance, all at once: everything the game tells about other units
+-- is secret (one value that fails on any comparison, sum, length or lookup),
+-- with a target, its target, a pet and totems out, in both target displays
+-- and with the free-standing bars on. No module may trip over it on any of
+-- the usual events. (What each then shows is checked feature by feature
+-- above; this pass is for a feature added later that reads a unit and
+-- forgets ns.IsSecret.)
+do
+	local SECRET = newproxy(true)
+	local mt = getmetatable(SECRET)
+	local function fail() error("looked at a secret value", 2) end
+	for _, op in ipairs({ "__eq", "__lt", "__le", "__add", "__sub", "__mul", "__div", "__mod", "__unm", "__concat",
+		"__len", "__index", "__newindex", "__call" }) do
+		mt[op] = fail
+	end
+	mt.__tostring = function() return "secret" end
+	local saved = {}
+	local function swap(name, fn)
+		saved[name] = _G[name]
+		_G[name] = fn
+	end
+	local function others(name, ...)
+		local old, n, answer = _G[name], select("#", ...), { ... }
+		swap(name, function(unit, ...)
+			if unit == "player" or unit == "vehicle" or old == nil then
+				if old then return old(unit, ...) end
+				return nil
+			end
+			return unpack(answer, 1, n)
+		end)
+	end
+	swap("issecretvalue", function(v) return rawequal(v, SECRET) end)
+	for _, name in ipairs({ "UnitName", "GetUnitName", "UnitLevel", "UnitHealth", "UnitHealthMax", "UnitPower",
+		"UnitPowerMax", "UnitIsTapDenied", "UnitClassification", "UnitCreatureType", "UnitGetIncomingHeals",
+		"GetComboPoints" }) do
+		others(name, SECRET)
+	end
+	others("UnitCastingInfo", SECRET, SECRET, SECRET, SECRET, SECRET, SECRET, SECRET, SECRET, SECRET)
+	others("UnitChannelInfo", SECRET, SECRET, SECRET, SECRET, SECRET, SECRET, SECRET, SECRET)
+	swap("UnitIsUnit", function() return SECRET end)
+	swap("GetTotemInfo", function() return SECRET, SECRET, SECRET, SECRET, 135825 end)
+	swap("GetTotemTimeLeft", function() return SECRET end)
+	swap("C_UnitAuras", { GetAuraDataByIndex = function(_, i)
+		if i <= 2 then
+			return { icon = 136000 + i, applications = SECRET, duration = SECRET, expirationTime = SECRET }
+		end
+	end })
+	swap("C_PetInfo", { GetPetHappiness = function() return SECRET, SECRET, SECRET end })
+	local wasTarget, wasPet, wasCombat = hasTarget, hasPet, inCombat
+	local target, o = ns.modules.target, ns.db.consoleOpts
+	local wasMode, wasBar, wasToT = target:Mode(), o.targetBar, o.totBar
+	local EVENTS = {
+		{ "PLAYER_TARGET_CHANGED" }, { "UNIT_TARGET", "target" }, { "UNIT_PET", "player" },
+		{ "UNIT_HEALTH", "target" }, { "UNIT_HEALTH", "targettarget" }, { "UNIT_HEALTH", "pet" },
+		{ "UNIT_MAXHEALTH", "target" }, { "UNIT_POWER_UPDATE", "target" }, { "UNIT_POWER_UPDATE", "pet" },
+		{ "UNIT_MAXPOWER", "target" }, { "UNIT_DISPLAYPOWER", "target" }, { "UNIT_NAME_UPDATE", "target" },
+		{ "UNIT_LEVEL", "target" }, { "UNIT_FACTION", "target" }, { "UNIT_AURA", "target" }, { "UNIT_AURA", "pet" },
+		{ "UNIT_HEAL_PREDICTION", "target" }, { "UNIT_HAPPINESS", "pet" }, { "UNIT_COMBO_POINTS", "player" },
+		{ "UNIT_SPELLCAST_START", "target" }, { "UNIT_SPELLCAST_CHANNEL_START", "target" },
+		{ "UNIT_SPELLCAST_STOP", "target" }, { "PLAYER_TOTEM_UPDATE", 1 }, { "UPDATE_MOUSEOVER_UNIT" },
+		{ "PLAYER_REGEN_DISABLED" }, { "PLAYER_REGEN_ENABLED" }, { "PLAYER_ENTERING_WORLD" },
+	}
+	hasTarget, hasPet = true, true
+	target:SetBarEnabled(true)
+	target:SetBarEnabled(true, target.totBar)
+	local function pass()
+		for _, mode in ipairs({ "swap", "plate" }) do
+			inCombat = false
+			target:SetMode(mode)
+			for _, combat in ipairs({ false, true }) do
+				inCombat = combat
+				for _, event in ipairs(EVENTS) do
+					local ok, err = pcall(fire, unpack(event))
+					if not ok then
+						return ("in an instance (%s, %s): %s%s: %s"):format(mode, combat and "in combat" or "out of combat",
+							event[1], event[2] and " " .. tostring(event[2]) or "", tostring(err))
+					end
+				end
+				-- Frames that update on a timer do so with the same values.
+				for _, f in ipairs(allFrames) do
+					local update = f._scripts.OnUpdate
+					if update and f:IsShown() then
+						local ok, err = pcall(update, f, 0.5)
+						if not ok then
+							return ("in an instance (%s): an OnUpdate of %s: %s"):format(mode, tostring(f:GetName()),
+								tostring(err))
+						end
+					end
+				end
+				flushTimers()
+			end
+		end
+	end
+	local why = pass()
+	assert(not why, why)
+	-- The check itself: a feature that compares what it reads is caught.
+	local careless = true
+	ns:On("UNIT_HEALTH", function(_, unit)
+		if careless and unit == "target" then
+			return UnitHealth(unit) > 0
+		end
+	end)
+	why = pass()
+	assert(why and why:find("UNIT_HEALTH target"), "a careless comparison is caught")
+	careless = false
+	-- Back out of it: everything plain again.
+	inCombat = false
+	for name, fn in pairs(saved) do
+		_G[name] = fn
+	end
+	for _, name in ipairs({ "UnitGetIncomingHeals", "UnitCastingInfo", "UnitChannelInfo", "UnitClassification",
+		"UnitCreatureType", "GetComboPoints", "UnitIsTapDenied", "GetTotemTimeLeft", "C_PetInfo", "C_UnitAuras" }) do
+		if saved[name] == nil then _G[name] = nil end
+	end
+	target:SetBarEnabled(wasBar and true or false)
+	target:SetBarEnabled(wasToT and true or false, target.totBar)
+	target:SetMode(wasMode)
+	hasTarget, hasPet, inCombat = wasTarget, wasPet, wasCombat
+	fire("PLAYER_TARGET_CHANGED")
+	fire("UNIT_PET", "player")
 end
 
 print("smoke test passed")

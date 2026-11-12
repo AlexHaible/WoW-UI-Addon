@@ -47,7 +47,7 @@ local CLASSIFICATION = {
 	elite = ELITE or "Elite", rareelite = "Rare Elite", rare = "Rare", worldboss = BOSS or "Boss",
 }
 
-local isSecret = issecretvalue or function() return false end
+local isSecret = ns.IsSecret
 local activeLayoutName -- below, with the aura spot checks (ns:ActiveEditLayout)
 
 local function font(fs, size)

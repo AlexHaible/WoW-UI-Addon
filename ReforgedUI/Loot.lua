@@ -71,9 +71,7 @@ local function enumValue(m)
 	return e and e[m.enum]
 end
 
-local function secret(v)
-	return issecretvalue and issecretvalue(v)
-end
+local secret = ns.IsSecret
 
 -- The quality's name and colour: r, g, b and the hex for text.
 function Loot.Quality(q)

@@ -219,7 +219,7 @@ function TopBar:SaveMoney()
 		return
 	end
 	local name = ns:FullName("player")
-	if type(name) ~= "string" or (issecretvalue and issecretvalue(name)) or name == "" then
+	if type(name) ~= "string" or ns.IsSecret(name) or name == "" then
 		name = short
 	end
 	local _, class = UnitClass("player")
@@ -920,9 +920,7 @@ local function microName(b)
 	end
 end
 
-local function plain(v)
-	return type(v) == "number" and not (issecretvalue and issecretvalue(v))
-end
+local plain = ns.IsNumber
 
 -- A button's art area: its height and bottom inset, without the part its
 -- hit rectangle leaves out (Classic-style buttons are taller than their art).

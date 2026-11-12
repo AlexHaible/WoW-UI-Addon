@@ -34,9 +34,9 @@ local function calculator()
 	return calc or nil
 end
 
--- Looked up on each call, like Core.lua does.
+-- Not secret (nil counts as plain here).
 local function plain(v)
-	return not (issecretvalue and issecretvalue(v))
+	return not ns.IsSecret(v)
 end
 
 -- The player's own incoming heals on `unit` and everyone else's. Never nil;

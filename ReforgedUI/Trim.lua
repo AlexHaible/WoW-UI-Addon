@@ -69,7 +69,7 @@ function Trim:Paint()
 	local media = MEDIA .. theme.folder .. "\\"
 	local out = EDGE - INSET
 	local w, h = box:GetWidth(), box:GetHeight()
-	if issecretvalue and (issecretvalue(w) or issecretvalue(h)) then
+	if ns.IsSecret(w) or ns.IsSecret(h) then
 		-- A box sized by secret text (a tooltip about an enemy, in an
 		-- instance) has a secret size: no arithmetic on it. The halves are
 		-- then pinned to the box's middles instead and stretch a little.

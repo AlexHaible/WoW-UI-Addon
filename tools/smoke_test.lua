@@ -3799,6 +3799,22 @@ do
 	assert(ns.db.consoleOpts.totemSpot == false and mod:Spot().x == wall.x, "/rui totems reset")
 end
 
+-- Every option the run so far read or set is one Core.lua lists.
+do
+	local stray = {}
+	for key, where in pairs(strayOptions) do
+		if where ~= "?" then -- ("?": looked at by this test, not the addon)
+			stray[#stray + 1] = ("consoleOpts.%s (%s)"):format(tostring(key), where)
+		end
+	end
+	table.sort(stray)
+	assert(#stray == 0, "options without a default in Core.lua: " .. table.concat(stray, ", "))
+	-- (The check itself.)
+	local _ = ReforgedUIDB.consoleOpts.noSuchOption
+	assert(strayOptions.noSuchOption, "an option without a default is noticed")
+	setmetatable(ReforgedUIDB.consoleOpts, nil)
+end
+
 -- Tooltips in the theme's frame, like the damage meter; off brings
 -- Blizzard's border back.
 do
@@ -3838,22 +3854,6 @@ do
 	assert(GameTooltip.NineSlice:GetAlpha() == 1, "off: the border stays")
 	SlashCmdList.REFORGEDUI("tooltips on")
 	assert(ns.db.consoleOpts.themeTooltips == true and GameTooltip.NineSlice:GetAlpha() == 0, "/rui tooltips on")
-end
-
--- Every option the run above read or set is one Core.lua lists.
-do
-	local stray = {}
-	for key, where in pairs(strayOptions) do
-		if where ~= "?" then -- ("?": looked at by this test, not the addon)
-			stray[#stray + 1] = ("consoleOpts.%s (%s)"):format(tostring(key), where)
-		end
-	end
-	table.sort(stray)
-	assert(#stray == 0, "options without a default in Core.lua: " .. table.concat(stray, ", "))
-	-- (The check itself.)
-	local _ = ReforgedUIDB.consoleOpts.noSuchOption
-	assert(strayOptions.noSuchOption, "an option without a default is noticed")
-	setmetatable(ReforgedUIDB.consoleOpts, nil)
 end
 
 print("smoke test passed")

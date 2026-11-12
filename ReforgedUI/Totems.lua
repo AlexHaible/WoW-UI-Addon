@@ -16,9 +16,10 @@
 -- console units from the console's bottom-left), and /rui totems reset puts
 -- it back on the wall.
 --
--- Totem info may be secret (Blizzard's ShouldTotemSlotBeSecret): then only
--- the icon is shown, through calls that take secret values, without the
--- sweep or the time.
+-- Totem info may be secret (Blizzard's ShouldTotemSlotBeSecret), which it
+-- is in combat on the newer clients: then the icon and the time left are
+-- still shown, through calls that take secret values (the time as whole
+-- seconds, since a secret can't be compared or divided), without the sweep.
 
 local _, ns = ...
 local Totems = ns:RegisterModule("totems", {})
@@ -203,10 +204,10 @@ local function fill(b)
 		face:SetAlpha(active and 1 or 0)
 		return active
 	end
-	-- Secret: show the icon if the client says there is one, no sweep or time.
+	-- Secret: show the icon if the client says there is one, no sweep; the
+	-- time left comes from UpdateTimes.
 	b.active, b.secret = true, true
 	face.cooldown:Hide()
-	face.time:SetText("")
 	pcall(face.icon.SetTexture, face.icon, icon)
 	if not (face.SetAlphaFromBoolean and pcall(face.SetAlphaFromBoolean, face, have, 1, 0)) then
 		face:SetAlpha(1)
@@ -247,11 +248,23 @@ function Totems:ShowButtons()
 	self.ticker:SetShown(shown)
 end
 
+-- A secret time left can't be compared or turned into "1m", but a font
+-- string takes it as is: whole seconds, formatted by the client.
+local function secretTime(fs, left)
+	if left == nil or not pcall(fs.SetFormattedText, fs, "%.0f", left) then
+		fs:SetText("")
+	end
+end
+
 function Totems:UpdateTimes()
 	for _, b in ipairs(self.buttons or {}) do
-		if b.active and not b.secret then
+		if b.active then
 			local ok, left = pcall(GetTotemTimeLeft, b.slot)
-			if ok and plain(left) and left > 0 then
+			if not ok then
+				b.face.time:SetText("")
+			elseif isSecret(left) then
+				secretTime(b.face.time, left)
+			elseif left and left > 0 then
 				b.face.time:SetText(timeText(left))
 			else
 				b.face.time:SetText("")

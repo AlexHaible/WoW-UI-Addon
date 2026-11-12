@@ -3573,14 +3573,19 @@ do
 	assert(fire.face.time._text == "43", "the fire totem's time left: " .. tostring(fire.face.time._text))
 	assert(not mod.buttons[1].active and mod.buttons[1].face:GetAlpha() == 0, "an empty slot draws nothing")
 	assert(T.right - 4 * T.step > ns.layout.stance.x + 4 * T.step, "totems clear of the stance row's start")
-	-- A secret answer still shows the icon, without time.
-	local oldInfo, oldSecret = GetTotemInfo, issecretvalue
-	local SECRET = {}
-	issecretvalue = function(v) return v == SECRET end
+	-- A secret answer (in combat) still shows the icon, and the time left as
+	-- whole seconds through the font string, never compared.
+	local oldInfo, oldSecret, oldLeft = GetTotemInfo, issecretvalue, GetTotemTimeLeft
+	local SECRET, secretLeft = {}, 117.4
+	issecretvalue = function(v) return v == SECRET or v == secretLeft end
 	GetTotemInfo = function() return SECRET, SECRET, SECRET, SECRET, 135825 end
+	GetTotemTimeLeft = function() return secretLeft end
 	mod:Update()
-	assert(fire.secret and fire.face.time._text == "", "secret totems show no time")
-	GetTotemInfo, issecretvalue = oldInfo, oldSecret
+	assert(fire.secret and fire.face.time._text == "117", "secret totems show seconds left: " .. tostring(fire.face.time._text))
+	GetTotemTimeLeft = function() return SECRET end
+	mod:UpdateTimes()
+	assert(fire.face.time._text == "", "a time left the client won't format shows nothing")
+	GetTotemInfo, issecretvalue, GetTotemTimeLeft = oldInfo, oldSecret, oldLeft
 	mod:Update()
 	assert(not fire.secret and fire.face.time._text == "43", "back to plain totem info")
 	-- Moving: the buttons hang from one holder; Shift-drag or Edit Mode

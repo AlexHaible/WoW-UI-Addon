@@ -20,6 +20,10 @@
 -- is in combat on the newer clients: then the icon and the time left are
 -- still shown, through calls that take secret values (the time as whole
 -- seconds, since a secret can't be compared or divided), without the sweep.
+-- Should the client refuse that, the time comes from a duration text
+-- binding (the client's own countdown text, fed GetTotemDuration). An empty
+-- slot may also answer nothing at all, which is no totem, not a secret one.
+-- /rui totems prints what each slot answers and how its time is shown.
 
 local _, ns = ...
 local Totems = ns:RegisterModule("totems", {})
@@ -30,6 +34,8 @@ end
 local SLOTS = _G.MAX_TOTEMS or 4
 local CANCEL_HINT = "Right-click to cancel."
 local MOVE_HINT = "Shift-drag to move."
+
+local stopBinding -- below
 
 local function plain(v)
 	return v ~= nil and not isSecret(v)
@@ -178,6 +184,51 @@ function Totems:OnEnable()
 	end)
 end
 
+-- The client's own countdown text on a button, kept up to date by the
+-- client: the last resort when it won't format a secret time left for us.
+local function startBinding(b)
+	if not (C_DurationUtil and C_DurationUtil.CreateDurationTextBinding and _G.GetTotemDuration) then
+		return false, "no duration text binding in this client"
+	end
+	return pcall(function()
+		local binding = b.binding
+		if not binding then
+			binding = C_DurationUtil.CreateDurationTextBinding()
+			binding:SetFontString(b.face.time)
+			local f = C_StringUtil.CreateSecondsFormatter()
+			-- "5m", "45s", like Blizzard's aura timers; each setting is optional.
+			local E = Enum or {}
+			local function set(method, enum, key)
+				local value = enum
+				if key then
+					value = E[enum] and E[enum][key]
+				end
+				if f[method] and value ~= nil then
+					pcall(f[method], f, value)
+				end
+			end
+			set("SetDefaultAbbreviation", "SecondsFormatterAbbreviation", "OneLetter")
+			set("SetRounding", "SecondsFormatterRounding", "Truncate")
+			set("SetCanRoundUpLastUnit", true)
+			set("SetMinInterval", "SecondsFormatterInterval", "Seconds")
+			set("SetDesiredUnitCount", 1)
+			binding:SetFormatter(f)
+			pcall(binding.SetZeroDurationText, binding, "")
+			pcall(binding.SetExpiredText, binding, "")
+			b.binding = binding
+		end
+		binding:SetDuration(GetTotemDuration(b.slot))
+		binding:SetEnabled(true)
+	end)
+end
+
+stopBinding = function(b)
+	if b.binding then
+		pcall(b.binding.SetEnabled, b.binding, false)
+	end
+	b.bound = false
+end
+
 -- One slot's state onto its button: true when it holds a totem (or may:
 -- a secret answer counts as one).
 local function fill(b)
@@ -186,7 +237,10 @@ local function fill(b)
 	if not ok then
 		have = false
 	end
-	if plain(have) then
+	b.howTime, b.timeError = nil, nil
+	stopBinding(b)
+	-- Nothing at all (the client may answer so for an empty slot) is no totem.
+	if have == nil or plain(have) then
 		local active = have and plain(duration) and duration > 0
 		b.active, b.secret = active and true or false, false
 		if active then
@@ -249,31 +303,69 @@ function Totems:ShowButtons()
 end
 
 -- A secret time left can't be compared or turned into "1m", but a font
--- string takes it as is: whole seconds, formatted by the client.
-local function secretTime(fs, left)
-	if left == nil or not pcall(fs.SetFormattedText, fs, "%.0f", left) then
-		fs:SetText("")
+-- string takes it as is: whole seconds, formatted by the client. If the
+-- client won't, its own countdown text takes over (once per totem update).
+local function secretTime(b, left)
+	local fs = b.face.time
+	local ok, err = pcall(fs.SetFormattedText, fs, "%.0f", left)
+	if ok then
+		b.howTime = "secret seconds"
+		return
 	end
+	fs:SetText("")
+	local bound, why = startBinding(b)
+	b.bound = bound and true or false
+	b.howTime = bound and "client countdown" or "none"
+	b.timeError = tostring(bound and err or why or err)
 end
 
 function Totems:UpdateTimes()
 	for _, b in ipairs(self.buttons or {}) do
-		if b.active then
+		if b.active and not b.bound then
 			local ok, left = pcall(GetTotemTimeLeft, b.slot)
 			if not ok then
 				b.face.time:SetText("")
+				b.howTime, b.timeError = "none", tostring(left)
 			elseif isSecret(left) then
-				secretTime(b.face.time, left)
+				secretTime(b, left)
 			elseif left and left > 0 then
 				b.face.time:SetText(timeText(left))
+				b.howTime = "plain"
 			else
 				b.face.time:SetText("")
-			end
-			if GameTooltip:IsOwned(b) then
-				onEnter(b)
+				b.howTime = "none (no time left)"
 			end
 		end
+		if b.active and GameTooltip:IsOwned(b) then
+			onEnter(b)
+		end
 	end
+end
+
+-- /rui totems: what each slot answers and how its time is shown.
+local function describe(v)
+	if isSecret(v) then
+		return "secret"
+	end
+	return tostring(v)
+end
+
+function Totems:Describe()
+	if not self.buttons then
+		return { "totem timers: off (no totem API in this client)" }
+	end
+	local lines = {}
+	for _, b in ipairs(self.buttons) do
+		local ok, have, _, start, duration = pcall(GetTotemInfo, b.slot)
+		local okLeft, left = pcall(GetTotemTimeLeft, b.slot)
+		lines[#lines + 1] = ("slot %d: have %s, start %s, duration %s, time left %s; %s, time shown: %s%s"):format(
+			b.slot, ok and describe(have) or "error", describe(start), describe(duration),
+			okLeft and describe(left) or "error",
+			b.active and (b.secret and "active (secret)" or "active") or "empty",
+			tostring(b.howTime or "none"), b.timeError and (" (" .. b.timeError .. ")") or "")
+	end
+	lines[#lines + 1] = "in combat: " .. tostring(InCombatLockdown() and true or false)
+	return lines
 end
 
 ----------------------------------------------------------------------------

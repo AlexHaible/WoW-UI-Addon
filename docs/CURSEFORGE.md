@@ -67,7 +67,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - These are Blizzard's own buttons, so bindings, paging, cooldowns and proc glows all work as normal. Icons show in full, in Warcraft III's steel button frame.
 - Rather arrange the bars yourself? Turn on **Let Edit Mode place action bars 1-3**: they start over the grid and you can then move, resize and reflow them in Edit Mode like any bar.
 - Stance, aura and form buttons stand on the wall above the grid. Want them elsewhere? Open **Edit Mode** and drag the row by its outline; `/rui stance reset` puts it back. Using another action bar addon for them? Tick **Leave stance buttons to my bar addon** in the options (or `/rui stance off`, then reload) and that addon, or Blizzard's own stance bar in Edit Mode, places them. With Dominos this happens by itself.
-- **Totem timers** stand at the other end of that wall: each active totem's icon with a countdown sweep and the time it has left (in combat, where the game keeps totem timings hidden from addons, the time still counts down, in plain seconds). Hover one for its tooltip, **right-click to cancel it**, in combat too, no macro or extra spell needed. Want them elsewhere? **Shift-drag** a totem (out of combat) or drag the row in Edit Mode; `/rui totems reset` puts them back.
+- **Totem timers** stand at the other end of that wall: each active totem's icon with a countdown sweep and the time it has left (in combat, where the game keeps totem timings hidden from addons, the time still counts down, in plain seconds). No timer on a totem? `/rui totems` shows what the game reports for each slot. Hover one for its tooltip, **right-click to cancel it**, in combat too, no macro or extra spell needed. Want them elsewhere? **Shift-drag** a totem (out of combat) or drag the row in Edit Mode; `/rui totems reset` puts them back.
 - The pet bar starts just above them (in their place, for classes without stances), clear of the chat. Move and resize it in Edit Mode.
 
 **Inventory**
@@ -150,6 +150,8 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
 /rui pet reset                   put the pet icon back beside the target's target
+/rui totems reset                put the totem timers back on the wall
+/rui totems                      show what each totem slot reports, if a timer doesn't show
 /rui repbar on|off               the reputation bar under the experience bar
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health bar (reset puts it back in place)

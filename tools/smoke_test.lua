@@ -843,6 +843,29 @@ ReforgedUIDB = { scale = 1, theme = "auto",
 	wiii = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true,
 		targetMode = "plate", addonDrawerOpen = true } }
 fire("PLAYER_LOGIN")
+
+-- From here on every option read or set must be one Core.lua lists (with its
+-- default, or among the unset ones): checked at the end.
+local strayOptions = {}
+do
+	local function note(key)
+		if not ns:KnownOption(key) and not strayOptions[key] then
+			local where = debug.traceback("", 3):match("\n%s*([^\n]-:%d+):") or "?"
+			strayOptions[key] = where:find("smoke_test", 1, true) and "?" or where
+		end
+	end
+	setmetatable(ReforgedUIDB.consoleOpts, {
+		__index = function(_, key) note(key) end,
+		__newindex = function(t, key, value) note(key); rawset(t, key, value) end,
+	})
+	for key in pairs(ReforgedUIDB.consoleOpts) do
+		note(key)
+	end
+	assert(ns:KnownOption("uiScale") and ns:KnownOption("targetAuraLast") and not ns:KnownOption("noSuchOption"),
+		"options are known by their defaults")
+	assert(ReforgedUIDB.consoleOpts.clockTime == "server" and ReforgedUIDB.consoleOpts.clockHours == 24,
+		"the time capsule's options have their defaults")
+end
 assert(ns.ready, "init did not finish")
 assert(ReforgedUIDB.scale == 0.75 and ReforgedUIDB.version == 5, "old default scale not migrated")
 assert(ReforgedUIDB.consoleOpts.uiScale == 240 and ReforgedUIDB.consoleOpts.zoneText == 1, "console option defaults")
@@ -3815,6 +3838,22 @@ do
 	assert(GameTooltip.NineSlice:GetAlpha() == 1, "off: the border stays")
 	SlashCmdList.REFORGEDUI("tooltips on")
 	assert(ns.db.consoleOpts.themeTooltips == true and GameTooltip.NineSlice:GetAlpha() == 0, "/rui tooltips on")
+end
+
+-- Every option the run above read or set is one Core.lua lists.
+do
+	local stray = {}
+	for key, where in pairs(strayOptions) do
+		if where ~= "?" then -- ("?": looked at by this test, not the addon)
+			stray[#stray + 1] = ("consoleOpts.%s (%s)"):format(tostring(key), where)
+		end
+	end
+	table.sort(stray)
+	assert(#stray == 0, "options without a default in Core.lua: " .. table.concat(stray, ", "))
+	-- (The check itself.)
+	local _ = ReforgedUIDB.consoleOpts.noSuchOption
+	assert(strayOptions.noSuchOption, "an option without a default is noticed")
+	setmetatable(ReforgedUIDB.consoleOpts, nil)
 end
 
 print("smoke test passed")

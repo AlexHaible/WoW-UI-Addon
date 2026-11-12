@@ -1859,6 +1859,30 @@ do
 	end
 	ns:Relayout()
 	at(StanceButton2, 300 + L.stance.step, 200, "the moved stance row stays after a relayout")
+	-- Hidden (a warrior on key bindings): invisible and click-through, no
+	-- outline in Edit Mode; shown again as it was.
+	SlashCmdList.REFORGEDUI("stance hide")
+	assert(ns.db.consoleOpts.hideStance == true, "/rui stance hide")
+	for i = 1, 10 do
+		local b = _G["StanceButton" .. i]
+		assert(b._alpha == 0 and b._mouse == false, "hidden stance button " .. i)
+	end
+	StanceButton1:SetAlpha(1)
+	assert(StanceButton1._alpha == 0, "the stance buttons stay hidden when Blizzard sets their alpha")
+	ns:Relayout()
+	assert(StanceButton3._alpha == 0, "the stance buttons stay hidden after a relayout")
+	EditModeManagerFrame._hooks.OnShow()
+	assert(not h._shown, "no stance outline in Edit Mode while hidden")
+	EditModeManagerFrame._hooks.OnHide()
+	SlashCmdList.REFORGEDUI("stance show")
+	assert(ns.db.consoleOpts.hideStance == false, "/rui stance show")
+	for i = 1, 10 do
+		local b = _G["StanceButton" .. i]
+		assert(b._alpha == 1 and b._mouse == true, "shown stance button " .. i)
+	end
+	StanceButton1:SetAlpha(0.5)
+	assert(StanceButton1._alpha == 0.5, "shown stance buttons take Blizzard's alpha again")
+	StanceButton1:SetAlpha(1)
 	SlashCmdList.REFORGEDUI("stance reset")
 	assert(ns.db.consoleOpts.stanceSpot == false, "/rui stance reset")
 	at(StanceButton1, L.stance.x, L.stance.y, "stance row back on the wall")

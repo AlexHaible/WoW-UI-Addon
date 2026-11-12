@@ -95,7 +95,9 @@ screen stays free on either side).
   the row elsewhere by its blue outline (`/rui stance reset` puts it back), or
   tick "Leave stance buttons to my bar addon" in the options (`/rui stance
   off`, needs a reload) to let Blizzard's stance bar or your bar addon have
-  them; with Dominos loaded that happens by itself. The pet bar starts in a
+  them; with Dominos loaded that happens by itself. "Hide stance buttons"
+  (`/rui stance hide`) makes them invisible and click-through instead; their
+  key bindings still work. The pet bar starts in a
   row just above them (on their row, for classes without stances), at about
   their size, and is Blizzard's Edit Mode bar, so you can move and resize it
   in Edit Mode.

@@ -69,6 +69,7 @@ local DEFAULTS = {
 		totemSpot = false, -- where the player moved the totem timers ({ x, y } in console units), or on the wall over the grid
 		stanceSpot = false, -- where the player moved the stance buttons ({ x, y } in console units), or on the wall over the grid
 		leaveStance = false, -- leave the stance buttons where Blizzard or another bar addon puts them (reload)
+		hideStance = false, -- the stance buttons on the console are invisible and click-through (key bindings still work)
 		chatWiden = 0, -- how much the console shrinks to widen the chat area on narrow screens, 0-100 %
 		hideTopBar = false, -- no top bar: Blizzard's micro buttons stand on the minimap block instead
 		clockSpot = false, -- where the time capsule was dragged to with the top bar hidden ({ x, y } in console units from the centre)
@@ -1692,6 +1693,7 @@ local function usage()
 	print("  /rui totems  (what each totem slot reports and how its time is shown)")
 	print("  /rui stance reset  (put the stance buttons back on the wall; drag them in Edit Mode)")
 	print("  /rui stance off||on  (off: leave the stance buttons to Blizzard or your bar addon; needs /reload)")
+	print("  /rui stance hide||show  (hide the stance buttons on the console; their key bindings still work)")
 	print("  /rui repbar on||off  (the watched faction's bar under the experience bar)")
 	print("  /rui tooltips on||off  (tooltips in the theme's frame, like the damage meter)")
 	print("  /rui targetbar on||off||reset  (a movable target health bar: Shift-drag it, or move it in Edit Mode)")
@@ -1779,6 +1781,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "stance" and arg == "reset" and ns.modules.actionbars.enabled then
 		ns.modules.actionbars:ResetStanceSpot()
 		ns:Print("stance buttons back on the wall over the action bars.")
+	elseif cmd == "stance" and (arg == "hide" or arg == "show") and ns.modules.actionbars.enabled then
+		ns.modules.actionbars:SetStanceShown(arg == "show")
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print(arg == "hide" and "stance buttons hidden (their key bindings still work)." or "stance buttons shown.")
 	elseif cmd == "stance" and (arg == "on" or arg == "off") then
 		ns.db.consoleOpts.leaveStance = arg == "off"
 		if ns.modules.config.frame then

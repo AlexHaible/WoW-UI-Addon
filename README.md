@@ -87,6 +87,10 @@ screen stays free on either side).
   casts), in either mode. It is click-through
   until you hold Shift out of combat (or open Edit Mode), then drag it anywhere; its place
   is saved on its own and never touches the Edit Mode layout.
+  "Target of target bar" (or `/rui totbar on`) is the same window for the
+  target's target (no cast bar), moved and saved on its own; it starts to
+  the right of the target bar. "Target bar size" (or `/rui barsize
+  100-200`) makes both bigger, each kept in its place.
 - **Action grid**: action bars 1-3, twelve slots each. These are Blizzard's
   own buttons, moved into the grid and reskinned, so bindings, paging,
   cooldowns and proc glows work as usual. The stance buttons (Paladin auras,
@@ -338,6 +342,8 @@ of your faction. Saved themes from earlier versions keep working.
 /rui repbar on|off               the reputation bar under the experience bar
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
+/rui totbar on|off|reset         the same for the target's target
+/rui barsize 100-200             both bars' size, in %
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui auras reset                 target buffs and debuffs back on the wall after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs on the bottom rows, debuffs after them

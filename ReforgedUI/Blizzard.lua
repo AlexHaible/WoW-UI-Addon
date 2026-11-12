@@ -7,7 +7,7 @@
 -- ActionBars.lua places) stays wherever Edit Mode puts it: moving those from
 -- addon code makes Blizzard's own code fail on "secret" values, and keeps
 -- the player from moving them. Where buffs and the cast bar start out is set
--- in the Edit Mode layout instead (Core.lua).
+-- in the Edit Mode layout instead (EditMode.lua).
 
 local _, ns = ...
 local Blizzard = ns:RegisterModule("blizzard", {})

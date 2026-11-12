@@ -1272,6 +1272,60 @@ do
 	EditModeManagerFrame.IsInitialized = wasInit
 	savedLayouts, ns.db.consoleOpts.editLayout = before, keptSwitched
 	Enum.EditModeLayoutType.Character = nil
+
+	-- Every frame placed in all layouts (ns.EditPlacements) has a name and
+	-- a saved spot of its own: two sharing one would each take the other's
+	-- last place for theirs.
+	local keys, spotKeys = {}, {}
+	for _, p in ipairs(ns.EditPlacements) do
+		assert(type(p.key) == "string" and not keys[p.key], "placement names differ: " .. tostring(p.key))
+		keys[p.key] = true
+		assert(type(p.spot) == "function" and type(p.place) == "function" and type(p.message) == "function",
+			p.key .. " has its spot, place and message")
+		assert(type(p.message(1, setmetatable({}, { __index = function() return 0 end }))) == "string", p.key .. " says what it did")
+		if p.saved then
+			assert(not spotKeys[p.saved], p.key .. " shares its saved spot " .. p.saved)
+			spotKeys[p.saved] = true
+		end
+	end
+	-- And placing settles: at a relog the game hands the layouts back as
+	-- new tables, offsets rounded its own way (a unit either way). Nothing
+	-- is saved then and no reload offered, whichever target display is on.
+	local function handedBack(t, jitter)
+		local out = {}
+		for k, v in pairs(t) do
+			if type(v) == "table" then
+				out[k] = handedBack(v, jitter)
+			elseif (k == "offsetX" or k == "offsetY") and type(v) == "number" then
+				out[k] = v + jitter
+			else
+				out[k] = v
+			end
+		end
+		return out
+	end
+	local settled = savedLayouts
+	local saves, save = 0, C_EditMode.SaveLayouts
+	C_EditMode.SaveLayouts = function(info) saves = saves + 1; save(info) end
+	ns:SetupEditMode()
+	saves, offered = 0, #popups
+	for _, jitter in ipairs({ 0, 1, -1 }) do
+		savedLayouts = handedBack(settled, jitter)
+		ns:SetupEditMode()
+		assert(saves == 0 and #popups == offered,
+			("a relog saves no Edit Mode layout and offers no reload (offsets %+d)"):format(jitter))
+	end
+	-- (The check itself: a frame back in its default place in a layout not
+	-- placed before is placed, and saved.)
+	savedLayouts = handedBack(settled, 0)
+	savedLayouts.layouts[1].layoutName = "Another"
+	savedLayouts.layouts[1].systems[#savedLayouts.layouts[1].systems + 1] = { system = 1, isInDefaultPosition = true }
+	ns.db.consoleOpts.editPlaced["Another"] = nil
+	ns:SetupEditMode()
+	assert(saves == 1 and #popups == offered + 1 and popups[#popups].text:find("cast bar"), "a new layout's cast bar is raised")
+	ns.db.consoleOpts.editPlaced["Another"] = nil
+	C_EditMode.SaveLayouts = save
+	savedLayouts = settled
 end
 assert(ns.themeKey == "orc", "orc race should pick the orc theme")
 for key, mod in pairs(ns.modules) do

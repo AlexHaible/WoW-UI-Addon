@@ -962,14 +962,28 @@ do
 		dy = 100
 		T:CheckAuraSpot()
 		assert(#printed == said + 1 and printed[#printed]:find("/reload"), "icons off in our layout: reload hint")
+		ns:SayOtherEditLayout() -- on our layout: forgets what it said
 		savedLayouts.activeLayout = 3
+		local mine = 'on the "Mine" Edit Mode layout, not "Reforged UI"'
 		T:CheckAuraSpot()
-		assert(printed[#printed]:find('"Mine" is active', 1, true), "icons off in another layout: names it")
+		assert(printed[#printed]:find(mine, 1, true) and printed[#printed]:find("move them yourself", 1, true),
+			"icons off in another layout: names it, and that its frames are the player's to move")
+		said = #printed
+		ns:SayOtherEditLayout()
+		assert(#printed == said, "said once per layout and session")
+		EditModeManagerFrame._hooks.OnHide()
+		flushTimers()
+		assert(#printed == said, "closing Edit Mode on the same layout: nothing new")
 		local offered = #popups
 		T:SetMode("plate")
 		assert(#popups == offered + 1 and popups[#popups].text:find("above the wall plate"),
 			"switching to the plate says the icons move at a reload")
-		assert(printed[#printed]:find('"Mine" is active', 1, true), "and that another layout is active")
+		assert(printed[#printed]:find(mine, 1, true), "and that another layout is active")
+		savedLayouts.activeLayout = 2 + 3
+		said = #printed
+		ns:SayOtherEditLayout()
+		assert(#printed == said, "nothing said on our own layout")
+		savedLayouts.activeLayout = 3
 		local now
 		for _, line in ipairs(T:DescribeAuras()) do
 			now = now or line:find("^now: first icon at %d+,%d+ %(%d+ off%)")

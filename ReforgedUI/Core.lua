@@ -1329,6 +1329,56 @@ local function editModeReady()
 	return not ok or ready
 end
 
+-- The active Edit Mode layout's name (nil: one of Blizzard's presets, or
+-- unknown), and whether our layout exists.
+function ns:ActiveEditLayout()
+	local api = C_EditMode
+	if not (api and api.GetLayouts) then
+		return nil, false
+	end
+	local ok, info = pcall(api.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
+		return nil, false
+	end
+	local ours = false
+	for _, layout in ipairs(info.layouts) do
+		ours = ours or layout.layoutName == ns.EDIT_LAYOUT
+	end
+	if type(info.activeLayout) ~= "number" then
+		return nil, ours
+	end
+	local presets = 2
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		presets = okP and type(list) == "table" and #list or presets
+	end
+	local layout = info.layouts[info.activeLayout - presets]
+	return layout and layout.layoutName or nil, ours
+end
+
+-- With another Edit Mode layout active, Blizzard's frames we place (target
+-- buffs, cast bar, buffs, pet bar...) are where that layout has them: say
+-- so in chat, once per layout and session (`force`: again).
+local saidLayout
+function ns:SayOtherEditLayout(force)
+	local name, ours = self:ActiveEditLayout()
+	if name == ns.EDIT_LAYOUT or not ours then
+		saidLayout = nil
+		return false
+	end
+	local shown = name and ("%q"):format(name) or "a preset"
+	if saidLayout == shown and not force then
+		return true
+	end
+	saidLayout = shown
+	self:Print(("you're on the %s Edit Mode layout, not %q. Reforged UI only places Blizzard's frames (the"
+		.. " target's buffs and debuffs, cast bar, your buffs, pet bar...) in %q, so here they stay where this"
+		.. " layout has them: move them yourself in Edit Mode, or switch back to %q there."):format(
+		shown, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT))
+	return true
+end
+
 -- `why`: what to tell the player should only the target frame move.
 function ns:SetupEditMode(why)
 	local systems = Enum and Enum.EditModeSystem
@@ -1584,6 +1634,21 @@ local function init()
 	ns:On("DISPLAY_SIZE_CHANGED", function() ns:Relayout() end)
 	ns:On("UI_SCALE_CHANGED", function() ns:Relayout() end)
 	ns:On("PLAYER_ENTERING_WORLD", function() ns:Relayout() end)
+	-- Another Edit Mode layout active: said a while after login, and when
+	-- Edit Mode closes (where the player may have switched).
+	local layoutChecked = false
+	ns:On("PLAYER_ENTERING_WORLD", function()
+		if not layoutChecked then
+			layoutChecked = true
+			C_Timer.After(5, function() ns:SayOtherEditLayout() end)
+		end
+	end)
+	local editMode = _G.EditModeManagerFrame
+	if editMode and editMode.HookScript then
+		editMode:HookScript("OnHide", function()
+			C_Timer.After(1, function() ns:SayOtherEditLayout() end)
+		end)
+	end
 	ns.ready = true
 end
 

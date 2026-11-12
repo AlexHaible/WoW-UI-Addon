@@ -181,7 +181,9 @@ layout is made, the raid frame options are turned on too: class colours,
 power bars for every role, debuffs, aggro highlight, incoming heals, main
 tank and assist, health as a percentage. Everything lives in the layout and
 the game's options, so you can change any of it, or pick another layout, in
-Edit Mode. In your other layouts a cast bar still in its default place is
+Edit Mode (on another layout the target frame and the rest stay where that
+layout has them; chat says so after login and when Edit Mode closes). In
+your other layouts a cast bar still in its default place is
 moved above the console too. In every layout the pet bar, while still in its
 default place (over the console), starts just above the stance row on the
 console wall; once you move it in Edit Mode it stays where you put it.

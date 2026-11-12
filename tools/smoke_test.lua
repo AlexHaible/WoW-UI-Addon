@@ -2390,6 +2390,36 @@ assert(ActionButton1._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
 -- The options menu.
 local config = ns.modules.config
+-- Every option has room of its own: no two overlap (two changes made apart
+-- once put a checkbox each on the same spot), and none leaves the menu.
+do
+	local MARGIN = 10 -- the menu's border
+	local function clash(claims)
+		for i, a in ipairs(claims) do
+			if a.x < MARGIN or a.x + a.w > 650 - MARGIN or a.y > -MARGIN or a.y - a.h < MARGIN - config.height then
+				return a.name .. " leaves the menu"
+			end
+			for j = i + 1, #claims do
+				local c = claims[j]
+				if a.x < c.x + c.w and c.x < a.x + a.w and a.y > c.y - c.h and c.y > a.y - a.h then
+					return a.name .. " overlaps " .. c.name
+				end
+			end
+		end
+	end
+	local claims = config.claims
+	assert(#claims >= #config.checks + #config.edits + #config.sliders * 2 + #config.themeButtons, "every option claims its room")
+	assert(ReforgedUIConfig:GetHeight() == config.height and config.height > 0, "the menu is as tall as its rows")
+	local why = clash(claims)
+	assert(not why, "options menu: " .. tostring(why))
+	-- The check itself: an option put on another's spot, or past the edge, is caught.
+	local first = claims[1]
+	claims[#claims + 1] = { name = "copy", x = first.x + 2, y = first.y - 2, w = first.w, h = first.h }
+	assert(clash(claims), "an overlapping option is caught")
+	claims[#claims] = { name = "low", x = 20, y = 5 - config.height, w = 100, h = 24 }
+	assert(clash(claims) == "low leaves the menu", "an option under the menu is caught")
+	claims[#claims] = nil
+end
 -- "Let me move and resize the chat window" lets go of the chat window and
 -- puts the input box back on it; turning it off holds it again.
 do

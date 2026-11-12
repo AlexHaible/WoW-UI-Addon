@@ -9,7 +9,10 @@
 local _, ns = ...
 local Config = ns:RegisterModule("config", {})
 
-local W, H = 650, 646
+-- The menu's width; its height follows its last row (see Build).
+local W = 650
+local ROW = 26 -- from one row of options to the next
+local BOTTOM = 14 -- under the last row
 
 -- Two rows: Alliance races, then Horde races. "Skyborne" picks the
 -- character's faction's Skyborne theme; "Auto" the character's race's theme.
@@ -30,7 +33,37 @@ local function relayout()
 end
 
 ----------------------------------------------------------------------------
+-- Placing options
+--
+-- Options go on rows handed out one after the other, never at a y picked
+-- by hand: a new option takes the next row of its column (or of the list
+-- at the bottom, which the menu grows with), so two changes made apart
+-- can't land on the same spot. Every widget also notes the room it takes
+-- (Config.claims: x and y from the menu's top left, y downwards negative),
+-- and tools/smoke_test.lua fails when two of them overlap or one leaves
+-- the menu.
+
+-- Rows from `y` down: each call returns the next row's y, after `gap`
+-- more room above it; rows.y is where the next one would go.
+local function rows(y)
+	local list = { y = y }
+	return setmetatable(list, { __call = function(_, gap)
+		local at = list.y - (gap or 0)
+		list.y = at - ROW
+		return at
+	end })
+end
+
+function Config:Claim(name, x, y, w, h)
+	if w > 0 and h > 0 then
+		self.claims[#self.claims + 1] = { name = name, x = x, y = y, w = w, h = h }
+	end
+end
+
+----------------------------------------------------------------------------
 -- Widgets
+
+local LABEL_H = 12
 
 local function button(parent, text, w, x, y, onClick)
 	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -38,6 +71,7 @@ local function button(parent, text, w, x, y, onClick)
 	b:SetPoint("TOPLEFT", x, y)
 	b:SetText(text)
 	b:SetScript("OnClick", onClick)
+	Config:Claim("button " .. text, x, y, w, 22)
 	return b
 end
 
@@ -46,6 +80,7 @@ local function label(parent, text, x, y, template)
 	fs:SetPoint("TOPLEFT", x, y)
 	fs:SetJustifyH("LEFT")
 	fs:SetText(text)
+	Config:Claim("label " .. text, x, y, fs:GetStringWidth() or 0, LABEL_H)
 	return fs
 end
 
@@ -59,6 +94,7 @@ function Config:Check(text, key, x, y, after)
 	fs:SetPoint("LEFT", cb, "RIGHT", 2, 0)
 	fs:SetText(text)
 	cb.label = fs
+	self:Claim("checkbox " .. text, x, y, 26 + (fs:GetStringWidth() or 0), 24)
 	cb:SetScript("OnClick", function(b)
 		if key then
 			ns.db.consoleOpts[key] = b:GetChecked() and true or false
@@ -79,6 +115,7 @@ function Config:Edit(text, key, x, y, w)
 	local eb = CreateFrame("EditBox", nil, self.frame, "InputBoxTemplate")
 	eb:SetSize(w or 60, 20)
 	eb:SetPoint("TOPLEFT", x + 6, y - 16)
+	self:Claim("box " .. key, x + 6, y - 16, w or 60, 20)
 	eb:SetAutoFocus(false)
 	eb:SetScript("OnEnterPressed", function(e)
 		e:ClearFocus()
@@ -103,6 +140,7 @@ function Config:Slider(text, key, lo, hi, x, y, w, after, unit)
 	s:SetOrientation("HORIZONTAL")
 	s:SetSize(w, 17)
 	s:SetPoint("TOPLEFT", x + 170, y + 1)
+	self:Claim("slider " .. key, x + 170, y + 1, w, 17)
 	s:SetBackdrop({
 		bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
 		edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
@@ -138,7 +176,7 @@ end
 
 function Config:Build()
 	local f = CreateFrame("Frame", "ReforgedUIConfig", UIParent, "BackdropTemplate")
-	f:SetSize(W, H)
+	f:SetWidth(W) -- its height is set below, once the rows are counted
 	f:SetPoint("LEFT", 200, 0)
 	f:SetFrameStrata("DIALOG")
 	f:SetBackdrop({
@@ -161,7 +199,7 @@ function Config:Build()
 	f:Hide()
 	tinsert(UISpecialFrames, "ReforgedUIConfig")
 	self.frame = f
-	self.checks, self.edits, self.sliders = {}, {}, {}
+	self.checks, self.edits, self.sliders, self.claims = {}, {}, {}, {}
 
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -4, -4)
@@ -181,28 +219,25 @@ function Config:Build()
 	end
 
 	-- Checkboxes, left column.
-	local x, y = 20, -104
-	local function nextY()
-		y = y - 26
-		return y + 26
-	end
-	self:Check("Hide actionbar grid texture", "hideGrid", x, nextY(), relayout)
-	self:Check("Show HP as %", "healthPercent", x, nextY(), function() ns.modules.hero:Update() end)
-	self:Check("Show power as %", "powerPercent", x, nextY(), function() ns.modules.hero:Update() end)
-	self:Check("Hide chat icons (reload)", "hideChatIcons", x, nextY())
-	self:Check("Stop portrait animation (reload)", "stopAnimation", x, nextY())
-	self:Check("Chat input above chat", "chatInputAbove", x, nextY(), relayout)
-	self.zoneButton = button(f, ZONE_TEXT[1], 180, x, y - 6, function()
+	local x, left = 20, rows(-104)
+	self:Check("Hide actionbar grid texture", "hideGrid", x, left(), relayout)
+	self:Check("Show HP as %", "healthPercent", x, left(), function() ns.modules.hero:Update() end)
+	self:Check("Show power as %", "powerPercent", x, left(), function() ns.modules.hero:Update() end)
+	self:Check("Hide chat icons (reload)", "hideChatIcons", x, left())
+	self:Check("Stop portrait animation (reload)", "stopAnimation", x, left())
+	self:Check("Chat input above chat", "chatInputAbove", x, left(), relayout)
+	self.zoneButton = button(f, ZONE_TEXT[1], 180, x, left(6), function()
 		ns.db.consoleOpts.zoneText = (ns.db.consoleOpts.zoneText or 1) % 3 + 1
 		relayout()
 		self:Refresh()
 	end)
 
 	-- Target display: on the hero screen (Warcraft III) or a plate on the wall.
-	label(f, "Target display", x, -306)
+	local y = left(14)
+	label(f, "Target display", x, y)
 	self.targetButtons = {}
 	for i, spec in ipairs({ { "swap", "Swap" }, { "plate", "Wall plate" } }) do
-		local b = button(f, spec[2], 90, x + 112 + (i - 1) * 94, -302, function()
+		local b = button(f, spec[2], 90, x + 112 + (i - 1) * 94, y + 4, function()
 			ns.modules.target:SetMode(spec[1])
 			self:Refresh()
 		end)
@@ -211,7 +246,7 @@ function Config:Build()
 	end
 
 	-- Bars 1-3 on their own Edit Mode bars instead of in the grid.
-	self:Check("Let Edit Mode place action bars 1-3", "editModeBars", x, -336, function(on)
+	self:Check("Let Edit Mode place action bars 1-3", "editModeBars", x, left(4), function(on)
 		ns.db.consoleOpts.barsPlaced = false
 		if on then
 			ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
@@ -221,7 +256,7 @@ function Config:Build()
 	end)
 
 	-- The chat window: held in the chat area, or free to move and resize.
-	self:Check("Let me move and resize the chat window", "freeChat", x, -362, function(on)
+	self:Check("Let me move and resize the chat window", "freeChat", x, left(), function(on)
 		ns.db.consoleOpts.chatPlaced = false
 		relayout()
 		if not on then
@@ -230,7 +265,9 @@ function Config:Build()
 		ns:Print("the chat window is yours to move and resize: unlock it from its tab's menu, or use Edit Mode.")
 	end)
 
-	-- Number boxes, right column.
+	-- Number boxes, right column: the original addon's, each with its
+	-- label above it, so they keep their own spacing down to the rows the
+	-- two columns share at the end.
 	x, y = 340, -108
 	self:Edit("UI scale (240-270)", "uiScale", x, y)
 	-- The game's tooltips in the theme's frame, like the damage meter.
@@ -268,10 +305,12 @@ function Config:Build()
 
 	-- The four stat icons on the hero screen (this class's choice); the
 	-- same menu opens when they are right-clicked on the console.
-	label(f, "Stat icons (this class)", x, -318)
+	local right = rows(-318)
+	label(f, "Stat icons (this class)", x, right())
 	self.iconButtons = {}
+	y = right(-8)
 	for i = 1, 4 do
-		local b = button(f, "", 72, x + (i - 1) * 73, -336, nil)
+		local b = button(f, "", 72, x + (i - 1) * 73, y, nil)
 		b:SetScript("OnClick", function(owner) ns.modules.hero:OpenIconMenu(i, owner) end)
 		b.index = i
 		self.iconButtons[i] = b
@@ -279,13 +318,15 @@ function Config:Build()
 
 	-- Free-standing target and target of target windows, to put anywhere
 	-- (Shift-drag, or in Edit Mode).
-	self.targetBarCheck = self:Check("Target bar", "targetBar", x, -362, function(on)
+	y = right()
+	assert(right.y == left.y, "the two columns end on the same row")
+	self.targetBarCheck = self:Check("Target bar", "targetBar", x, y, function(on)
 		ns.modules.target:SetBarEnabled(on)
 		if on then
 			ns:Print("target bar on: hold Shift and drag it where you want it, or move it in Edit Mode.")
 		end
 	end)
-	self.totBarCheck = self:Check("Target of target bar", "totBar", x + 100, -362, function(on)
+	self.totBarCheck = self:Check("Target of target bar", "totBar", x + 100, y, function(on)
 		local target = ns.modules.target
 		target:SetBarEnabled(on, target.totBar)
 		if on then
@@ -294,10 +335,14 @@ function Config:Build()
 	end)
 
 	label(f, "Right-click a stat icon on the console to change it too, or the experience bar for its rested colour.",
-		20, -388, "GameFontNormalSmall")
+		20, left.y, "GameFontNormalSmall")
+
+	-- The list at the bottom, over the menu's whole width: new options
+	-- go at its end, each on list() (several can share a row, side by side).
+	local list = rows(left.y - 30)
 
 	-- See-through console art (buttons, icons and text stay opaque).
-	self:Slider("Console transparency", "transparency", 0, 100, 20, -418, 300, function()
+	self:Slider("Console transparency", "transparency", 0, 100, 20, list(), 300, function()
 		ns.modules.console:ApplyTransparency()
 	end)
 
@@ -307,21 +352,21 @@ function Config:Build()
 	local function placeEditMode()
 		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
 	end
-	local chat = self:Slider("Chat width", "chatWiden", 0, 100, 20, -444, 300, relayout)
+	local chat = self:Slider("Chat width", "chatWiden", 0, 100, 20, list(), 300, relayout)
 	chat:SetScript("OnMouseUp", placeEditMode)
 	-- The original addon's "Extend bottom right upwards": raises the chat
 	-- area (and the cast bar above it, when let go), in console units.
-	local height = self:Slider("Chat height", "chatUp", 0, 150, 20, -470, 300, relayout, "")
+	local height = self:Slider("Chat height", "chatUp", 0, 150, 20, list(), 300, relayout, "")
 	height:SetScript("OnMouseUp", placeEditMode)
 	-- A smaller console and top bar; Edit Mode's places follow when let go.
-	local size = self:Slider("UI size", "uiSize", ns.UI_SIZE_MIN, ns.UI_SIZE_MAX, 20, -496, 300, relayout)
+	local size = self:Slider("UI size", "uiSize", ns.UI_SIZE_MIN, ns.UI_SIZE_MAX, 20, list(), 300, relayout)
 	size:SetScript("OnMouseUp", placeEditMode)
 	-- Bigger target buff and debuff icons on the wall: Edit Mode's Frame
 	-- Size for the target frame (its icons are all we leave of it), in
 	-- steps of 5 %, placed when let go. Until moved it stays unset, and Edit
 	-- Mode's own size is kept.
 	local auras = self:Slider("Target aura size", "targetAuraSize", ns.TARGET_AURA_SIZE_MIN,
-		ns.TARGET_AURA_SIZE_MAX, 20, -522, 300)
+		ns.TARGET_AURA_SIZE_MAX, 20, list(), 300)
 	auras:SetValueStep(5)
 	auras.default = ns.TARGET_AURA_SIZE_MIN
 	local function placeAuras()
@@ -334,28 +379,32 @@ function Config:Build()
 		placeAuras()
 	end)
 	-- Bigger target and target of target bars.
-	self:Slider("Target bar size", "targetBarSize", ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX, 20, -548, 300,
+	self:Slider("Target bar size", "targetBarSize", ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX, 20, list(), 300,
 		function(v) ns.modules.target:SetBarSize(v) end)
 	-- Under it, beside the buttons: the target's buffs on the bottom rows,
 	-- nearest its portrait, and its debuffs after them (the game puts a
-	-- hostile target's debuffs first).
-	self:Check("Target buffs first", "targetBuffsFirst", 290, -579, function(on)
+	-- hostile target's debuffs first). (A checkbox is two taller than a
+	-- button, hence the one up.)
+	y = list(6)
+	button(f, "Apply", 120, 20, y, function() self:Apply() end)
+	button(f, "Reload UI", 120, 150, y, ReloadUI)
+	self:Check("Target buffs first", "targetBuffsFirst", 290, y + 1, function(on)
 		ns.modules.target:SetBuffsFirst(on)
 	end)
-
-	button(f, "Apply", 120, 20, -580, function() self:Apply() end)
-	button(f, "Reload UI", 120, 150, -580, ReloadUI)
-	-- Stance buttons left to Blizzard's stance bar or another bar addon
-	-- (moving them on the console is done in Edit Mode).
-	-- (on the row under "Target buffs first": the two shared one spot.)
-	-- Or hidden altogether (their key bindings still work), left of it.
-	self:Check("Hide stance buttons", "hideStance", 20, -605, function(on)
+	-- Stance buttons hidden altogether (their key bindings still work),
+	-- or left to Blizzard's stance bar or another bar addon (moving them
+	-- on the console is done in Edit Mode).
+	y = list() + 1
+	self:Check("Hide stance buttons", "hideStance", 20, y, function(on)
 		ns.modules.actionbars:SetStanceShown(not on)
 	end)
-	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, -605, function(on)
+	self:Check("Leave stance buttons to my bar addon", "leaveStance", 290, y, function(on)
 		ns:AskReload(on and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")
 	end)
+
+	self.height = BOTTOM - list.y
+	f:SetHeight(self.height)
 end
 
 -- Reads the number boxes into the settings (clamped to the original addon's ranges).

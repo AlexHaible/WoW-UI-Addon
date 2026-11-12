@@ -250,11 +250,7 @@ function ActionBars:OnEnable()
 
 	if next(self.rows.stance) then
 		self.stanceHolder = self:MakeStanceHolder()
-		local editMode = _G.EditModeManagerFrame
-		if editMode and editMode.HookScript then
-			editMode:HookScript("OnShow", function() self:SetEditing(true) end)
-			editMode:HookScript("OnHide", function() self:SetEditing(false) end)
-		end
+		ns:OnEditMode(function(open) self:SetEditing(open) end)
 		ns:On("UPDATE_SHAPESHIFT_FORMS", function()
 			if self.editing then
 				self:PlaceStanceHolder()
@@ -399,7 +395,6 @@ end
 function ActionBars:MakeStanceHolder()
 	local h = CreateFrame("Frame", "ReforgedUIStance", ns.root)
 	h:SetFrameStrata("HIGH")
-	h:SetMovable(true)
 	h:SetClampedToScreen(true)
 	h:EnableMouse(false)
 	h.fill = h:CreateTexture(nil, "BACKGROUND")
@@ -411,16 +406,16 @@ function ActionBars:MakeStanceHolder()
 	end
 	h.label:SetPoint("CENTER")
 	h.label:SetText("Stance bar")
-	h:RegisterForDrag("LeftButton")
-	h:SetScript("OnDragStart", function() self:StartStanceDrag() end)
-	h:SetScript("OnDragStop", function() self:StopStanceDrag() end)
+	ns:MakeDraggable(h, function() self:SaveStanceSpot() end, function()
+		return self.editing and not InCombatLockdown() and self.layout and true or false
+	end)
 	h:Hide()
 	return h
 end
 
 function ActionBars:PlaceStanceHolder()
 	local h = self.stanceHolder
-	if not (h and self.layout) or self.moving then
+	if not (h and self.layout) or h.dragging then
 		return
 	end
 	local r = self:StanceSpot()
@@ -437,7 +432,7 @@ function ActionBars:SetEditing(on)
 	if show then
 		self:PlaceStanceHolder()
 	else
-		self:StopStanceDrag()
+		ns:StopDrag(h)
 	end
 	h:SetShown(show and true or false)
 	h:EnableMouse(show and true or false)
@@ -484,23 +479,9 @@ function ActionBars:SetStanceShown(on)
 	self:ApplyStanceShown()
 end
 
-function ActionBars:StartStanceDrag()
-	if self.editing and not InCombatLockdown() and self.layout then
-		self.moving = true
-		self.stanceHolder:StartMoving()
-	end
-end
-
-function ActionBars:StopStanceDrag()
-	if not self.moving then
-		return
-	end
-	self.moving = false
+-- After a drag: the row's corner in console units, kept per account.
+function ActionBars:SaveStanceSpot()
 	local h, root = self.stanceHolder, ns.root
-	h:StopMovingOrSizing()
-	if h.SetUserPlaced then
-		h:SetUserPlaced(false) -- ours to save, not the client's layout cache
-	end
 	local x, y = h:GetLeft(), h:GetBottom()
 	local rx, ry = root:GetLeft(), root:GetBottom()
 	if x and y and rx and ry then

@@ -206,6 +206,76 @@ local function forbidden(frame)
 end
 ns.IsForbidden = forbidden
 
+----------------------------------------------------------------------------
+-- Frames of ours the player moves
+--
+-- The target bars, the pet's icon, the totem and stance rows and the time
+-- capsule are dragged with Shift or while Edit Mode is open, and each keeps
+-- its own spot. What they share is here, so a drag always ends the same
+-- way: the frame let go of, its place left to us to save (not to the
+-- client's own layout cache), then saved.
+
+-- Starts dragging `frame`.
+function ns:StartDrag(frame)
+	frame.dragging = true
+	frame:StartMoving()
+end
+
+-- Ends a drag of `frame`, also one cut short (the frame hidden or Edit
+-- Mode closed under the mouse: without this it would never let go), and
+-- saves its place with its onDrop. True if it was being dragged.
+function ns:StopDrag(frame)
+	if not frame.dragging then
+		return false
+	end
+	frame.dragging = nil
+	frame:StopMovingOrSizing()
+	if frame.SetUserPlaced then
+		frame:SetUserPlaced(false) -- ours to save, not the client's layout cache
+	end
+	if frame.onDrop then
+		frame.onDrop(frame)
+	end
+	return true
+end
+
+-- Lets the left button drag `frame`, while `canMove()` says so (always,
+-- without one: the frame then only takes the mouse while it may move);
+-- `onDrop(frame)` saves where it was let go.
+function ns:MakeDraggable(frame, onDrop, canMove)
+	frame.onDrop = onDrop
+	frame:SetMovable(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", function(f)
+		if not canMove or canMove() then
+			self:StartDrag(f)
+		end
+	end)
+	frame:SetScript("OnDragStop", function(f) self:StopDrag(f) end)
+end
+
+-- Calls fn(open) when Edit Mode opens (true) and closes (false).
+local editModeListeners
+function ns:OnEditMode(fn)
+	if not editModeListeners then
+		editModeListeners = {}
+		local function tell(open)
+			for _, listener in ipairs(editModeListeners) do
+				local ok, err = pcall(listener, open)
+				if not ok then
+					geterrorhandler()(err)
+				end
+			end
+		end
+		local editMode = _G.EditModeManagerFrame
+		if editMode and editMode.HookScript then
+			editMode:HookScript("OnShow", function() tell(true) end)
+			editMode:HookScript("OnHide", function() tell(false) end)
+		end
+	end
+	editModeListeners[#editModeListeners + 1] = fn
+end
+
 local concealed = setmetatable({}, { __mode = "k" })
 
 local function noMouse(frame, depth)

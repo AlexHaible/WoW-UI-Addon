@@ -1159,9 +1159,7 @@ function Target:MakeUnitBar(spec)
 	f:SetFrameStrata("HIGH")
 	f:SetSize(BAR_W, BAR_NAME_H + BAR_HEALTH_H + BAR_POWER_H + 12)
 	f:SetClampedToScreen(true)
-	f:SetMovable(true)
 	f:EnableMouse(false)
-	f:RegisterForDrag("LeftButton")
 	if f.SetBackdrop then
 		f:SetBackdrop({
 			bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -1207,22 +1205,12 @@ function Target:MakeUnitBar(spec)
 	v.highlight:SetColorTexture(0.25, 0.55, 1, 0.3)
 	v.highlight:Hide()
 
-	f:SetScript("OnDragStart", function(frame)
-		frame.dragging = true
-		frame:StartMoving()
-	end)
-	f:SetScript("OnDragStop", function(frame)
-		frame.dragging = nil
-		frame:StopMovingOrSizing()
-		self:SaveBarSpot(v)
-	end)
+	-- Dragged whenever the mouse reaches it (see UpdateBarMouse).
+	ns:MakeDraggable(f, function() self:SaveBarSpot(v) end)
 	-- Hidden mid-drag (Edit Mode closed, the target lost): end the drag here,
 	-- or it would never let go of the mouse.
 	f:SetScript("OnHide", function(frame)
-		if frame.dragging then
-			frame.dragging = nil
-			frame:StopMovingOrSizing()
-			self:SaveBarSpot(v)
+		if ns:StopDrag(frame) then
 			self:UpdateBarMouse()
 		end
 	end)
@@ -1269,11 +1257,7 @@ function Target:CreateBar()
 		end
 	end)
 	-- Shown and movable while Edit Mode is open, target or not.
-	local editMode = _G.EditModeManagerFrame
-	if editMode and editMode.HookScript then
-		editMode:HookScript("OnShow", function() self:SetBarEditing(true) end)
-		editMode:HookScript("OnHide", function() self:SetBarEditing(false) end)
-	end
+	ns:OnEditMode(function(open) self:SetBarEditing(open) end)
 	self:ApplyBarSize()
 end
 

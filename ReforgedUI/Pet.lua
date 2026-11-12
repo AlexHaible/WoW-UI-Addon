@@ -159,25 +159,9 @@ function Pet:Create()
 	b:HookScript("OnShow", function() self:Update() end)
 
 	-- Shift-drag moves it, out of combat (it is a secure button).
-	b:SetMovable(true)
 	b:SetClampedToScreen(true)
-	b:RegisterForDrag("LeftButton")
-	b:SetScript("OnDragStart", function(f)
-		if IsShiftKeyDown() and not InCombatLockdown() then
-			f.moving = true
-			f:StartMoving()
-		end
-	end)
-	b:SetScript("OnDragStop", function(f)
-		if not f.moving then
-			return
-		end
-		f.moving = false
-		f:StopMovingOrSizing()
-		if f.SetUserPlaced then
-			f:SetUserPlaced(false)
-		end
-		self:SaveSpot()
+	ns:MakeDraggable(b, function() self:SaveSpot() end, function()
+		return IsShiftKeyDown() and not InCombatLockdown()
 	end)
 
 	b.name = b:CreateFontString(nil, "OVERLAY")

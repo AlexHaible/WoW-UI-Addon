@@ -127,7 +127,6 @@ local function makeHolder()
 	local h = CreateFrame("Frame", "ReforgedUITotems", ns.root)
 	h:SetFrameStrata("MEDIUM")
 	h:SetFrameLevel(9)
-	h:SetMovable(true)
 	h:SetClampedToScreen(true)
 	h:EnableMouse(false)
 	local outline = CreateFrame("Frame", nil, h)
@@ -144,9 +143,7 @@ local function makeHolder()
 	outline.label:SetText("Totems")
 	outline:Hide()
 	h.outline = outline
-	h:RegisterForDrag("LeftButton")
-	h:SetScript("OnDragStart", function() Totems:StartDrag(true) end)
-	h:SetScript("OnDragStop", function() Totems:StopDrag() end)
+	ns:MakeDraggable(h, function() Totems:SaveSpot() end, function() return Totems:CanDrag(true) end)
 	return h
 end
 
@@ -164,11 +161,7 @@ function Totems:OnEnable()
 		end
 		self.buttons[i] = makeButton(self.holder, i, slot)
 	end
-	local editMode = _G.EditModeManagerFrame
-	if editMode and editMode.HookScript then
-		editMode:HookScript("OnShow", function() self:SetEditing(true) end)
-		editMode:HookScript("OnHide", function() self:SetEditing(false) end)
-	end
+	ns:OnEditMode(function(open) self:SetEditing(open) end)
 	for _, e in ipairs({ "PLAYER_TOTEM_UPDATE", "PLAYER_ENTERING_WORLD" }) do
 		ns:On(e, function() self:Update() end)
 	end
@@ -400,24 +393,19 @@ end
 
 -- Dragging: with Shift (or in Edit Mode), out of combat; protected frames
 -- can't move in combat.
+function Totems:CanDrag(allowed)
+	return (allowed or self.editing) and not InCombatLockdown() and self.layout and true or false
+end
+
+-- (A drag of one of the buttons moves the whole row.)
 function Totems:StartDrag(allowed)
-	if (allowed or self.editing) and not InCombatLockdown() and self.layout then
-		self.moving = true
-		self.holder:StartMoving()
+	if self:CanDrag(allowed) then
+		ns:StartDrag(self.holder)
 	end
 end
 
 function Totems:StopDrag()
-	if not self.moving then
-		return
-	end
-	self.moving = false
-	local h = self.holder
-	h:StopMovingOrSizing()
-	if h.SetUserPlaced then
-		h:SetUserPlaced(false) -- ours to save, not the client's layout cache
-	end
-	self:SaveSpot()
+	ns:StopDrag(self.holder)
 end
 
 -- After a drag: the row's corner in console units, kept per account.

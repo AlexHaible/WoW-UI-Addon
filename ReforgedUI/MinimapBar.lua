@@ -126,6 +126,14 @@ local function updateCooldown(b)
 	end
 end
 
+-- Cooldown numbers follow the game's "Show cooldown numbers" option
+-- (countdownForCooldowns), as on Blizzard's buttons; CooldownFrameTemplate
+-- would show them always.
+local function updateCountdown(b)
+	local show = GetCVarBool and GetCVarBool("countdownForCooldowns") or false
+	b.cooldown:SetHideCountdownNumbers(not show)
+end
+
 local function updateCount(b)
 	local slot = b.slot
 	local text = ""
@@ -330,6 +338,14 @@ function MinimapBar:OnEnable()
 		end)
 	end
 
+	ns:On("CVAR_UPDATE", function(_, name)
+		if type(name) == "string" and name:lower() == "countdownforcooldowns" then
+			for _, b in ipairs(self.buttons) do
+				updateCountdown(b)
+			end
+		end
+	end)
+
 	ns:On("PLAYER_ENTERING_WORLD", function()
 		-- Whether the addon turned Action Bar 8 on in an earlier session
 		-- (read before this session's EnableBars runs).
@@ -350,12 +366,27 @@ function MinimapBar:UpdateAll()
 	end
 end
 
+-- Built at an action button's own size and scaled down onto the slot, like
+-- the grid's buttons (ActionBars.lua), so the key, count and cooldown text
+-- come out at the same size as theirs.
+local BUTTON_SIZE = 45
+local function placeButton(b, r)
+	local scale = r.w / BUTTON_SIZE
+	b:SetSize(BUTTON_SIZE, BUTTON_SIZE)
+	b:SetScale(scale)
+	b:ClearAllPoints()
+	b:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x / scale, r.y / scale)
+end
+
 function MinimapBar:OnLayout(L)
 	ns:RunOutOfCombat("minimap-bar", function()
 		for i, b in ipairs(self.buttons) do
-			ns.modules.console.Place(b, L.minimapSlots[i])
+			placeButton(b, L.minimapSlots[i])
 		end
 	end)
+	for _, b in ipairs(self.buttons) do
+		updateCountdown(b)
+	end
 	self:UpdateAll()
 end
 

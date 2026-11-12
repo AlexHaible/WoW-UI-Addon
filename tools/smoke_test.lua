@@ -1740,9 +1740,9 @@ end
 -- (109-111; a druid would get 133-135), over the slots beside the minimap.
 for i = 1, 3 do
 	local r, b = L.minimapSlots[i], _G["ReforgedUIMinimapButton" .. i]
-	local p = b._points[1]
-	assert(b._kind == "secure" and p[2] == ns.root and math.abs(p[4] - r.x) < 0.01 and math.abs(p[5] - r.y) < 0.01
-		and math.abs(b._w - r.w) < 0.01, "minimap slot " .. i .. " placed")
+	local p, sc = b._points[1], b._scale
+	assert(b._kind == "secure" and p[2] == ns.root and math.abs(p[4] * sc - r.x) < 0.01 and math.abs(p[5] * sc - r.y) < 0.01
+		and b._w == 45 and math.abs(b._w * sc - r.w) < 0.01, "minimap slot " .. i .. " placed")
 	assert(b:GetAttribute("type") == "action" and b:GetAttribute("action") == 108 + i, "minimap slot " .. i .. " action")
 end
 do
@@ -1853,6 +1853,20 @@ do
 	assert(not (b.icon._vertex and b.icon._vertex[2] < 0.5 and b.icon._vertex[1] > 0.5), "out of range: icon not tinted red")
 	fire("ACTION_RANGE_CHECK_UPDATE", 110, false, false)
 	assert(b.hotkey._textColor[2] > 0.2 and (normal == nil or b.hotkey._textColor[1] == normal), "no target: key colour back")
+end
+-- Cooldown numbers follow the game's option.
+do
+	local mb, b = ns.modules.minimapbar, ReforgedUIMinimapButton1
+	local hidden
+	function b.cooldown:SetHideCountdownNumbers(h) hidden = h end
+	local cvarOn = false
+	GetCVarBool = function(name) return name == "countdownForCooldowns" and cvarOn end
+	fire("CVAR_UPDATE", "countdownForCooldowns")
+	assert(hidden == true, "cooldown numbers hidden while the option is off")
+	cvarOn = true
+	fire("CVAR_UPDATE", "countdownForCooldowns")
+	assert(hidden == false, "cooldown numbers shown with the option on")
+	GetCVarBool = nil
 end
 assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"], "moved once per character")
 actions[171] = "Earth Shock"

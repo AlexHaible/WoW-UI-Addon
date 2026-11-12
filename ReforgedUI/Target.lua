@@ -47,7 +47,7 @@ local CLASSIFICATION = {
 }
 
 local isSecret = issecretvalue or function() return false end
-local activeLayoutName -- below, with the aura spot checks
+local activeLayoutName -- below, with the aura spot checks (ns:ActiveEditLayout)
 
 local function font(fs, size)
 	if not ns:SetFont(fs, size) then
@@ -358,11 +358,18 @@ function Target:SetMode(mode)
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
 	-- Blizzard's aura icons follow, through the Edit Mode layout, which the
 	-- game only takes in at a reload; and only in our layout.
+	-- A frame the player placed in Edit Mode was placed for the other
+	-- display: it comes along too (they can move it again).
+	local placed = ns.db.consoleOpts.targetAuraOwn
+	ns.db.consoleOpts.targetAuraOwn, ns.db.consoleOpts.targetAuraLast = nil, nil
+	if placed then
+		ns:Print("the target frame you moved in Edit Mode goes with the target display; move it again there if you like.")
+	end
 	ns:RunOutOfCombat("target-auras", function()
 		ns:SetupEditMode(("the target's buffs and debuffs move %s once the UI reloads."):format(self:AuraSpotName()))
 		local name = activeLayoutName()
 		if name ~= ns.EDIT_LAYOUT then
-			self:SayOtherLayout(name)
+			self:SayOtherLayout()
 		end
 	end)
 	self:Refresh()
@@ -374,31 +381,13 @@ function Target:AuraSpotName()
 		or "beside the target of target"
 end
 
--- The name of the active Edit Mode layout (nil: one of Blizzard's presets,
--- or unknown).
 activeLayoutName = function()
-	local api = C_EditMode
-	if not (api and api.GetLayouts) then
-		return nil
-	end
-	local ok, info = pcall(api.GetLayouts)
-	if not ok or type(info) ~= "table" or type(info.activeLayout) ~= "number" then
-		return nil
-	end
-	local presets = 2
-	local manager = _G.EditModePresetLayoutManager
-	if manager and manager.GetCopyOfPresetLayouts then
-		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
-		presets = okP and type(list) == "table" and #list or presets
-	end
-	local layout = (info.layouts or {})[info.activeLayout - presets]
-	return layout and layout.layoutName or nil
+	return (ns:ActiveEditLayout())
 end
 
-function Target:SayOtherLayout(name)
-	ns:Print(("the target's buffs and debuffs are Blizzard's own and only go %s in the %q Edit Mode layout;"
-		.. " %s is active. Pick %q in Edit Mode, or move the target frame there yourself."):format(
-		self:AuraSpotName(), ns.EDIT_LAYOUT, name and ("%q"):format(name) or "a preset layout", ns.EDIT_LAYOUT))
+-- Another Edit Mode layout is active: our places don't apply there.
+function Target:SayOtherLayout()
+	ns:SayOtherEditLayout(true)
 end
 
 -- Where Blizzard's target frame puts its first aura icon now, in UI units
@@ -437,7 +426,7 @@ function Target:CheckAuraSpot()
 	end
 	local name = activeLayoutName()
 	if name ~= ns.EDIT_LAYOUT then
-		self:SayOtherLayout(name)
+		ns:SayOtherEditLayout()
 	else
 		ns:Print(("the target's buffs and debuffs are not %s yet: Blizzard's target frame is %.0f away from its"
 			.. " place in the %q Edit Mode layout. /reload should put it there."):format(

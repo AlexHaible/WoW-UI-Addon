@@ -69,7 +69,8 @@ screen stays free on either side).
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
   Move the Target Frame in Edit Mode and the icons stay where you put them
-  (the size option still applies); `/rui auras reset` puts them back.
+  (the size option still applies); a target display switch or `/rui auras
+  reset` puts them back in that display's place.
   The game puts a hostile target's debuffs on the bottom rows and its buffs
   above them; "Target buffs first" (or `/rui buffsfirst on`) puts the buffs
   on the bottom rows, on the portrait, and the debuffs after them, for every
@@ -180,7 +181,9 @@ layout is made, the raid frame options are turned on too: class colours,
 power bars for every role, debuffs, aggro highlight, incoming heals, main
 tank and assist, health as a percentage. Everything lives in the layout and
 the game's options, so you can change any of it, or pick another layout, in
-Edit Mode. In your other layouts a cast bar still in its default place is
+Edit Mode (on another layout the target frame and the rest stay where that
+layout has them; chat says so after login and when Edit Mode closes). In
+your other layouts a cast bar still in its default place is
 moved above the console too. In every layout the pet bar, while still in its
 default place (over the console), starts just above the stance row on the
 console wall; once you move it in Edit Mode it stays where you put it.

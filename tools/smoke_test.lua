@@ -962,14 +962,28 @@ do
 		dy = 100
 		T:CheckAuraSpot()
 		assert(#printed == said + 1 and printed[#printed]:find("/reload"), "icons off in our layout: reload hint")
+		ns:SayOtherEditLayout() -- on our layout: forgets what it said
 		savedLayouts.activeLayout = 3
+		local mine = 'on the "Mine" Edit Mode layout, not "Reforged UI"'
 		T:CheckAuraSpot()
-		assert(printed[#printed]:find('"Mine" is active', 1, true), "icons off in another layout: names it")
+		assert(printed[#printed]:find(mine, 1, true) and printed[#printed]:find("move them yourself", 1, true),
+			"icons off in another layout: names it, and that its frames are the player's to move")
+		said = #printed
+		ns:SayOtherEditLayout()
+		assert(#printed == said, "said once per layout and session")
+		EditModeManagerFrame._hooks.OnHide()
+		flushTimers()
+		assert(#printed == said, "closing Edit Mode on the same layout: nothing new")
 		local offered = #popups
 		T:SetMode("plate")
 		assert(#popups == offered + 1 and popups[#popups].text:find("above the wall plate"),
 			"switching to the plate says the icons move at a reload")
-		assert(printed[#printed]:find('"Mine" is active', 1, true), "and that another layout is active")
+		assert(printed[#printed]:find(mine, 1, true), "and that another layout is active")
+		savedLayouts.activeLayout = 2 + 3
+		said = #printed
+		ns:SayOtherEditLayout()
+		assert(#printed == said, "nothing said on our own layout")
+		savedLayouts.activeLayout = 3
 		local now
 		for _, line in ipairs(T:DescribeAuras()) do
 			now = now or line:find("^now: first icon at %d+,%d+ %(%d+ off%)")
@@ -1043,6 +1057,16 @@ do
 		ns:SetupEditMode()
 		assert(not ns.db.consoleOpts.targetAuraOwn, "an earlier place of ours is not the player's")
 		placedAt(100)
+		-- Re-anchored by a click in Edit Mode (another point, a few units
+		-- off) without being moved: still ours.
+		local oldW, oldH, oldTS = TargetFrame._w, TargetFrame._h, TargetFrame._scale
+		TargetFrame._w, TargetFrame._h, TargetFrame._scale = 200, 80, 1
+		local here = tf.anchorInfo
+		tf.anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+			offsetX = here.offsetX + 100 + 3, offsetY = here.offsetY - 40 - 2 }
+		ns:SetupEditMode()
+		assert(not ns.db.consoleOpts.targetAuraOwn, "a target frame re-anchored in place is still ours")
+		placedAt(100)
 		-- Moved in Edit Mode: the player's from then on (size still applies),
 		-- until /rui auras reset.
 		tf.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
@@ -1051,20 +1075,37 @@ do
 		ns:SetupEditMode()
 		assert(ns.db.consoleOpts.targetAuraOwn and tf.anchorInfo.offsetX == 700 and #popups == offered,
 			"a target frame moved in Edit Mode stays put")
-		ns.modules.target:SetMode("plate")
-		assert(tf.anchorInfo.offsetX == 700, "even across a target mode change")
-		ns.modules.target:SetMode("swap")
 		local said = #printed
 		ns.modules.target:CheckAuraSpot()
 		assert(#printed == said, "no login hint for a frame the player placed")
 		SlashCmdList.REFORGEDUI("aurasize 125")
 		assert(frameSize() == 5 and tf.anchorInfo.offsetX == 700, "the size still applies where the player put it")
 		SlashCmdList.REFORGEDUI("aurasize 100")
+		-- A target display switch takes a frame the player placed along: it
+		-- was placed for the other display.
+		local before = #printed
+		ns.modules.target:SetMode("plate")
+		local told = false
+		for i = before + 1, #printed do
+			told = told or printed[i]:find("goes with the target display", 1, true) ~= nil
+		end
+		assert(not ns.db.consoleOpts.targetAuraOwn and tf.anchorInfo.offsetX ~= 700 and told,
+			"a mode switch moves a placed frame")
+		spot = ns.modules.target:AuraSpot()
+		placedAt(100)
+		ns.modules.target:SetMode("swap")
+		spot = ns.modules.target:AuraSpot()
+		placedAt(100)
+		tf.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+			offsetX = 700, offsetY = 300 }
+		ns:SetupEditMode()
+		assert(ns.db.consoleOpts.targetAuraOwn, "moved again")
 		offered = #popups
 		SlashCmdList.REFORGEDUI("auras reset")
 		assert(not ns.db.consoleOpts.targetAuraOwn and #popups == offered + 1
 			and popups[#popups].text:find("go back"), "/rui auras reset puts them back")
 		placedAt(100)
+		TargetFrame._w, TargetFrame._h, TargetFrame._scale = oldW, oldH, oldTS
 		offered = #popups
 	end
 	-- Buffs still where we put them follow a new top bar scale; moved ones don't.

@@ -1106,7 +1106,45 @@ end
 -- Blizzard puts the first aura icon's bottom-left corner this far from its
 -- target frame's top-left corner when buffs are on top (TargetFrame.lua).
 local TARGET_AURA_X, TARGET_AURA_Y = 5, -15
+local targetFrameCorner -- below
 ns.TARGET_AURA_X, ns.TARGET_AURA_Y = TARGET_AURA_X, TARGET_AURA_Y
+
+-- A target frame within this many UI units of where we put it is still ours.
+local TARGET_MOVE_SLACK = 8
+
+-- Where an Edit Mode anchor puts the target frame's top-left corner, as
+-- UIParent BOTTOMLEFT offsets like ours (nil: anchored to another frame).
+-- Edit Mode offsets are in UIParent units (ApplySystemAnchor divides them
+-- by the frame's scale itself).
+local POINT_X = { LEFT = 0, CENTER = 0.5, RIGHT = 1 }
+local POINT_Y = { BOTTOM = 0, CENTER = 0.5, TOP = 1 }
+local function pointFraction(point)
+	if type(point) ~= "string" then
+		return nil
+	end
+	local v = point:match("^(TOP)") or point:match("^(BOTTOM)") or "CENTER"
+	local h = point:match("(LEFT)$") or point:match("(RIGHT)$") or "CENTER"
+	return POINT_X[h], POINT_Y[v]
+end
+
+targetFrameCorner = function(a)
+	if not (type(a.offsetX) == "number" and type(a.offsetY) == "number")
+		or not (a.relativeTo == nil or a.relativeTo == "UIParent") then
+		return nil
+	end
+	local px, py = pointFraction(a.point)
+	local rx, ry = pointFraction(a.relativePoint or a.point)
+	local tf, ui = _G.TargetFrame, _G.UIParent
+	local ok, w, h, W, H = pcall(function()
+		local scale = tf:GetScale()
+		return tf:GetWidth() * scale, tf:GetHeight() * scale, ui:GetWidth(), ui:GetHeight()
+	end)
+	if not (px and rx and ok and type(w) == "number" and type(h) == "number" and type(W) == "number"
+		and type(H) == "number") then
+		return nil
+	end
+	return rx * W + a.offsetX - px * w, ry * H + a.offsetY + (1 - py) * h
+end
 
 -- The "Target aura size" option: Edit Mode's Frame Size for the target
 -- frame (100-200 % in steps of 5), which is all that makes its aura icons
@@ -1161,10 +1199,15 @@ function ns:PlaceTargetAuras(layout)
 	local atOurs = a.point == "TOPLEFT" and (a.relativeTo == nil or a.relativeTo == "UIParent")
 		and a.relativePoint == "BOTTOMLEFT" and not tf.isInDefaultPosition
 	-- Our last few places count as ours: a game that hands a layout back
-	-- unchanged must not make the frame look moved by the player.
+	-- unchanged must not make the frame look moved by the player. Compared
+	-- by where the frame's top-left corner lands, a few units either way:
+	-- a click on it in Edit Mode re-anchors it (another point, snapped)
+	-- without really moving it.
 	local last, ours = o.targetAuraLast, false
+	local cx, cy = targetFrameCorner(a)
 	for _, p in ipairs(type(last) == "table" and last or {}) do
 		ours = ours or (atOurs and near(a.offsetX, p.x) and near(a.offsetY, p.y))
+			or (cx and math.abs(cx - p.x) <= TARGET_MOVE_SLACK and math.abs(cy - p.y) <= TARGET_MOVE_SLACK) or false
 	end
 	if not o.targetAuraOwn and type(last) == "table" and #last > 0 and not tf.isInDefaultPosition and not ours then
 		o.targetAuraOwn = true
@@ -1284,6 +1327,57 @@ local function editModeReady()
 	end
 	local ok, ready = pcall(manager.IsInitialized, manager)
 	return not ok or ready
+end
+
+-- The active Edit Mode layout's name (nil: one of Blizzard's presets, or
+-- unknown), and whether our layout exists.
+function ns:ActiveEditLayout()
+	local api = C_EditMode
+	if not (api and api.GetLayouts) then
+		return nil, false
+	end
+	local ok, info = pcall(api.GetLayouts)
+	if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
+		return nil, false
+	end
+	local ours = false
+	for _, layout in ipairs(info.layouts) do
+		ours = ours or layout.layoutName == ns.EDIT_LAYOUT
+	end
+	if type(info.activeLayout) ~= "number" then
+		return nil, ours
+	end
+	local presets = 2
+	local manager = _G.EditModePresetLayoutManager
+	if manager and manager.GetCopyOfPresetLayouts then
+		local okP, list = pcall(manager.GetCopyOfPresetLayouts, manager)
+		presets = okP and type(list) == "table" and #list or presets
+	end
+	local layout = info.layouts[info.activeLayout - presets]
+	return layout and layout.layoutName or nil, ours
+end
+
+-- With another Edit Mode layout active, the target frame (its aura icons)
+-- is where that layout has it, and other frames we place only leave their
+-- default place: say so in chat, once per layout and session (`force`:
+-- again).
+local saidLayout
+function ns:SayOtherEditLayout(force)
+	local name, ours = self:ActiveEditLayout()
+	if name == ns.EDIT_LAYOUT or not ours then
+		saidLayout = nil
+		return false
+	end
+	local shown = name and ("%q"):format(name) or "a preset"
+	if saidLayout == shown and not force then
+		return true
+	end
+	saidLayout = shown
+	self:Print(("you're on the %s Edit Mode layout, not %q. Here Reforged UI doesn't place the target's buffs"
+		.. " and debuffs, and moves other Blizzard frames (cast bar, buffs, pet bar...) only out of their"
+		.. " default place: move them yourself in Edit Mode, or switch back to %q there."):format(
+		shown, ns.EDIT_LAYOUT, ns.EDIT_LAYOUT))
+	return true
 end
 
 -- `why`: what to tell the player should only the target frame move.
@@ -1541,6 +1635,21 @@ local function init()
 	ns:On("DISPLAY_SIZE_CHANGED", function() ns:Relayout() end)
 	ns:On("UI_SCALE_CHANGED", function() ns:Relayout() end)
 	ns:On("PLAYER_ENTERING_WORLD", function() ns:Relayout() end)
+	-- Another Edit Mode layout active: said a while after login, and when
+	-- Edit Mode closes (where the player may have switched).
+	local layoutChecked = false
+	ns:On("PLAYER_ENTERING_WORLD", function()
+		if not layoutChecked then
+			layoutChecked = true
+			C_Timer.After(5, function() ns:SayOtherEditLayout() end)
+		end
+	end)
+	local editMode = _G.EditModeManagerFrame
+	if editMode and editMode.HookScript then
+		editMode:HookScript("OnHide", function()
+			C_Timer.After(1, function() ns:SayOtherEditLayout() end)
+		end)
+	end
 	ns.ready = true
 end
 

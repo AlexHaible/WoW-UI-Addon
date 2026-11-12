@@ -51,7 +51,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - The target's cast bar works on players and creatures alike: gold while it casts, a draining green bar while it channels, with the spell's name inside.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it (above the plate in wall plate mode). They work in combat too: they're Blizzard's own aura icons, placed for you through the **Reforged UI** Edit Mode layout. After switching between swap and wall plate, reload when asked so they move along. If they ever sit in the wrong spot, the chat tells you why a few seconds after login (usually another Edit Mode layout is active, or a reload is due), and `/rui auras` shows where they are.
-- Want them somewhere else? Open **Edit Mode** and drag the **Target Frame**: the buffs and debuffs stay wherever you put them, in either target display. `/rui auras reset` puts them back on the wall.
+- Want them somewhere else? Open **Edit Mode** and drag the **Target Frame**: the buffs and debuffs stay wherever you put them. Switching between swap and wall plate puts them back in that display's place (move them again if you like), and `/rui auras reset` does too.
 - Icons too small? Drag **Target aura size** in the options (or type `/rui aurasize 150`) to make them up to twice as big. They grow only as far as still fits on the wall beside the target's target.
 - Want the buffs first? Tick **Target buffs first** in the options (or type `/rui buffsfirst on`): the target's buffs sit on the bottom rows, right on top of its portrait, and its debuffs come after them, on every target. Normally the game puts an enemy's debuffs first. With it on you also see other players' debuffs on enemies, not just yours.
 - Want the target's health closer to the action? Turn on the **target bar** in the options (or `/rui targetbar on`): a small bar with the target's name, level, health and power, and its cast bar just underneath while it casts. Hold Shift and drag it anywhere (out of combat), or move it in Edit Mode. Its health turns red at your HP warning threshold. It works alongside either target display.
@@ -113,7 +113,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly. It moves each frame out of its default place only once per layout, so if you put one back, it stays there and you won't be asked again at every login.
 
-Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time.
+Frames that Edit Mode manages (buffs and debuffs, pet bar, cast bar, focus, party, quest tracker…) stay wherever Edit Mode puts them. Move them in Edit Mode, and switch layouts any time. On a layout other than **"Reforged UI"**, though, Reforged UI doesn't place the target's buffs and debuffs for you, and only moves the others out of their default place: anything else sits wherever that layout has it, so move it yourself in Edit Mode. The chat reminds you a few seconds after login and when you close Edit Mode on another layout.
 
 ---
 

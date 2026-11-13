@@ -1937,7 +1937,7 @@ for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButt
 	end
 end
 -- The minimap slots: our own secure action buttons on the moonkin page
--- (109-111; a druid gets Action Bar 8's last three, 178-180), over the slots
+-- (109-111; a druid gets page 11, 121-123), over the slots
 -- beside the minimap.
 for i = 1, 3 do
 	local r, b = L.minimapSlots[i], _G["ReforgedUIMinimapButton" .. i]
@@ -1949,10 +1949,10 @@ end
 do
 	local shaman = UnitClass
 	UnitClass = function() return "Druid", "DRUID" end
-	assert(ns:MinimapSlot(1) == 178 and ns:MinimapSlot(3) == 180, "druids use Action Bar 8's last three slots")
+	assert(ns:MinimapSlot(1) == 121 and ns:MinimapSlot(3) == 123, "druids use page 11")
 	for i = 1, 3 do
 		local slot = ns:MinimapSlot(i)
-		assert(slot < 133 or slot > 144, "never the shaman totem slots (they only take totems)")
+		assert((slot < 133 or slot > 144) and slot < 145, "never the shaman totem slots (they only take totems) or Action Bars 6-8")
 	end
 	UnitClass = shaman
 end
@@ -2110,15 +2110,15 @@ do
 	local mb, opts, class = ns.modules.minimapbar, ReforgedUIDB.consoleOpts, UnitClass
 	UnitClass = function() return "Druid", "DRUID" end
 	mb:PlaceHearthstone()
-	assert(actions[178] == "Hearthstone" and opts.hearthstone["Thrall-Forever"]
+	assert(actions[121] == "Hearthstone" and opts.hearthstone["Thrall-Forever"]
 		and opts.druidSlotsMoved["Thrall-Forever"], "a druid's hearthstone retried on the new slots")
-	actions[178] = nil
+	actions[121] = nil
 	opts.hearthstone["Thrall-Forever"] = nil
 	mb:PlaceHearthstone()
-	assert(actions[178] == "Hearthstone", "until it is placed")
-	actions[178] = nil
+	assert(actions[121] == "Hearthstone", "until it is placed")
+	actions[121] = nil
 	mb:PlaceHearthstone()
-	assert(not actions[178], "then once per character")
+	assert(not actions[121], "then once per character")
 	UnitClass = class
 	local place = PlaceAction
 	PlaceAction = function(slot)

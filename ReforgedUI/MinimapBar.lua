@@ -4,12 +4,13 @@
 -- They are our own secure buttons (SecureActionButtonTemplate, type
 -- "action"), so they cast whatever a bar slot can hold: spells, items,
 -- macros, mounts, flyouts. They need action slots, and Blizzard's bars and
--- pages claim all of 1-180. The moonkin form page (109-120) is only ever
--- used by druids, so everyone else uses 109-111. Druids use the last three
--- slots of Action Bar 8 (178-180), which is off unless the player turns it
--- on. (Up to 1.15 druids got 133-135, but those are the shaman totem bar's
--- slots, and the client only lets Fire, Earth and Water totem spells into
--- them, so nothing could be put there.)
+-- pages claim most of 1-180. The moonkin form page (109-120) is only ever
+-- used by druids, so everyone else uses 109-111. Druids use page 11
+-- (121-123): no Blizzard bar shows it, and the client's vehicle, override
+-- and temporary shapeshift bars are pages 31-33 (checked in game). Up to
+-- 1.15 druids got 133-135, but those are the shaman totem bar's slots
+-- (page 12), and the client only lets Fire, Earth and Water totem spells
+-- into them, so nothing could be put there.
 --
 -- Blizzard's ActionBarButtonTemplate is not used: on clients with secret
 -- values its code tainted when run from our buttons. The icon, cooldown,
@@ -30,8 +31,8 @@ local BUTTON_NAME = "ReforgedUIMinimapButton"
 local BINDING = "CLICK " .. BUTTON_NAME .. "%d:LeftButton"
 -- Action Bar 8 (MultiBar7, action page 15) and its key bindings.
 local OLD_FIRST_SLOT = 169
--- A druid's slots: the last three of Action Bar 8.
-local DRUID_FIRST_SLOT = 178
+-- A druid's slots: page 11, which no bar or form uses.
+local DRUID_FIRST_SLOT = 121
 local OLD_BINDING = "MULTIACTIONBAR7BUTTON%d"
 local EMPTY_TOOLTIP = "Empty slot: drag a spell, item or macro here."
 local ICON_CROP = 0.07

@@ -33,7 +33,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 **Minimap block**
 - Square minimap with mouse-wheel zoom, and the zone name on its edge.
 - Tracking button and mail slot.
-- Three extra action slots: Reforged UI's own little bar, so every Blizzard action bar stays free for you (druids, whose forms use up the spare action pages, share them with the last three buttons of Action Bar 8). Bind them under Key Bindings > AddOns > Reforged UI.
+- Three extra action slots: Reforged UI's own little bar, so every Blizzard action bar stays free for you. Bind them under Key Bindings > AddOns > Reforged UI.
 - Addon minimap buttons are tucked into a compartment: click the bag above the map to open a flyout of them.
 - A calendar button on the map's top edge shows today's date; a letter pulses on it when calendar invitations are waiting. Click it to open the calendar, hover it for what's on this week.
 

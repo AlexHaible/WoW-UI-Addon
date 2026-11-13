@@ -4,10 +4,12 @@
 -- They are our own secure buttons (SecureActionButtonTemplate, type
 -- "action"), so they cast whatever a bar slot can hold: spells, items,
 -- macros, mounts, flyouts. They need action slots, and Blizzard's bars and
--- pages claim all of 1-180, but two pages belong to one class each: the
--- moonkin form page (109-120) is only ever used by druids, the shaman totem
--- bar page (133-144) only by shamans. So everyone uses 109-111, and druids
--- use 133-135.
+-- pages claim all of 1-180. The moonkin form page (109-120) is only ever
+-- used by druids, so everyone else uses 109-111. Druids use the last three
+-- slots of Action Bar 8 (178-180), which is off unless the player turns it
+-- on. (Up to 1.15 druids got 133-135, but those are the shaman totem bar's
+-- slots, and the client only lets Fire, Earth and Water totem spells into
+-- them, so nothing could be put there.)
 --
 -- Blizzard's ActionBarButtonTemplate is not used: on clients with secret
 -- values its code tainted when run from our buttons. The icon, cooldown,
@@ -28,6 +30,8 @@ local BUTTON_NAME = "ReforgedUIMinimapButton"
 local BINDING = "CLICK " .. BUTTON_NAME .. "%d:LeftButton"
 -- Action Bar 8 (MultiBar7, action page 15) and its key bindings.
 local OLD_FIRST_SLOT = 169
+-- A druid's slots: the last three of Action Bar 8.
+local DRUID_FIRST_SLOT = 178
 local OLD_BINDING = "MULTIACTIONBAR7BUTTON%d"
 local EMPTY_TOOLTIP = "Empty slot: drag a spell, item or macro here."
 local ICON_CROP = 0.07
@@ -62,9 +66,13 @@ local function characterKey()
 end
 
 -- The action slot behind minimap slot `i` for this character.
-function ns:MinimapSlot(i)
+local function isDruid()
 	local _, class = UnitClass("player")
-	return (class == "DRUID" and 133 or 109) + i - 1
+	return class == "DRUID"
+end
+
+function ns:MinimapSlot(i)
+	return (isDruid() and DRUID_FIRST_SLOT or 109) + i - 1
 end
 
 -- A secret answer counts as yes (only widgets may look at it).
@@ -401,9 +409,13 @@ function MinimapBar:MoveFromBar8()
 	local ok, err = pcall(function()
 		for i = 1, COUNT do
 			local old, new = OLD_FIRST_SLOT + i - 1, ns:MinimapSlot(i)
-			if hasAction(old) and not hasAction(new) then
+			if old ~= new and hasAction(old) and not hasAction(new) then
 				call("PickupAction", old)
 				call("PlaceAction", new)
+				-- Refused by the slot: the action goes back where it was.
+				if GetCursorInfo() then
+					call("PlaceAction", old)
+				end
 				ClearCursor()
 			end
 		end
@@ -442,24 +454,32 @@ end
 
 -- The original addon puts a hearthstone in the first slot beside the
 -- minimap, once per character, when that slot is empty.
+-- Druids got it on the shaman totem slots up to 1.15, which refused it, so
+-- each druid gets one more try on their new slots.
 function MinimapBar:PlaceHearthstone()
 	local key = characterKey()
-	local done = ns.db.consoleOpts.hearthstone
+	local opts = ns.db.consoleOpts
+	local done = opts.hearthstone
+	if isDruid() and not opts.druidSlotsMoved[key] then
+		opts.druidSlotsMoved[key] = true
+		done[key] = nil
+	end
 	if done[key] or InCombatLockdown() or GetCursorInfo() then
 		return
 	end
-	local ok = pcall(function()
+	local ok, finished = pcall(function()
 		local slot = ns:MinimapSlot(1)
 		if hasAction(slot) or (C_Item.GetItemCount(HEARTHSTONE) or 0) == 0 then
-			return
+			return true
 		end
 		C_Item.PickupItem(HEARTHSTONE)
 		if GetCursorInfo() == "item" then
 			call("PlaceAction", slot)
 		end
 		ClearCursor()
+		return hasAction(slot)
 	end)
-	if ok then
+	if ok and finished then
 		done[key] = true
 	end
 end

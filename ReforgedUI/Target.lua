@@ -43,8 +43,17 @@ local REACTION = {
 	player = { 0.25, 0.55, 1 }, -- the target of target is you
 }
 local TAPPED = { 0.6, 0.6, 0.6 }
+-- Rare, elite and boss targets, said three ways: the word in the level line,
+-- a short mark after the level on the target bars ("+" as on Blizzard's own
+-- frames), and a small tag over the portrait (on the bars' top edge) in the
+-- colours of Blizzard's dragons: gold for elite, silver for rare, a gold
+-- edge on a silver rare elite, red for a boss.
+local GOLD, SILVER = { 1, 0.82, 0 }, { 0.8, 0.88, 1 }
 local CLASSIFICATION = {
-	elite = ELITE or "Elite", rareelite = "Rare Elite", rare = "Rare", worldboss = BOSS or "Boss",
+	elite = { text = ELITE or "Elite", short = "+", color = GOLD },
+	rareelite = { text = "Rare Elite", short = "R+", color = SILVER, edge = GOLD },
+	rare = { text = "Rare", short = "R", color = SILVER },
+	worldboss = { text = BOSS or "Boss", short = "", color = { 1, 0.35, 0.2 } },
 }
 
 local isSecret = ns.IsSecret
@@ -100,6 +109,59 @@ local function nameColor(unit)
 	return unpack(REACTION.neutral)
 end
 
+-- The unit's classification (CLASSIFICATION), nil for a normal unit or
+-- one that can't be read. Blizzard doesn't mark it secret, but in case.
+local function classification(unit)
+	local ok, c = pcall(UnitClassification, unit)
+	if ok and ns.IsKnown(c) then
+		return CLASSIFICATION[c]
+	end
+end
+Target.Classification = classification
+
+-- A word in its classification's colour.
+local function colored(style, text)
+	local r, g, b = unpack(style.color)
+	local function hex(x)
+		return math.floor(x * 255 + 0.5)
+	end
+	return ("|cff%02x%02x%02x%s|r"):format(hex(r), hex(g), hex(b), text)
+end
+
+-- The classification tag: the word on a dark plate with a coloured edge.
+local function makeTag(parent, level, size)
+	local t = CreateFrame("Frame", nil, parent)
+	t:SetFrameLevel(level)
+	t.edge = t:CreateTexture(nil, "BACKGROUND")
+	t.edge:SetAllPoints()
+	t.fill = t:CreateTexture(nil, "BORDER")
+	t.fill:SetPoint("TOPLEFT", 1, -1)
+	t.fill:SetPoint("BOTTOMRIGHT", -1, 1)
+	t.fill:SetColorTexture(0, 0, 0, 0.85)
+	t.text = t:CreateFontString(nil, "OVERLAY")
+	font(t.text, size)
+	t.text:SetPoint("CENTER", 0, 0)
+	t.size = size
+	t:Hide()
+	return t
+end
+
+local function setTag(t, style)
+	if not style then
+		t:Hide()
+		return
+	end
+	t.text:SetText(style.text)
+	t.text:SetTextColor(unpack(style.color))
+	t.edge:SetColorTexture(unpack(style.edge or style.color))
+	local w = t.text:GetStringWidth()
+	if not ns.IsNumber(w) or w <= 0 then
+		w = #style.text * t.size * 0.6
+	end
+	t:SetSize(w + 8, t.size + 5)
+	t:Show()
+end
+
 -- "Level 12 Elite Humanoid", "Level ?? Boss Dragonkin", "Level 60 Warrior".
 -- In instances any part can be secret: a part that can't be read is left
 -- out (a secret level reads "??"), the rest still shows.
@@ -112,12 +174,10 @@ local function infoText(unit)
 		end
 	end)
 	local text = (LEVEL or "Level") .. " " .. levelText
-	pcall(function()
-		local class = CLASSIFICATION[UnitClassification(unit) or ""]
-		if class then
-			text = text .. " " .. class
-		end
-	end)
+	local style = classification(unit)
+	if style then
+		text = text .. " " .. colored(style, style.text)
+	end
 	pcall(function()
 		local kind
 		if UnitIsPlayer(unit) then
@@ -451,6 +511,8 @@ function Target:CreateSwap()
 	v.healthText, v.powerText = v.health.text, v.power.text
 	v.combo = makeCombo(f)
 	v.cast = makeCast(f, 11, 9)
+	-- Over the hero's portrait (placed in OnLayout).
+	v.tag = makeTag(f, 20, 9)
 	self.swap = v
 end
 
@@ -501,6 +563,9 @@ function Target:CreatePlate()
 	v.name, v.info = v.plate.name, v.plate.level
 	v.combo = makeCombo(top)
 	v.cast = makeCast(top, 15, 8)
+	-- At the foot of the arch's window, over the portrait.
+	v.tag = makeTag(top, 16, 9)
+	v.tag:SetPoint("BOTTOM", model, "BOTTOM", 0, 3)
 	self.plate = v
 end
 
@@ -875,7 +940,8 @@ function Target:OnEnable()
 	unitEvent({ "UNIT_MODEL_CHANGED", "UNIT_PORTRAIT_UPDATE" }, self.UpdateModel)
 	unitEvent({ "UNIT_TARGET" }, self.UpdateToT)
 	unitEvent({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_PREDICTION", "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT",
-		"UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION" }, self.UpdateBar)
+		"UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION",
+		"UNIT_CLASSIFICATION_CHANGED" }, self.UpdateBar)
 	for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }) do
@@ -971,6 +1037,7 @@ function Target:UpdateName()
 	ns:FitText(name, ns:FullName("target"))
 	name:SetTextColor(nameColor("target"))
 	ns:FitText(info, infoText("target"))
+	setTag(v.tag, classification("target"))
 end
 
 function Target:UpdateHealth()
@@ -1129,8 +1196,6 @@ end
 
 local BAR_W, BAR_NAME_H, BAR_HEALTH_H, BAR_POWER_H, BAR_CAST_H = 230, 16, 18, 10, 14
 local BAR_SPOT = { x = 0, y = -150 }
--- After the level, as on Blizzard's own target frames.
-local BAR_CLASS = { elite = "+", rareelite = "R+", rare = "R", worldboss = "" }
 ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX = 100, 200
 
 -- One spec per bar: its unit, its settings and the words it uses.
@@ -1183,6 +1248,9 @@ function Target:MakeUnitBar(spec)
 	v.level:SetPoint("TOPRIGHT", -6, -5)
 	v.level:SetSize(44, BAR_NAME_H - 2)
 	v.level:SetTextColor(1, 0.82, 0)
+	-- Rare, elite or boss: a tag standing on the frame's top edge, over the level.
+	v.tag = makeTag(f, f:GetFrameLevel() + 3, 9)
+	v.tag:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -6, -3)
 	v.health = makeBar(f, f:GetFrameLevel() + 1, 11)
 	v.health:SetPoint("TOPLEFT", 5, -(BAR_NAME_H + 3))
 	v.health:SetPoint("TOPRIGHT", -5, -(BAR_NAME_H + 3))
@@ -1403,13 +1471,12 @@ function Target:UpdateBar(v)
 			level = tostring(n)
 		end
 	end)
-	pcall(function()
-		local class = BAR_CLASS[UnitClassification(unit) or ""]
-		if class then
-			level = level .. class
-		end
-	end)
+	local style = classification(unit)
+	if style and style.short ~= "" then
+		level = level .. colored(style, style.short)
+	end
 	v.level:SetText(level)
+	setTag(v.tag, style)
 
 	local cur, max = UnitHealth(unit), UnitHealthMax(unit)
 	v.health:SetMinMaxValues(0, max)
@@ -1486,6 +1553,12 @@ function Target:OnLayout(L)
 	place(pl.cast, P.cast)
 
 	-- Its parts follow the button, which PlaceButtons places (out of combat).
+	local heroModel = ns.modules.hero.model
+	if heroModel then
+		sw.tag:ClearAllPoints()
+		sw.tag:SetPoint("BOTTOM", heroModel, "BOTTOM", 0, 3)
+	end
+
 	Target.PlaceUnitIcon(self.tot, L.tot)
 	local T, gem = L.tot, self.tot.reaction
 	local size = 0.25 * T.box.w

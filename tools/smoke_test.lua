@@ -485,7 +485,7 @@ function PlaceAction(slot)
 	if cursorAction then actions[slot], cursorAction = cursorAction, nil end
 end
 function ClearCursor() cursorAction = nil end
-C_Item = { GetItemCount = function() return 1 end, PickupItem = function() placed = "cursor" end }
+C_Item = { GetItemCount = function() return 1 end, PickupItem = function() placed, cursorAction = "cursor", "Hearthstone" end }
 function GetRealmName() return "Forever" end
 UISpecialFrames = {}
 tinsert = table.insert
@@ -1937,7 +1937,8 @@ for key, prefix in pairs({ main = "ActionButton", bar2 = "MultiBarBottomLeftButt
 	end
 end
 -- The minimap slots: our own secure action buttons on the moonkin page
--- (109-111; a druid would get 133-135), over the slots beside the minimap.
+-- (109-111; a druid gets page 11, 121-123), over the slots
+-- beside the minimap.
 for i = 1, 3 do
 	local r, b = L.minimapSlots[i], _G["ReforgedUIMinimapButton" .. i]
 	local p, sc = b._points[1], b._scale
@@ -1948,7 +1949,11 @@ end
 do
 	local shaman = UnitClass
 	UnitClass = function() return "Druid", "DRUID" end
-	assert(ns:MinimapSlot(1) == 133 and ns:MinimapSlot(3) == 135, "druids use the shaman totem page")
+	assert(ns:MinimapSlot(1) == 121 and ns:MinimapSlot(3) == 123, "druids use page 11")
+	for i = 1, 3 do
+		local slot = ns:MinimapSlot(i)
+		assert((slot < 133 or slot > 144) and slot < 145, "never the shaman totem slots (they only take totems) or Action Bars 6-8")
+	end
 	UnitClass = shaman
 end
 -- The gold dividers between buttons stay invisible, even after Blizzard
@@ -2097,6 +2102,40 @@ actions[171] = "Earth Shock"
 ns.modules.minimapbar:MoveFromBar8()
 assert(actions[171] and not actions[111], "the move happens only once")
 assert(ReforgedUIDB.consoleOpts.hearthstone["Thrall-Forever"], "the hearthstone is placed once per character")
+assert(actions[109] == "Hearthstone", "the hearthstone is in the first minimap slot")
+-- A druid placed on the shaman totem slots up to 1.15 (refused there) gets
+-- one more try on the new slots, and a slot that refuses an action leaves it
+-- where it was.
+do
+	local mb, opts, class = ns.modules.minimapbar, ReforgedUIDB.consoleOpts, UnitClass
+	UnitClass = function() return "Druid", "DRUID" end
+	mb:PlaceHearthstone()
+	assert(actions[121] == "Hearthstone" and opts.hearthstone["Thrall-Forever"]
+		and opts.druidSlotsMoved["Thrall-Forever"], "a druid's hearthstone retried on the new slots")
+	actions[121] = nil
+	opts.hearthstone["Thrall-Forever"] = nil
+	mb:PlaceHearthstone()
+	assert(actions[121] == "Hearthstone", "until it is placed")
+	actions[121] = nil
+	mb:PlaceHearthstone()
+	assert(not actions[121], "then once per character")
+	UnitClass = class
+	local place = PlaceAction
+	PlaceAction = function(slot)
+		if slot == 109 then
+			placed = "cursor" -- refused: still on the cursor
+			return
+		end
+		place(slot)
+	end
+	actions[109], actions[169] = nil, "Moonfire"
+	opts.minimapBarMoved["Thrall-Forever"] = nil
+	mb:MoveFromBar8()
+	assert(actions[169] == "Moonfire" and not actions[109], "a refused action goes back to its old slot")
+	PlaceAction = place
+	placed, actions[169] = nil, nil
+	actions[109] = "Hearthstone"
+end
 
 -- Console art: all pieces placed with the original addon's files.
 local console = ns.modules.console

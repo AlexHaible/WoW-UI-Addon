@@ -51,6 +51,7 @@ local DEFAULTS = {
 		zoneText = 1, -- 1 bottom, 2 top, 3 hidden
 		stopAnimation = false,
 		hearthstone = {}, -- characters that already got the hearthstone placed
+		druidSlotsMoved = {}, -- druids whose minimap slots moved off the totem slots (1.15), hearthstone retried once
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
 		targetBar = false, -- a movable target health and power bar, besides the target display
 		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)

@@ -3095,7 +3095,8 @@ do
 	hasTarget = true
 	fire("PLAYER_TARGET_CHANGED")
 	assert(hero.viewUnit == "target", "swap: the hero screen shows the target")
-	assert(hero.xp.name._text == "Hogger" and hero.xp.level._text == "Level 11 Elite Beast", "swap: target name and level")
+	assert(hero.xp.name._text == "Hogger" and hero.xp.level._text == "Level 11 |cffffd100Elite|r Beast", "swap: target name and level")
+	assert(target.swap.tag:IsShown() and target.swap.tag.text._text == "Elite", "swap: the elite tag over the portrait")
 	assert(not hero.xp.bar:IsShown() and not hero.stats[1]:IsShown() and not hero.stats[4]:IsShown(),
 		"swap: no experience fill and no stat icons")
 	assert(target.swap.frame:IsShown() and target.swap.health._value == 412 and target.swap.health.text._text == "412 / 666",
@@ -3283,7 +3284,26 @@ do
 	assert(hero.viewUnit == "player" and hero.xp.name._text == "Thrall Son of Durotan", "plate mode: the hero screen stays the player's")
 	assert(target.plate.frame:IsShown() and not target.swap.frame:IsShown(), "plate mode shows the plate")
 	local pl = target.plate
-	assert(pl.name._text == "Hogger" and pl.info._text == "Level 11 Elite Beast", "plate: name and level line")
+	assert(pl.name._text == "Hogger" and pl.info._text == "Level 11 |cffffd100Elite|r Beast", "plate: name and level line")
+	assert(pl.tag:IsShown() and pl.tag.text._text == "Elite", "plate: the elite tag over the portrait")
+	-- A rare one gets a silver tag, a rare elite a silver one with a gold edge,
+	-- and a normal one none.
+	do
+		local oldClass = UnitClassification
+		local class = "rare"
+		UnitClassification = function() return class end
+		fire("UNIT_CLASSIFICATION_CHANGED", "target")
+		assert(pl.tag:IsShown() and pl.tag.text._text == "Rare" and pl.info._text:find("Rare|r", 1, true),
+			"plate: a rare target is marked")
+		class = "rareelite"
+		fire("UNIT_CLASSIFICATION_CHANGED", "target")
+		assert(pl.tag.text._text == "Rare Elite" and pl.tag:GetWidth() > 0, "plate: a rare elite is marked")
+		class = "normal"
+		fire("UNIT_CLASSIFICATION_CHANGED", "target")
+		assert(not pl.tag:IsShown() and pl.info._text == "Level 11 Beast", "plate: a normal target has no tag")
+		UnitClassification = oldClass
+		fire("UNIT_CLASSIFICATION_CHANGED", "target")
+	end
 	assert(pl.name == pl.plate.name and pl.info == pl.plate.level and not pl.plate.bar:IsShown(),
 		"plate: the hero's level plate, without an experience fill")
 	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
@@ -3309,7 +3329,8 @@ do
 		secret = true
 		fire("UNIT_LEVEL", "target")
 		secret = false
-		assert(pl.info._text == "Level ?? Elite Beast", "secret level: " .. tostring(pl.info._text))
+		-- (Everything reads as secret here, the classification too: it's left out.)
+		assert(pl.info._text == "Level ?? Beast", "secret level: " .. tostring(pl.info._text))
 		UnitLevel = oldLevel
 		fire("UNIT_LEVEL", "target")
 	end
@@ -3348,7 +3369,8 @@ do
 		assert(bar.frame._kind ~= "secure" and bar.frame:GetParent() == UIParent, "the target bar is a plain frame")
 		SlashCmdList.REFORGEDUI("targetbar on")
 		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "/rui targetbar on shows it, in combat")
-		assert(bar.name._text == "Hogger" and bar.level._text == "11+", "target bar: name, level and elite")
+		assert(bar.name._text == "Hogger" and bar.level._text == "11|cffffd100+|r" and bar.tag:IsShown(),
+			"target bar: name, level and elite")
 		assert(bar.health._value == 412 and bar.health.text._text == "412 / 666", "target bar: health")
 		assert(bar.health._color[1] < 0.5 and bar.health._color[2] > 0.5, "target bar: green above the HP warning")
 		local oldH = UnitHealth
@@ -3386,7 +3408,7 @@ do
 		secret = true
 		fire("UNIT_LEVEL", "target")
 		secret = false
-		assert(bar.level._text == "??+", "target bar: a secret level reads ??")
+		assert(bar.level._text == "??" and not bar.tag:IsShown(), "target bar: a secret level reads ?? (and the all-secret classification is left out)")
 		UnitLevel = oldLevel
 		fire("UNIT_LEVEL", "target")
 		-- Shift makes it draggable; its new place is saved from the centre.

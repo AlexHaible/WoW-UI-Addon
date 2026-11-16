@@ -36,9 +36,11 @@ function Console:OnEnable()
 	self.extBg:SetTexture(ns:ArtPath("other\\black_background"))
 end
 
-local function place(region, r)
+-- `r` in console units from the console's bottom-left corner, or from
+-- `anchor`'s when given (a frame of ours that moves, such as the wall plate).
+local function place(region, r, anchor)
 	region:ClearAllPoints()
-	region:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x, r.y)
+	region:SetPoint("BOTTOMLEFT", anchor or ns.root, "BOTTOMLEFT", r.x, r.y)
 	region:SetSize(math.max(r.w, 0.01), math.max(r.h, 0.01))
 end
 Console.Place = place

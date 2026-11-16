@@ -53,6 +53,11 @@ local DEFAULTS = {
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		druidSlotsMoved = {}, -- druids whose minimap slots moved off the totem slots (1.15), hearthstone retried once
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
+		-- Where the wall plate was moved ({ x, y } in console units, its
+		-- bottom-left corner from the screen's bottom centre), or on the wall.
+		targetPlateSpot = false,
+		targetPlateSize = 100, -- the wall plate's size, 50-150 %
+		targetPlateMirror = false, -- the wall plate turned the other way: portrait on the right, info window on the left
 		targetBar = false, -- a movable target health and power bar, besides the target display
 		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
 		totBar = false, -- the same window for the target's target
@@ -990,6 +995,9 @@ local function usage()
 	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
+	print("  /rui plate reset  (put the wall plate back on the wall; Shift-drag or Edit Mode moves it)")
+	print("  /rui plate size 50-150  (the wall plate's size, in %)")
+	print("  /rui plate mirror on||off  (on: the plate turned the other way, its portrait on the right)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
 	print("  /rui totems  (what each totem slot reports and how its time is shown)")
@@ -1069,6 +1077,24 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "plate" and ns.modules.target.enabled
+		and (arg == "reset" or (arg == "size" and tonumber(arg2)) or (arg == "mirror" and (arg2 == "on" or arg2 == "off"))) then
+		local target = ns.modules.target
+		if arg == "reset" then
+			target:ResetPlateSpot()
+			ns:Print("wall plate back on the wall.")
+		elseif arg == "size" then
+			ns:Print(("wall plate at %d%%."):format(target:SetPlateSize(tonumber(arg2))))
+		else
+			target:SetPlateMirrored(arg2 == "on")
+			ns:Print(arg2 == "on" and "wall plate turned: portrait on the right." or "wall plate: portrait on the left.")
+		end
+		if not target:PlateInUse() then
+			ns:Print("(the target shows on the hero screen now: /rui target plate shows it on the plate.)")
+		end
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
 	elseif cmd == "clock" and arg == "reset" and ns.modules.topbar.enabled then
 		ns.modules.topbar:ResetCapsuleSpot()
 		ns:Print("time back above the minimap.")

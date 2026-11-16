@@ -65,8 +65,8 @@ local function font(fs, size)
 	end
 end
 
-local function place(region, r)
-	ns.modules.console.Place(region, r)
+local function place(region, r, anchor)
+	ns.modules.console.Place(region, r, anchor)
 end
 
 ----------------------------------------------------------------------------
@@ -307,11 +307,11 @@ local function makeCombo(parent)
 	return pips
 end
 
-local function placeCombo(pips, c)
+local function placeCombo(pips, c, anchor)
 	for i, pip in ipairs(pips) do
 		local x = c.x + (i - 1) * c.step
-		place(pip.socket, { x = x - 1, y = c.y - 1, w = c.size + 2, h = c.size + 2 })
-		place(pip.gem, { x = x + 1, y = c.y + 1, w = c.size - 2, h = c.size - 2 })
+		place(pip.socket, { x = x - 1, y = c.y - 1, w = c.size + 2, h = c.size + 2 }, anchor)
+		place(pip.gem, { x = x + 1, y = c.y + 1, w = c.size - 2, h = c.size - 2 }, anchor)
 	end
 end
 
@@ -438,8 +438,7 @@ end
 
 -- Where the aura icons go in this mode, for messages.
 function Target:AuraSpotName()
-	return self:AuraSpot() == (self.layout and self.layout.targetAuras.plate) and "above the wall plate"
-		or "beside the target of target"
+	return self:PlateInUse() and "above the wall plate" or "beside the target of target"
 end
 
 activeLayoutName = function()
@@ -518,10 +517,13 @@ end
 
 function Target:CreatePlate()
 	local hero = ns.modules.hero
+	-- The plate's own frame, its size and place (PlacePlate): everything on
+	-- it is placed from its corner, so it all moves, grows and turns with it.
 	local f = CreateFrame("Frame", "ReforgedUITargetPlate", ns.root)
 	f:SetFrameStrata("LOW")
 	f:SetFrameLevel(10)
-	f:SetAllPoints(ns.root)
+	f:SetSize(1, 1)
+	f:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", 0, 0)
 	f:Hide()
 	local v = { frame = f }
 	-- Black behind the model, the model, then the plate over both: the arch
@@ -567,6 +569,274 @@ function Target:CreatePlate()
 	v.tag = makeTag(top, 16, 9)
 	v.tag:SetPoint("BOTTOM", model, "BOTTOM", 0, 3)
 	self.plate = v
+	self:CreatePlateMover()
+end
+
+----------------------------------------------------------------------------
+-- Moving the wall plate. Out of combat, hold Shift and drag it, or drag it
+-- while Edit Mode is open (it shows then, target or not). It can also be
+-- made bigger or smaller (db.consoleOpts.targetPlateSize) and turned the
+-- other way (targetPlateMirror: portrait on the right). Its place is kept
+-- in console units from the screen's bottom centre (targetPlateSpot), the
+-- same on every theme. What belongs to it comes along: its cast bar, combo
+-- points and classification tag are on it; the secure target button over
+-- it and the target of target beside it follow after the drag (they are
+-- secure, so out of combat); and the target's buffs and debuffs, which are
+-- Blizzard's own and placed through the Edit Mode layout every character
+-- shares, follow at the next reload, as with any change to their place.
+
+ns.TARGET_PLATE_SIZE_MIN, ns.TARGET_PLATE_SIZE_MAX = 50, 150
+
+-- The plate's size, 50-150 % in steps of 5 (a bad saved value reads as 100).
+function ns:TargetPlateSize()
+	local p = tonumber(self.db.consoleOpts.targetPlateSize) or 100
+	p = math.floor(p / 5 + 0.5) * 5
+	return math.max(self.TARGET_PLATE_SIZE_MIN, math.min(self.TARGET_PLATE_SIZE_MAX, p))
+end
+
+-- Whether the target shows on the plate (not on the hero screen).
+function Target:PlateInUse()
+	return not (self:Mode() == "swap" and ns.modules.hero.enabled)
+end
+
+function Target:PlateMirrored()
+	return ns.db.consoleOpts.targetPlateMirror and true or false
+end
+
+-- Where the plate stands now, in console units: its corner and size, its
+-- scale `k`, and whether the player moved it.
+function Target:PlateRect()
+	local L = self.layout
+	local P = L.targetPlate.frame
+	local k = ns:TargetPlateSize() / 100
+	local w, h = P.w * k, P.h * k
+	local spot = ns.db.consoleOpts.targetPlateSpot
+	if type(spot) == "table" and ns.IsNumber(spot.x) and ns.IsNumber(spot.y) then
+		-- On the screen, whatever its size now.
+		local x = math.max(0, math.min(L.W - w, L.W / 2 + spot.x))
+		local y = math.max(0, math.min(L.H - h, spot.y))
+		return { x = x, y = y, w = w, h = h, k = k, moved = true }
+	end
+	-- On the wall, bigger or smaller about its middle, its foot where it was.
+	return { x = P.x + (P.w - w) / 2, y = P.y, w = w, h = h, k = k, moved = false }
+end
+
+-- Puts the plate's frame in its place at its size. Its parts are placed on
+-- it once per layout (PlacePlateParts) and only move with it.
+function Target:PlacePlate()
+	local f = self.plate.frame
+	if not self.layout or f.dragging then
+		return
+	end
+	local r, P = self:PlateRect(), self.layout.targetPlate.frame
+	f:SetScale(r.k)
+	f:SetSize(P.w, P.h)
+	f:ClearAllPoints()
+	-- The frame's own offsets are in its scale's units.
+	f:SetPoint("BOTTOMLEFT", ns.root, "BOTTOMLEFT", r.x / r.k, r.y / r.k)
+end
+
+-- The target of target stands beside the plate's portrait once the plate
+-- is moved (left of it, or right of it turned the other way), as it does
+-- on the wall; else on the wall above the hero's portrait.
+function Target:ToTSpot()
+	local L = self.layout
+	local T = L.tot.frame
+	if not self:PlateInUse() then
+		return T
+	end
+	local r = self:PlateRect()
+	if not r.moved then
+		return T
+	end
+	local P = L.targetPlate.frame
+	local gap, dy = P.x - (T.x + T.w), T.y - P.y
+	local rightSide = self:PlateMirrored()
+	-- No room on that side at the screen's edge: the other side.
+	if rightSide and r.x + r.w + gap + T.w > L.W then
+		rightSide = false
+	elseif not rightSide and r.x - gap - T.w < 0 then
+		rightSide = true
+	end
+	local x = rightSide and r.x + r.w + gap or r.x - gap - T.w
+	return { x = x, y = r.y + dy, w = T.w, h = T.h }
+end
+
+-- The plate's place, size or side changed: the secure buttons follow (out
+-- of combat), and Blizzard's aura icons through the Edit Mode layout (left
+-- for when Edit Mode closes if it is open: the game's own layout is being
+-- edited then).
+function Target:PlateMoved(auras)
+	self:PlacePlate()
+	self:PlacePlateParts()
+	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
+	if auras then
+		self:PlateAurasFollow()
+	end
+end
+
+function Target:PlateAurasFollow()
+	if not self:PlateInUse() then
+		return
+	end
+	if self.plateEditing then
+		self.plateAurasPending = true
+	else
+		self:PlacePlateAuras()
+	end
+end
+
+function Target:PlacePlateAuras()
+	self.plateAurasPending = nil
+	ns:RunOutOfCombat("target-auras", function()
+		ns:SetupEditMode("the target's buffs and debuffs follow the wall plate once the UI reloads.")
+	end)
+end
+
+-- After a drag: the plate's corner from the screen's bottom centre.
+function Target:SavePlateSpot()
+	local f, root, L = self.plate.frame, ns.root, self.layout
+	local k = f:GetScale()
+	local left, bottom = f:GetLeft(), f:GetBottom()
+	local rl, rb = root:GetLeft(), root:GetBottom()
+	if L and ns.IsNumber(k) and ns.IsNumber(left) and ns.IsNumber(bottom) and ns.IsNumber(rl) and ns.IsNumber(rb) then
+		ns.db.consoleOpts.targetPlateSpot = {
+			x = math.floor(left * k - rl - L.W / 2 + 0.5),
+			y = math.floor(bottom * k - rb + 0.5),
+		}
+	end
+	if f.SetUserPlaced then
+		f:SetUserPlaced(false) -- ours to save, not the client's layout cache
+	end
+	self:PlateMoved(true)
+end
+
+function Target:ResetPlateSpot()
+	ns.db.consoleOpts.targetPlateSpot = false
+	self:PlateMoved(true)
+end
+
+-- `later`: the aura icons follow later (PlateAurasFollow), as a slider
+-- is let go.
+function Target:SetPlateSize(pct, later)
+	ns.db.consoleOpts.targetPlateSize = tonumber(pct) or 100
+	ns.db.consoleOpts.targetPlateSize = ns:TargetPlateSize()
+	self:PlateMoved(not later)
+	return ns.db.consoleOpts.targetPlateSize
+end
+
+-- Turned the other way: the art and its windows swap sides (the text
+-- stays readable). The buffs keep their place over the plate.
+function Target:SetPlateMirrored(on)
+	ns.db.consoleOpts.targetPlateMirror = on and true or false
+	self:PlateMoved(false)
+end
+
+-- A frame over the plate that takes the mouse only while the plate can be
+-- moved (Shift held out of combat, or Edit Mode open), over the secure
+-- target button; dragging it drags the plate.
+function Target:CreatePlateMover()
+	local f = self.plate.frame
+	local m = CreateFrame("Frame", "ReforgedUITargetPlateMover", f)
+	m:SetFrameStrata("HIGH")
+	m:SetAllPoints(f)
+	-- While it can be moved in Edit Mode: Edit Mode's blue, and its name.
+	m.highlight = m:CreateTexture(nil, "OVERLAY")
+	m.highlight:SetAllPoints()
+	m.highlight:SetColorTexture(0.25, 0.55, 1, 0.3)
+	m.highlight:Hide()
+	m.label = m:CreateFontString(nil, "OVERLAY")
+	font(m.label, 14)
+	m.label:SetPoint("CENTER")
+	m.label:SetText("Wall plate")
+	m.label:Hide()
+	-- The plate is what moves (ns:StartDrag/StopDrag); it saves on drop.
+	f:SetMovable(true)
+	f:SetClampedToScreen(true)
+	f.onDrop = function() self:SavePlateSpot() end
+	m:RegisterForDrag("LeftButton")
+	m:SetScript("OnDragStart", function()
+		if self:PlateCanMove() then
+			ns:StartDrag(f)
+		end
+	end)
+	m:SetScript("OnDragStop", function() ns:StopDrag(f) end)
+	-- Hidden mid-drag (Edit Mode closed, the target lost): end the drag here,
+	-- or it would never let go of the mouse.
+	f:SetScript("OnHide", function(frame)
+		if ns:StopDrag(frame) then
+			self:UpdatePlateMouse()
+		end
+	end)
+	m:SetScript("OnEnter", function(frame)
+		GameTooltip_SetDefaultAnchor(GameTooltip, frame)
+		GameTooltip:SetText("Reforged UI: wall plate")
+		GameTooltip:AddLine("Drag to move it. /rui plate reset puts it back on the wall.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	m:SetScript("OnLeave", GameTooltip_Hide)
+	m:EnableMouse(false)
+	self.plateMover = m
+
+	for _, e in ipairs({ "MODIFIER_STATE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+		ns:On(e, function() self:UpdatePlateMouse() end)
+	end
+	-- Shown and movable while Edit Mode is open, target or not; a move
+	-- made there reaches the Edit Mode layout once it closes.
+	ns:OnEditMode(function(open)
+		self.plateEditing = open and true or false
+		if not open and self.plateAurasPending then
+			self:PlacePlateAuras()
+		end
+		self:Refresh()
+	end)
+end
+
+function Target:PlateCanMove()
+	if not self:PlateInUse() or InCombatLockdown() then
+		return false
+	end
+	return self.plateEditing or (IsShiftKeyDown and IsShiftKeyDown()) and true or false
+end
+
+-- Click-through to the target button unless it can be moved; never let
+-- go of in mid-drag.
+function Target:UpdatePlateMouse()
+	local m, f = self.plateMover, self.plate and self.plate.frame
+	if not m then
+		return
+	end
+	local movable = f:IsShown() and self:PlateCanMove() and true or false
+	if movable or not f.dragging then
+		m:EnableMouse(movable)
+	end
+	local editing = movable and self.plateEditing or false
+	m.highlight:SetShown(editing)
+	m.label:SetShown(editing)
+end
+
+-- Edit Mode without a target: an empty plate to place.
+function Target:PlateStandIn()
+	local v = self.plate
+	v.model:ClearModel()
+	v.flatPortrait:Hide()
+	v.name:SetText("Target")
+	v.name:SetTextColor(1, 1, 1)
+	v.info:SetText("")
+	for _, bar in ipairs({ v.health, v.power }) do
+		bar:SetMinMaxValues(0, 1)
+		bar:SetValue(1)
+		bar.text:SetText("")
+		bar:Show()
+	end
+	v.health:SetStatusBarColor(0, 1, 0)
+	v.power:SetStatusBarColor(0.2, 0.4, 1)
+	setTag(v.tag, nil)
+	stopCast(v.cast)
+	for _, pip in ipairs(v.combo) do
+		pip.socket:Hide()
+		pip.gem:Hide()
+	end
 end
 
 -- A Warcraft III unit icon on a secure unit button (target of target,
@@ -666,7 +936,20 @@ function Target:AuraSpot()
 		return nil
 	end
 	local T = L.targetAuras
-	return (self:Mode() == "swap" and ns.modules.hero.enabled) and T.swap or T.plate
+	if not self:PlateInUse() then
+		return T.swap
+	end
+	-- Above the plate: where the layout has it, as much higher as the plate
+	-- grew, or over a moved plate's top from its left edge (the target of
+	-- target stands beside it), as wide a room as on the wall.
+	local r, P = self:PlateRect(), L.targetPlate.frame
+	if r.moved then
+		local x0 = r.x + 2
+		return { x0 = x0, x1 = x0 + (T.plate.x1 - T.plate.x0), y = r.y + r.h + 4 }
+	elseif r.k ~= 1 then
+		return { x0 = T.plate.x0, x1 = T.plate.x1, y = T.plate.y + r.h - P.h }
+	end
+	return T.plate
 end
 
 -- Blizzard's target frame keeps only its aura icons. Its named parts (cast
@@ -988,7 +1271,13 @@ function Target:Refresh()
 	self.active = active
 	self:RefreshBar()
 	self.swap.frame:SetShown(active == self.swap)
-	self.plate.frame:SetShown(active == self.plate)
+	-- In Edit Mode the plate shows to be moved, target or not.
+	local standIn = not has and self.plateEditing and self:PlateInUse() or false
+	self.plate.frame:SetShown(active == self.plate or standIn)
+	if standIn then
+		self:PlateStandIn()
+	end
+	self:UpdatePlateMouse()
 	if hero.enabled then
 		local want = active == self.swap and "target" or "player"
 		if want == "target" or hero.viewUnit ~= "player" then
@@ -1516,12 +1805,63 @@ function Target:PlaceButtons()
 		return
 	end
 	local b = self.button
-	if self:Mode() == "swap" and ns.modules.hero.enabled then
-		place(b, L.portrait)
+	if self:PlateInUse() then
+		place(b, self:PlateRect())
 	else
-		place(b, L.targetPlate.frame)
+		place(b, L.portrait)
 	end
-	place(self.tot, L.tot.frame)
+	place(self.tot, self:ToTSpot())
+end
+
+-- The plate's parts on its frame, from its corner (Layout.lua has them in
+-- console units), the other way round when it is turned.
+function Target:PlacePlateParts()
+	local L = self.layout
+	if not L then
+		return
+	end
+	local P, pl = L.targetPlate, self.plate
+	local O, mirror, f = P.frame, self:PlateMirrored(), pl.frame
+	local function x(r, w)
+		local d = r.x - O.x
+		return mirror and O.w - d - w or d
+	end
+	local function at(region, r)
+		place(region, { x = x(r, r.w), y = r.y - O.y, w = r.w, h = r.h }, f)
+	end
+	at(pl.art, O)
+	if mirror then
+		pl.art:SetTexCoord(1, 0, 0, 1)
+	else
+		pl.art:SetTexCoord(0, 1, 0, 1)
+	end
+	at(pl.portraitBg, P.portraitBg)
+	at(pl.model, P.portrait)
+	at(pl.flatPortrait, P.portrait)
+	at(pl.health, P.health)
+	at(pl.power, P.power)
+	-- The numbers fit their bar (fitPair measures against this width).
+	for _, bar in ipairs({ pl.health, pl.power }) do
+		local w = bar:GetWidth()
+		if w then
+			bar.text:SetWidth(math.max(1, w - 2))
+		end
+	end
+	at(pl.cast, P.cast)
+	-- The level plate and the combo row keep their own order, as a whole
+	-- on the other side.
+	local X = P.level
+	local dx, dy = x(X.left, X.width) - X.left.x, -O.y
+	local function moved(r)
+		return { x = r.x + dx, y = r.y + dy, w = r.w, h = r.h }
+	end
+	ns.modules.hero.PlaceLevelPlate(pl.plate, {
+		left = moved(X.left), middle = moved(X.middle), right = moved(X.right), bar = moved(X.bar),
+		width = X.width, cx = X.cx + dx, nameY = X.nameY + dy, levelY = X.levelY + dy,
+	}, f)
+	local C = P.combo
+	local rowW = (MAX_COMBO - 1) * C.step + C.size
+	placeCombo(pl.combo, { x = x(C, rowW), y = C.y - O.y, size = C.size, step = C.step }, f)
 end
 
 function Target:OnLayout(L)
@@ -1533,24 +1873,9 @@ function Target:OnLayout(L)
 	placeCombo(sw.combo, S.combo)
 	place(sw.cast, S.cast)
 
-	local P, pl = L.targetPlate, self.plate
-	pl.art:SetTexture(ns:ArtPath(P.file))
-	place(pl.art, P.frame)
-	place(pl.portraitBg, P.portraitBg)
-	place(pl.model, P.portrait)
-	place(pl.flatPortrait, P.portrait)
-	place(pl.health, P.health)
-	place(pl.power, P.power)
-	-- The numbers fit their bar (fitPair measures against this width).
-	for _, bar in ipairs({ pl.health, pl.power }) do
-		local w = bar:GetWidth()
-		if w then
-			bar.text:SetWidth(math.max(1, w - 2))
-		end
-	end
-	ns.modules.hero.PlaceLevelPlate(pl.plate, P.level)
-	placeCombo(pl.combo, P.combo)
-	place(pl.cast, P.cast)
+	self.plate.art:SetTexture(ns:ArtPath(L.targetPlate.file))
+	self:PlacePlate()
+	self:PlacePlateParts()
 
 	-- Its parts follow the button, which PlaceButtons places (out of combat).
 	local heroModel = ns.modules.hero.model

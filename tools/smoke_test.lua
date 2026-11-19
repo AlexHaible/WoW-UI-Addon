@@ -318,12 +318,83 @@ end
 BuffFrame = new("frame", "BuffFrame", UIParent)
 DebuffFrame = new("frame", "DebuffFrame", UIParent)
 local settingValues = { PROXY_SHOW_ACTIONBAR_2 = false, PROXY_SHOW_ACTIONBAR_3 = true, PROXY_SHOW_ACTIONBAR_8 = false }
+-- The game's options panel (Blizzard_Settings_Shared): categories with
+-- vertical layouts of initializers, and proxy settings that read and write
+-- through the addon's functions (a value is only written when it changes).
+local proxySettings, settingsOpened = {}, {}
 Settings = { GetSetting = function(name)
+	if proxySettings[name] then return proxySettings[name] end
 	if settingValues[name] == nil then return nil end
 	return { GetValue = function() return settingValues[name] end, SetValue = function(_, v) settingValues[name] = v end }
 end }
-Settings.RegisterCanvasLayoutCategory = function(panel, name) return { panel = panel, name = name } end
-Settings.RegisterAddOnCategory = function() end
+local categoryIDs = 0
+local function newCategory(name, parent)
+	categoryIDs = categoryIDs + 1
+	local id = categoryIDs
+	local layout = { initializers = {} }
+	function layout:AddInitializer(init) self.initializers[#self.initializers + 1] = init end
+	local category = { name = name, parent = parent, layout = layout, GetID = function() return id end }
+	return category, layout
+end
+Settings.RegisterVerticalLayoutCategory = function(name) return newCategory(name) end
+Settings.RegisterVerticalLayoutSubcategory = function(parent, name) return newCategory(name, parent) end
+Settings.RegisterAddOnCategory = function(category) category.addOn = true end
+Settings.OpenToCategory = function(id) settingsOpened[#settingsOpened + 1] = id end
+Settings.RegisterProxySetting = function(category, variable, vartype, name, default, get, set)
+	assert(not proxySettings[variable], "one setting per variable: " .. variable)
+	assert(type(default) == vartype, variable .. ": a " .. vartype .. " default")
+	local setting = { variable = variable, category = category, name = name, default = default, notified = 0 }
+	function setting:GetValue() return get() end
+	function setting:SetValue(v)
+		assert(type(v) == vartype, variable .. " takes a " .. vartype)
+		if get() ~= v then set(v) end
+	end
+	function setting:SetValueToDefault() self:SetValue(default) end
+	function setting:NotifyUpdate() self.notified = self.notified + 1 end
+	function setting:GetVariableType() return vartype end
+	proxySettings[variable] = setting
+	return setting
+end
+local function newInitializer(category, kind, setting, options, tip)
+	local init = { kind = kind, setting = setting, options = options, tip = tip, predicates = {} }
+	function init:AddModifyPredicate(fn) self.predicates[#self.predicates + 1] = fn end
+	function init:SetParentInitializer(parent, fn)
+		self.parent = parent
+		if fn then self:AddModifyPredicate(fn) end
+	end
+	function init:IsEnabled()
+		for _, fn in ipairs(self.predicates) do
+			if not fn() then return false end
+		end
+		return not self.parent or self.parent:IsEnabled()
+	end
+	if category then category.layout:AddInitializer(init) end
+	return init
+end
+Settings.CreateCheckbox = function(category, setting, tip) return newInitializer(category, "check", setting, nil, tip) end
+Settings.CreateSlider = function(category, setting, options, tip) return newInitializer(category, "slider", setting, options, tip) end
+Settings.CreateDropdown = function(category, setting, options, tip)
+	return newInitializer(category, "choice", setting, options, tip)
+end
+Settings.CreateSliderOptions = function(lo, hi, rate)
+	return { minValue = lo, maxValue = hi, steps = (hi - lo) / rate, rate = rate,
+		SetLabelFormatter = function(self, which, fn) self.formatter = fn end }
+end
+Settings.CreateControlTextContainer = function()
+	local data = {}
+	return { Add = function(_, value, label) data[#data + 1] = { value = value, label = label } end,
+		GetData = function() return data end }
+end
+-- A setting of the addon's options pages, by its option (Config.lua PAGES).
+local function option(id)
+	return proxySettings["REFORGEDUI_" .. id]
+end
+MinimalSliderWithSteppersMixin = { Label = { Left = 1, Right = 2 } }
+function CreateSettingsListSectionHeaderInitializer(name) return { kind = "header", name = name } end
+function CreateSettingsButtonInitializer(name, text, click, tip, search)
+	assert(search ~= nil, "a button says whether it can be searched")
+	return { kind = "button", name = name, text = text, click = click, tip = tip }
+end
 -- Dividers between buttons: per button, and from a pool on the main bar that
 -- Blizzard's UpdateDividers refills.
 ActionButton7.RightDivider = new("texture", nil, ActionButton7)
@@ -1382,11 +1453,10 @@ do
 	savedLayouts = settled
 end
 -- Frames of ours the player moves all drag through Core.lua (ns:StartDrag,
--- ns:StopDrag, ns:MakeDraggable), so each drag ends the same way; the
--- options window is the one exception.
+-- ns:StopDrag, ns:MakeDraggable), so each drag ends the same way.
 do
 	for _, file in ipairs(files) do
-		if file ~= "Core.lua" and file ~= "Config.lua" and not file:find("^Libs/") then
+		if file ~= "Core.lua" and not file:find("^Libs/") then
 			local f = assert(io.open(ADDON .. file))
 			local n = 0
 			for line in f:lines() do
@@ -2288,22 +2358,27 @@ hero.xp.hover:GetScript("OnMouseUp")(hero.xp.hover, "RightButton")
 assert(ReforgedUIDB.consoleOpts.restedColor[3] == 1, "without menus a right-click steps to the next colour")
 hero:SetRestedColor({ 0, 0, 1, 0.5 })
 ns.ShowMenu = oldMenu
--- The options menu has a button per weapon icon that opens the same menu.
+-- The options have a dropdown per stat icon, offering every choice.
 local config = ns.modules.config
-config:Refresh()
-assert(config.iconButtons[1]._text == "Ranged" and config.iconButtons[2]._text == "Off hand", "icon buttons name the choice")
-ns.ShowMenu = function(_, owner, title, items)
-	menuOpened = { owner = owner, title = title, items = items }
-	return true
+assert(option("statIcon1"):GetValue() == "ranged" and option("statIcon2"):GetValue() == "offhand",
+	"stat icon options show the choice")
+do
+	local init = config.initializers.statIcon3
+	local offered = init.options()
+	assert(#offered == #hero.ICON_KINDS and offered[1].label == hero.ICON_NAMES[hero.ICON_KINDS[1]],
+		"the dropdown offers every stat icon kind, by name")
+	assert(init.setting.name == hero.ICON_TITLES[3], "named after the icon's place")
+	local notified = option("statIcon3").notified
+	option("statIcon3"):SetValue("none")
+	assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "none", "the options set the icon")
+	hero:SetIconChoice(3, "crit")
+	assert(option("statIcon3").notified > notified and option("statIcon3"):GetValue() == "crit",
+		"a right-click choice shows in the options")
+	hero:SetIconChoice(3, "none")
 end
-config.iconButtons[3]:GetScript("OnClick")(config.iconButtons[3])
-assert(menuOpened.owner == config.iconButtons[3], "options button opens the icon menu")
-menuOpened.items[#menuOpened.items].func()
-assert(ReforgedUIDB.consoleOpts.icons.SHAMAN[3] == "none", "options menu sets the icon")
-ns.ShowMenu = oldMenu
 hero:SetIconChoice(1, "main")
 assert(hero.stats[4].kind == "armor" and hero.stats[4].label._text:find("Armor"), "the fourth icon defaults to armour")
-assert(config.iconButtons[4]._text == "Armor", "options menu shows the armour icon")
+assert(option("statIcon4"):GetValue() == "armor", "the options show the armour icon")
 hero:SetIconChoice(4, "spell")
 assert(hero.stats[4].value._text == "70", "the armour icon can show something else")
 hero:SetIconChoice(4, "none")
@@ -2482,18 +2557,21 @@ do
 	local _, _, _, cx = cap:GetPoint(1)
 	assert(math.abs(cx + cap._w / 2 - (clock.x + clock.w / 2)) < 0.01, "the capsule is centred under the clock")
 	assert(cap:GetFrameLevel() > tb.clockFrame:GetFrameLevel(), "the capsule's top draws over the clock frame's ring")
-	local cfg = ns.modules.config
-	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	local hoursInit = ns.modules.config.initializers.clockHours
+	assert(hoursInit:IsEnabled(), "the hours option is live while the time shows")
+	option("clockHours"):SetValue(12)
 	assert(cap.text._text == "12:00 AM" and ReforgedUIDB.consoleOpts.clockHours == 12, "12 hours")
-	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	option("clockTime"):SetValue("local")
 	assert(cap.text._text == "9:07 PM" and ReforgedUIDB.consoleOpts.clockTime == "local", "local time")
 	gameHour, localClock.hour, localClock.min = 12, 9, 30
 	tb.ticker._scripts.OnUpdate(tb.ticker, 1)
 	assert(cap.text._text == "9:30 AM", "the capsule keeps time")
-	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
+	option("clockTime"):SetValue("off")
 	assert(cap._shown == false and ReforgedUIDB.consoleOpts.clockTime == "off", "hidden")
-	cfg.clockTimeButton._scripts.OnClick(cfg.clockTimeButton)
-	cfg.clockHoursButton._scripts.OnClick(cfg.clockHoursButton)
+	assert(not hoursInit:IsEnabled() and hoursInit.parent == ns.modules.config.initializers.clockTime,
+		"the hours option, under the time option, is greyed out while the time is hidden")
+	option("clockTime"):SetValue("server")
+	option("clockHours"):SetValue(24)
 	assert(cap._shown and cap.text._text == "12:00", "back to server time, 24 hours")
 	assert(tb.FormatTime(13, 5, 12) == "1:05 PM" and tb.FormatTime(12, 0, 12) == "12:00 PM" and tb.FormatTime(9, 5, 24) == "09:05",
 		"time formats")
@@ -2586,108 +2664,122 @@ inCombat = false
 fire("PLAYER_REGEN_ENABLED")
 assert(ActionButton1._points[1][1] == "BOTTOMLEFT", "queued relock did not run")
 
--- The options menu.
+-- The options: pages in the game's Options > AddOns, one main page and one
+-- per part of the UI, every option on one page, each a known option with a
+-- default of its kind, in a section under a header.
 local config = ns.modules.config
--- Every option has room of its own: no two overlap (two changes made apart
--- once put a checkbox each on the same spot), and none leaves the menu.
 do
-	local MARGIN = 10 -- the menu's border
-	local function clash(claims)
-		for i, a in ipairs(claims) do
-			if a.x < MARGIN or a.x + a.w > 650 - MARGIN or a.y > -MARGIN or a.y - a.h < MARGIN - config.height then
-				return a.name .. " leaves the menu"
-			end
-			for j = i + 1, #claims do
-				local c = claims[j]
-				if a.x < c.x + c.w and c.x < a.x + a.w and a.y > c.y - c.h and c.y > a.y - a.h then
-					return a.name .. " overlaps " .. c.name
+	local main = config.category
+	assert(main and main.addOn and main.name == "Reforged UI", "the options are an AddOns category")
+	assert(#config.pages >= 5, "a main page and a page per part of the UI")
+	local seen = {}
+	for i, page in ipairs(config.pages) do
+		assert(i == 1 and page == main or page.parent == main, page.name .. " is a page under Reforged UI")
+		local inits = page.layout.initializers
+		assert(inits[1] and inits[1].kind == "header", page.name .. " opens with a section header")
+		local options = 0
+		for _, init in ipairs(inits) do
+			if init.setting then
+				options = options + 1
+				local v = init.setting.variable
+				assert(not seen[v], v .. " on one page only")
+				seen[v] = true
+				assert(init.setting.category == page, v .. " belongs to its page")
+				assert(init.setting.name and init.setting.name ~= "", v .. " has a label")
+				local value = init.setting:GetValue()
+				assert(type(value) == init.setting:GetVariableType(), v .. " shows a value of its kind")
+				if init.kind == "slider" then
+					local o = init.options
+					assert(o.minValue < o.maxValue and value >= o.minValue and value <= o.maxValue, v .. " within its range")
+					assert(o.formatter, v .. " shows its value")
+				elseif init.kind == "choice" then
+					local found = false
+					for _, c in ipairs(init.options()) do
+						found = found or c.value == value
+					end
+					assert(found, v .. " shows one of its choices")
 				end
 			end
 		end
+		assert(options > 0, page.name .. " has options")
 	end
-	local claims = config.claims
-	assert(#claims >= #config.checks + #config.edits + #config.sliders * 2 + #config.themeButtons, "every option claims its room")
-	assert(ReforgedUIConfig:GetHeight() == config.height and config.height > 0, "the menu is as tall as its rows")
-	local why = clash(claims)
-	assert(not why, "options menu: " .. tostring(why))
-	-- The check itself: an option put on another's spot, or past the edge, is caught.
-	local first = claims[1]
-	claims[#claims + 1] = { name = "copy", x = first.x + 2, y = first.y - 2, w = first.w, h = first.h }
-	assert(clash(claims), "an overlapping option is caught")
-	claims[#claims] = { name = "low", x = 20, y = 5 - config.height, w = 100, h = 24 }
-	assert(clash(claims) == "low leaves the menu", "an option under the menu is caught")
-	claims[#claims] = nil
+	for id, spec in pairs(config.specs) do
+		assert(not spec.key or ns:KnownOption(spec.key), id .. " is a known option")
+	end
+	-- Every option of the old menu is on a page.
+	for _, key in ipairs({ "theme", "hideGrid", "healthPercent", "powerPercent", "hideChatIcons", "stopAnimation",
+		"chatInputAbove", "zoneText", "targetMode", "editModeBars", "freeChat", "uiScale", "themeTooltips",
+		"hpWarning", "portraitX", "portraitY", "portraitScale", "repBar", "hideTopBar", "clockTime", "clockHours",
+		"statIcon1", "statIcon2", "statIcon3", "statIcon4", "targetBar", "totBar", "transparency", "chatWiden",
+		"chatUp", "uiSize", "targetAuraSize", "targetBarSize", "targetBuffsFirst", "hideStance", "leaveStance" }) do
+		assert(option(key), "the options have " .. key)
+	end
+	for _, key in ipairs({ "hideBags", "placeChat", "hideMicro" }) do
+		assert(not option(key), "no " .. key .. " option (no centre modes)")
+	end
 end
 -- "Let me move and resize the chat window" lets go of the chat window and
 -- puts the input box back on it; turning it off holds it again.
 do
-	local check
-	for _, cb in ipairs(config.checks) do
-		if cb.key == "freeChat" then check = cb end
-	end
-	assert(check, "chat window option")
-	check:SetChecked(true)
-	check:GetScript("OnClick")(check)
+	option("freeChat"):SetValue(true)
 	ChatFrame1:ClearAllPoints()
 	ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 123, 45)
 	assert(ChatFrame1._points[1][4] == 123, "a free chat window stays where it is moved")
 	assert(ChatFrame1EditBox._points[1][2] == ChatFrame1, "the input box follows its window")
-	check:SetChecked(false)
-	check:GetScript("OnClick")(check)
+	option("freeChat"):SetValue(false)
 	assert(ChatFrame1._points[1][2] == UIParent and ChatFrame1._points[1][1] == "BOTTOMLEFT", "the chat window is held again")
 	assert(not ReforgedUIDB.consoleOpts.freeChat, "option off")
 end
--- In the game's options it sits inside the AddOns page, and leaves with it.
-assert(config.settingsPanel, "options page registered")
-config.settingsPanel:Show()
-config.settingsPanel:GetScript("OnShow")(config.settingsPanel)
-assert(ReforgedUIConfig:IsShown() and ReforgedUIConfig:GetParent() == config.settingsPanel, "menu shown inside the options page")
-config.settingsPanel:Hide()
-config.settingsPanel:GetScript("OnHide")(config.settingsPanel)
-assert(not ReforgedUIConfig:IsShown() and ReforgedUIConfig:GetParent() == UIParent, "menu leaves with the options page")
+-- /rui config opens the game's options on our page.
 SlashCmdList.REFORGEDUI("config")
-assert(ReforgedUIConfig:IsShown(), "/rui config opens the menu")
-for _, eb in ipairs(config.edits) do
-	if eb.key == "uiScale" then eb._text = "999" end
-end
-function methods:GetText() return self._text end
-config:Apply()
+assert(settingsOpened[#settingsOpened] == config.category:GetID(), "/rui config opens the options page")
+-- Sliders save whole steps, within their range.
+option("uiScale"):SetValue(268.6)
+assert(ReforgedUIDB.consoleOpts.uiScale == 269 and ns.layout.s == 269, "UI scale saved in whole steps")
+option("uiScale"):SetValue(999)
 assert(ReforgedUIDB.consoleOpts.uiScale == 270 and ns.layout.s == 270, "UI scale is clamped to 240-270")
-for _, cb in ipairs(config.checks) do
-	assert(not tContains({ "hideBags", "placeChat", "hideMicro" }, cb.key), "no " .. tostring(cb.key) .. " option")
-	assert(cb.key, "every checkbox is a plain option (no centre mode boxes)")
-end
+assert(config.initializers.uiScale.options.formatter(255) == "255", "the UI scale shows without a % sign")
+assert(config.initializers.uiSize.options.formatter(85) == "85%", "the UI size shows in %")
+-- The panel's Defaults button puts an option back to Core.lua's default.
+option("uiScale"):SetValueToDefault()
+assert(ReforgedUIDB.consoleOpts.uiScale == 240, "UI scale back to its default")
+option("uiScale"):SetValue(270)
 -- The transparency slider fades the console's art, saved, and nothing else.
-local slider = config.sliders[1]
-assert(slider and slider.key == "transparency", "transparency slider")
-assert(ReforgedUIDB.consoleOpts.transparency == 0 and ns.modules.console.frames.bg:GetAlpha() == 1, "opaque by default")
-slider:SetValue(10)
-assert(ReforgedUIDB.consoleOpts.transparency == 10, "transparency saved")
-for key, f in pairs(ns.modules.console.frames) do
-	assert(math.abs(f:GetAlpha() - 0.9) < 1e-6, key .. " art faded")
-end
-assert(config.cogwheel:GetAlpha() == 1, "the cogwheel stays opaque")
-ns:Relayout()
-assert(math.abs(ns.modules.console.frames.grid:GetAlpha() - 0.9) < 1e-6, "transparency survives a relayout")
-slider:SetValue(0)
-assert(ns.modules.console.frames.cap:GetAlpha() == 1, "back to opaque")
--- The target aura size slider: shown at 100 % while unset, and left unset
--- until moved (then saved, in steps of 5).
 do
-	local auras
-	for _, sl in ipairs(config.sliders) do
-		if sl.key == "targetAuraSize" then auras = sl end
+	local slider = option("transparency")
+	assert(ReforgedUIDB.consoleOpts.transparency == 0 and ns.modules.console.frames.bg:GetAlpha() == 1, "opaque by default")
+	slider:SetValue(10)
+	assert(ReforgedUIDB.consoleOpts.transparency == 10, "transparency saved")
+	for key, f in pairs(ns.modules.console.frames) do
+		assert(math.abs(f:GetAlpha() - 0.9) < 1e-6, key .. " art faded")
 	end
-	assert(auras, "target aura size slider")
+	assert(config.cogwheel:GetAlpha() == 1, "the cogwheel stays opaque")
+	ns:Relayout()
+	assert(math.abs(ns.modules.console.frames.grid:GetAlpha() - 0.9) < 1e-6, "transparency survives a relayout")
+	slider:SetValue(0)
+	assert(ns.modules.console.frames.cap:GetAlpha() == 1, "back to opaque")
+end
+-- The target aura size slider: shown at 100 % while unset, and left unset
+-- until moved (then saved, in steps of 5, and placed once it settles).
+do
+	local auras = option("targetAuraSize")
 	local was = ReforgedUIDB.consoleOpts.targetAuraSize
-	ReforgedUIDB.consoleOpts.targetAuraSize = false
-	auras:SetValue(130)
 	ReforgedUIDB.consoleOpts.targetAuraSize = false
 	config:Refresh()
 	assert(auras:GetValue() == 100 and ReforgedUIDB.consoleOpts.targetAuraSize == false,
-		"an unset aura size stays unset when the menu is shown")
+		"an unset aura size stays unset when the options are shown")
+	assert(config.initializers.targetAuraSize.options.rate == 5, "in steps of 5")
+	flushTimers()
+	local placed = 0
+	local wasSetup = ns.SetupEditMode
+	ns.SetupEditMode = function() placed = placed + 1 end
+	auras:SetValue(147)
+	assert(ReforgedUIDB.consoleOpts.targetAuraSize == 145, "aura size saved when moved, in steps of 5")
 	auras:SetValue(150)
-	assert(ReforgedUIDB.consoleOpts.targetAuraSize == 150, "aura size saved when moved")
+	assert(placed == 0, "Edit Mode placement waits for the slider to settle")
+	flushTimers()
+	ns.SetupEditMode = wasSetup
+	assert(placed == 1, "placed once, for the last value")
 	ReforgedUIDB.consoleOpts.targetAuraSize = was
 	config:Refresh()
 end
@@ -2695,8 +2787,7 @@ end
 -- chat area (16:10 here), the console scales down to make room for it; 0 %
 -- keeps a 16:9 screen's width. Wider screens are left alone.
 do
-	local chat = config.sliders[2]
-	assert(chat and chat.key == "chatWiden", "chat width slider")
+	local chat = option("chatWiden")
 	local w, h, uiScale = UIParent._w, UIParent._h, ReforgedUIDB.consoleOpts.uiScale
 	ReforgedUIDB.consoleOpts.uiScale = 240
 	UIParent._w, UIParent._h = 1920, 1200
@@ -2711,7 +2802,6 @@ do
 	assert(ns.layout.byKey.chat_bg.rect.x + wide <= ns.layout.W + 0.01, "and stays on screen")
 	assert(ns.layout.byKey.chat_bg.rect.x + wide >= ns.layout.W - 2,
 		"and reaches the screen edge, the end caps past it")
-	chat._scripts.OnMouseUp(chat)
 	UIParent._w, UIParent._h = 1792, 768
 	ns:Relayout()
 	assert(ns.layout.W == 1792, "21:9 is wide enough already")
@@ -2721,19 +2811,14 @@ do
 end
 -- The chat height slider raises the chat area, saved, shown in units.
 do
-	local height = config.sliders[3]
-	assert(height and height.key == "chatUp", "chat height slider")
-	for _, eb in ipairs(config.edits) do
-		assert(eb.key ~= "chatUp", "chat height is a slider, not a number box")
-	end
+	local height = option("chatUp")
 	local before = ReforgedUIDB.consoleOpts.chatUp
 	ns:Relayout()
 	local low = ns.layout.byKey.chat_bg.rect.h
 	height:SetValue(before + 60)
 	assert(ReforgedUIDB.consoleOpts.chatUp == before + 60, "chat height saved")
 	assert(math.abs(ns.layout.byKey.chat_bg.rect.h - (low + 60)) < 0.01, "the chat area grows by the slider's units")
-	assert(height.value._text == tostring(before + 60), "shown without a % sign")
-	height._scripts.OnMouseUp(height)
+	assert(config.initializers.chatUp.options.formatter(before + 60) == tostring(before + 60), "shown without a % sign")
 	height:SetValue(before)
 end
 -- Everything left of the chat area fits ns.Layout.CONSOLE_FIXED on every theme.
@@ -2743,8 +2828,18 @@ for _, theme in ipairs(ns.Layout.THEMES) do
 		assert(LT.chatBgX - LT.shift <= ns.Layout.CONSOLE_FIXED * s, theme .. " fits CONSOLE_FIXED")
 	end
 end
+-- The theme option switches the theme (and Auto follows the race).
+do
+	local was = ReforgedUIDB.theme
+	option("theme"):SetValue("orc")
+	assert(ReforgedUIDB.theme == "orc" and ns.themeKey == "orc", "the theme option switches the theme")
+	option("theme"):SetValue(was)
+	assert(ReforgedUIDB.theme == was, "and back")
+end
+local opened = #settingsOpened
 config.cogwheel._scripts.OnClick()
-assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
+assert(#settingsOpened == opened + 1 and settingsOpened[opened + 1] == config.category:GetID(),
+	"the cogwheel opens the options page")
 
 -- The top bar's pieces never collide: micro buttons, clock and feed slots
 -- (slots give way first), the clock centred.
@@ -3500,24 +3595,17 @@ do
 		assert(not ReforgedUIDB.consoleOpts.targetBarPos and p2[4] == p0[4] and p2[5] == p0[5], "/rui targetbar reset")
 		SlashCmdList.REFORGEDUI("targetbar off")
 		assert(not bar.frame:IsShown() and not ReforgedUIDB.consoleOpts.targetBar, "/rui targetbar off")
-		-- The options menu's checkbox does the same.
-		local box
-		for _, cb in ipairs(config.checks) do
-			if cb.key == "targetBar" then box = cb end
-		end
-		assert(box, "the options menu has a target bar checkbox")
-		box._checked = true
-		box._scripts.OnClick(box)
-		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "the checkbox turns the target bar on")
-		box._checked = false
-		box._scripts.OnClick(box)
+		-- The option does the same.
+		local box = option("targetBar")
+		box:SetValue(true)
+		assert(ReforgedUIDB.consoleOpts.targetBar and bar.frame:IsShown(), "the option turns the target bar on")
+		box:SetValue(false)
 		assert(not bar.frame:IsShown(), "and off")
-		assert(box._enabled and box.label._textColor[1] == 1, "the checkbox is live while the target module is on")
+		local init = config.initializers.targetBar
+		assert(init:IsEnabled(), "the option is live while the target module is on")
 		target.enabled = false
-		config:Refresh()
-		assert(not box._enabled and box.label._textColor[1] < 1, "and greyed out while it is off")
+		assert(not init:IsEnabled() and not config.initializers.targetMode:IsEnabled(), "and greyed out while it is off")
 		target.enabled = true
-		config:Refresh()
 		-- The target of target bar: the same window for the target's target,
 		-- placed on its own, right of the target bar; both share a size.
 		local tb = target.totBar
@@ -3559,23 +3647,13 @@ do
 		assert(t1[4] == 200 and math.abs(t1[5] + 200 / 1.5) < 0.01, "a bigger bar keeps its place")
 		SlashCmdList.REFORGEDUI("barsize 999")
 		assert(ReforgedUIDB.consoleOpts.targetBarSize == 200 and tb.frame._scale == 2, "at most 200 %")
-		local slider
-		for _, sl in ipairs(config.sliders) do
-			if sl.key == "targetBarSize" then slider = sl end
-		end
-		assert(slider, "the options menu has a target bar size slider")
-		slider._scripts.OnValueChanged(slider, 100)
+		assert(option("targetBarSize"):GetValue() == 200, "the size option shows it")
+		option("targetBarSize"):SetValue(100)
 		assert(ReforgedUIDB.consoleOpts.targetBarSize == 100 and tb.frame._scale == 1, "the slider sets it")
 		SlashCmdList.REFORGEDUI("totbar reset")
 		assert(not ReforgedUIDB.consoleOpts.totBarPos and tb.frame._points[1][4] == t0[4], "/rui totbar reset")
-		local totBox
-		for _, cb in ipairs(config.checks) do
-			if cb.key == "totBar" then totBox = cb end
-		end
-		assert(totBox, "the options menu has a target of target bar checkbox")
-		totBox._checked = false
-		totBox._scripts.OnClick(totBox)
-		assert(not tb.frame:IsShown() and not ReforgedUIDB.consoleOpts.totBar, "the checkbox turns it off")
+		option("totBar"):SetValue(false)
+		assert(not tb.frame:IsShown() and not ReforgedUIDB.consoleOpts.totBar, "the option turns it off")
 		SlashCmdList.REFORGEDUI("totbar on")
 		SlashCmdList.REFORGEDUI("totbar off")
 		assert(not tb.frame:IsShown(), "/rui totbar off")
@@ -3617,13 +3695,12 @@ do
 	assert(ReforgedUITargetButton:GetAttribute("unit") == "target" and ReforgedUIPortraitButton:GetAttribute("unit") == "player"
 		and ReforgedUITargetTarget:GetAttribute("unit") == "targettarget", "secure unit buttons")
 	assert(hero.viewUnit == "target", "back to swap with a target")
-	-- The setting persists and the options menu shows it.
+	-- The setting persists and the options show it.
 	assert(ReforgedUIDB.consoleOpts.targetMode == "swap", "the target mode is saved")
-	config:Refresh()
-	assert(not config.targetButtons[1]._enabled and config.targetButtons[2]._enabled, "options show the target mode")
-	config.targetButtons[2]._scripts.OnClick()
-	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "the options button switches to the plate")
-	config.targetButtons[1]._scripts.OnClick()
+	assert(option("targetMode"):GetValue() == "swap", "the options show the target mode")
+	option("targetMode"):SetValue("plate")
+	assert(ReforgedUIDB.consoleOpts.targetMode == "plate", "the option switches to the plate")
+	option("targetMode"):SetValue("swap")
 	-- Every theme's plate art exists, with its windows, beside the stance row.
 	for _, key in ipairs(ns.THEME_ORDER) do
 		for _, sc in ipairs({ 240, 270 }) do

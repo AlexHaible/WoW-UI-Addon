@@ -856,7 +856,7 @@ local ICON_TITLES = { "Top left stat icon", "Top right stat icon", "Bottom right
 
 Hero.ICON_NAMES, Hero.ICON_TITLES = ICON_NAMES, ICON_TITLES
 
--- Right-click menu of a stat icon (or its button in the options menu,
+-- Right-click menu of a stat icon (or one opened for it elsewhere,
 -- `owner`): what it shows. Without the menu API a click steps to the next
 -- choice.
 function Hero:OpenIconMenu(index, owner)
@@ -964,10 +964,7 @@ end
 function Hero:SetIconChoice(index, kind)
 	self:IconChoices()[index] = kind
 	self:UpdateStats()
-	local config = ns.modules.config
-	if config and config.frame and config.frame:IsShown() then
-		config:Refresh()
-	end
+	ns.modules.config:Refresh()
 end
 
 ----------------------------------------------------------------------------

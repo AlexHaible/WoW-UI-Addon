@@ -162,6 +162,82 @@ local function setTag(t, style)
 	t:Show()
 end
 
+-- Your threat on the target, as the tooltip has it: the share of what it
+-- takes to pull it (100 % while you hold it), on the same kind of plate as
+-- the classification tag, coloured as the game's threat warnings (grey,
+-- yellow, orange, red). Only while you are on its threat list, and with the
+-- option on (consoleOpts.targetThreat). In some fights (bosses, in
+-- instances) the numbers are secret: the percentage then goes to the font
+-- string as is, for the client to format, in white, and only while you are
+-- in combat (a secret can't be tested for 0).
+local THREAT_COLORS = {
+	[0] = { 0.69, 0.69, 0.69 }, { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 },
+}
+
+local function threatColor(status)
+	if not ns.IsNumber(status) then
+		return 1, 1, 1
+	end
+	if GetThreatStatusColor then
+		local ok, r, g, b = pcall(GetThreatStatusColor, status)
+		if ok and ns.IsNumber(r) and ns.IsNumber(g) and ns.IsNumber(b) then
+			return r, g, b
+		end
+	end
+	return unpack(THREAT_COLORS[status] or THREAT_COLORS[0])
+end
+
+-- Your threat on `unit`: the percentage (maybe secret) and the threat
+-- status (maybe secret), or nothing when there is none to show.
+local function threatOn(unit)
+	if not (ns.db.consoleOpts.targetThreat and UnitDetailedThreatSituation and UnitExists(unit)) then
+		return
+	end
+	local ok, _, status, pct = pcall(UnitDetailedThreatSituation, "player", unit)
+	if not ok or pct == nil then
+		return
+	end
+	if isSecret(pct) then
+		if UnitAffectingCombat("player") then
+			return pct, status
+		end
+		return
+	end
+	if ns.IsNumber(pct) and pct > 0 then
+		return pct, status
+	end
+end
+
+local function setThreat(t, unit)
+	local pct, status = threatOn(unit)
+	if pct == nil then
+		t:Hide()
+		return
+	end
+	local shown
+	if isSecret(pct) then
+		shown = pcall(t.text.SetFormattedText, t.text, "%.0f%%", pct)
+	else
+		t.text:SetText(("%d%%"):format(math.floor(pct + 0.5)))
+		shown = true
+	end
+	if not shown then
+		t:Hide()
+		return
+	end
+	local r, g, b = threatColor(status)
+	t.text:SetTextColor(r, g, b)
+	t.edge:SetColorTexture(r, g, b)
+	-- A secret percentage makes the string's width secret too.
+	local w = t.text:GetStringWidth()
+	if not ns.IsNumber(w) or w <= 0 then
+		w = 4 * t.size * 0.6
+	end
+	t:SetSize(w + 8, t.size + 5)
+	t:Show()
+end
+Target.ThreatOn = threatOn
+
 -- "Level 12 Elite Humanoid", "Level ?? Boss Dragonkin", "Level 60 Warrior".
 -- In instances any part can be secret: a part that can't be read is left
 -- out (a secret level reads "??"), the rest still shows.
@@ -513,6 +589,8 @@ function Target:CreateSwap()
 	v.cast = makeCast(f, 11, 9)
 	-- Over the hero's portrait (placed in OnLayout).
 	v.tag = makeTag(f, 20, 9)
+	-- Your threat at the top of the portrait.
+	v.threat = makeTag(f, 20, 9)
 	self.swap = v
 end
 
@@ -566,6 +644,9 @@ function Target:CreatePlate()
 	-- At the foot of the arch's window, over the portrait.
 	v.tag = makeTag(top, 16, 9)
 	v.tag:SetPoint("BOTTOM", model, "BOTTOM", 0, 3)
+	-- Your threat at its top, under the arch.
+	v.threat = makeTag(top, 16, 9)
+	v.threat:SetPoint("TOP", model, "TOP", 0, -8)
 	self.plate = v
 end
 
@@ -956,6 +1037,12 @@ function Target:OnEnable()
 		self:Refresh()
 	end)
 	ns:On("PLAYER_COMBO_POINTS", function() self:UpdateCombo() end)
+	-- Threat: the target's threat list (any unit's, so the event's unit isn't
+	-- checked), your threat status, and leaving combat (gone with it).
+	for _, e in ipairs({ "UNIT_THREAT_LIST_UPDATE", "UNIT_THREAT_SITUATION_UPDATE", "PLAYER_REGEN_DISABLED",
+		"PLAYER_REGEN_ENABLED" }) do
+		ns:On(e, function() self:UpdateThreat() end)
+	end
 	ns:On("PLAYER_ENTERING_WORLD", function()
 		if self.auraSpotChecked then
 			return
@@ -1008,6 +1095,7 @@ function Target:UpdateAll()
 	self:UpdateCombo()
 	self:UpdateCast()
 	self:UpdateToT()
+	self:UpdateThreat()
 end
 
 function Target:UpdateModel()
@@ -1038,6 +1126,23 @@ function Target:UpdateName()
 	name:SetTextColor(nameColor("target"))
 	ns:FitText(info, infoText("target"))
 	setTag(v.tag, classification("target"))
+end
+
+-- Your threat on the target, on whichever of its displays are shown.
+function Target:UpdateThreat()
+	local v = self:View()
+	if v then
+		setThreat(v.threat, "target")
+	end
+	local bar = self.bar
+	if bar and bar.threat and bar.frame:IsShown() and UnitExists("target") then
+		setThreat(bar.threat, "target")
+	end
+end
+
+function Target:SetThreatShown(on)
+	ns.db.consoleOpts.targetThreat = on and true or false
+	self:UpdateThreat()
 end
 
 function Target:UpdateHealth()
@@ -1251,6 +1356,11 @@ function Target:MakeUnitBar(spec)
 	-- Rare, elite or boss: a tag standing on the frame's top edge, over the level.
 	v.tag = makeTag(f, f:GetFrameLevel() + 3, 9)
 	v.tag:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -6, -3)
+	if spec.unit == "target" then
+		-- Your threat on its top edge, at the other end.
+		v.threat = makeTag(f, f:GetFrameLevel() + 3, 9)
+		v.threat:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 6, -3)
+	end
 	v.health = makeBar(f, f:GetFrameLevel() + 1, 11)
 	v.health:SetPoint("TOPLEFT", 5, -(BAR_NAME_H + 3))
 	v.health:SetPoint("TOPRIGHT", -5, -(BAR_NAME_H + 3))
@@ -1429,6 +1539,10 @@ function Target:RefreshBar()
 			v.name:SetText(v.spec.standIn)
 			v.name:SetTextColor(1, 1, 1)
 			v.level:SetText("")
+			v.tag:Hide()
+			if v.threat then
+				v.threat:Hide()
+			end
 			for _, bar in ipairs({ v.health, v.power }) do
 				bar:SetMinMaxValues(0, 1)
 				bar:SetValue(1)
@@ -1477,6 +1591,9 @@ function Target:UpdateBar(v)
 	end
 	v.level:SetText(level)
 	setTag(v.tag, style)
+	if v.threat then
+		setThreat(v.threat, unit)
+	end
 
 	local cur, max = UnitHealth(unit), UnitHealthMax(unit)
 	v.health:SetMinMaxValues(0, max)
@@ -1557,6 +1674,8 @@ function Target:OnLayout(L)
 	if heroModel then
 		sw.tag:ClearAllPoints()
 		sw.tag:SetPoint("BOTTOM", heroModel, "BOTTOM", 0, 3)
+		sw.threat:ClearAllPoints()
+		sw.threat:SetPoint("TOP", heroModel, "TOP", 0, -8)
 	end
 
 	Target.PlaceUnitIcon(self.tot, L.tot)

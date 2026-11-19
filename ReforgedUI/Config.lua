@@ -391,6 +391,11 @@ function Config:Build()
 	self:Check("Target buffs first", "targetBuffsFirst", 290, y + 1, function(on)
 		ns.modules.target:SetBuffsFirst(on)
 	end)
+	-- Your threat on the target, over its portrait and on the target bar.
+	y = list() + 1
+	self:Check("Show threat on target", "targetThreat", 20, y, function(on)
+		ns.modules.target:SetThreatShown(on)
+	end)
 	-- Stance buttons hidden altogether (their key bindings still work),
 	-- or left to Blizzard's stance bar or another bar addon (moving them
 	-- on the console is done in Edit Mode).

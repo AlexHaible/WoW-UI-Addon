@@ -1,5 +1,5 @@
 -- The original addon's options menu, opened with the cogwheel in the bottom-right corner of
--- the chat area (or /rui config). The original addon's
+-- the chat area (which can be hidden), /rui config or Options > AddOns. The original addon's
 -- "General" tab in its wording, kept minimal: the console is always laid out
 -- like the original addon's "Center UI" with its chat area and inventory, so the centre
 -- modes, chat placement and "Hide bags" options are gone, and "Chat width" only
@@ -403,6 +403,12 @@ function Config:Build()
 			or "the stance buttons go back on the console's wall.")
 	end)
 
+	-- No cogwheel in the chat area: the menu still opens with /rui config
+	-- or from the game's Options > AddOns.
+	self:Check("Hide options cogwheel", "hideCog", 20, list(), function(on)
+		self:SetCogShown(not on)
+	end)
+
 	self.height = BOTTOM - list.y
 	f:SetHeight(self.height)
 end
@@ -503,12 +509,28 @@ function Config:BuildCogwheel()
 	hover:SetScript("OnMouseUp", function() icon:SetVertexColor(1, 1, 1, 1) end)
 	hover:SetScript("OnClick", function() self:Toggle() end)
 	self.cogwheel = hover
+	hover:SetShown(not ns.db.consoleOpts.hideCog)
 end
 
 function Config:OnLayout(L)
 	if self.cogwheel and L.cogwheel then
 		ns:PlaceRect(self.cogwheel, L.cogwheel)
+		self.cogwheel:SetShown(not ns.db.consoleOpts.hideCog)
 	end
+end
+
+-- Hides or shows the cogwheel (the chat input box takes its room).
+function Config:SetCogShown(on)
+	ns.db.consoleOpts.hideCog = not on
+	if self.cogwheel then
+		self.cogwheel:SetShown(on)
+	end
+	ns:Relayout()
+	if self.frame then
+		self:Refresh()
+	end
+	ns:Print(on and "options cogwheel shown in the chat area."
+		or "options cogwheel hidden: open the menu with /rui config or Options > AddOns > Reforged UI (/rui cog on brings it back).")
 end
 
 -- A page in the game's options (AddOns tab) that shows the menu inside it.

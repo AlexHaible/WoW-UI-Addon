@@ -1,7 +1,8 @@
 -- The options, as pages in the game's own options: Options > AddOns >
 -- Reforged UI, a main page and one page per part of the UI (hero screen,
 -- target, action bars, chat, top bar and minimap). The cogwheel in the
--- bottom-right corner of the chat area and /rui config open them.
+-- bottom-right corner of the chat area (which can be hidden) and /rui
+-- config open them.
 --
 -- The original addon's "General" tab in its wording, kept minimal: the
 -- console is always laid out like the original addon's "Center UI" with its
@@ -46,6 +47,18 @@ local function placeEditModeSoon(after)
 			if after then
 				after()
 			end
+		end
+	end)
+end
+
+-- The target's buffs follow the wall plate's size once its slider settles.
+local plateGen = 0
+local function plateAurasFollowSoon()
+	plateGen = plateGen + 1
+	local gen = plateGen
+	C_Timer.After(0.5, function()
+		if gen == plateGen then
+			ns.modules.target:PlateAurasFollow()
 		end
 	end)
 end
@@ -137,6 +150,11 @@ Config.PAGES = {
 			tip = "The game's tooltips in the theme's frame, like the damage meter.",
 			apply = function(on) ns.modules.tooltip:SetEnabled(on) end,
 		},
+		{
+			kind = "check", key = "hideCog", name = "Hide options cogwheel",
+			tip = "No cogwheel in the chat area; these options still open with /rui config or Options > AddOns.",
+			set = function(on) Config:SetCogShown(not on) end,
+		},
 		{ header = "More" },
 		{
 			kind = "button", name = "Reload the UI", text = "Reload UI", click = function() ReloadUI() end,
@@ -206,6 +224,29 @@ Config.PAGES = {
 			kind = "check", key = "targetBuffsFirst", name = "Target buffs first", enabled = targetOn,
 			tip = "Your target's buffs on the bottom rows, nearest its portrait, and its debuffs after them.",
 			apply = function(on) ns.modules.target:SetBuffsFirst(on) end,
+		},
+		{
+			kind = "check", key = "targetThreat", name = "Show threat on target", enabled = targetOn,
+			tip = "Your threat on the target (as in its tooltip) over its portrait and on the target bar.",
+			set = function(on) ns.modules.target:SetThreatShown(on) end,
+		},
+		{ header = "Wall plate" },
+		{
+			kind = "slider", key = "targetPlateSize", name = "Wall plate size", enabled = targetOn,
+			min = ns.TARGET_PLATE_SIZE_MIN, max = ns.TARGET_PLATE_SIZE_MAX, step = 5,
+			tip = "The target plate on the wall, bigger or smaller. The target's buffs follow once the slider settles.",
+			set = function(v) ns.modules.target:SetPlateSize(v, true) end,
+			apply = function() plateAurasFollowSoon() end,
+		},
+		{
+			kind = "check", key = "targetPlateMirror", name = "Mirror wall plate", enabled = targetOn,
+			tip = "The plate turned the other way round.",
+			set = function(on) ns.modules.target:SetPlateMirrored(on) end,
+		},
+		{
+			kind = "button", name = "Wall plate position", text = "Back on the wall",
+			tip = "Puts the wall plate back after moving it (Shift-drag, or in Edit Mode).",
+			click = function() ns.modules.target:ResetPlateSpot() end,
 		},
 		{ header = "Target bars" },
 		{
@@ -523,12 +564,26 @@ function Config:BuildCogwheel()
 	hover:SetScript("OnMouseUp", function() icon:SetVertexColor(1, 1, 1, 1) end)
 	hover:SetScript("OnClick", function() self:Open() end)
 	self.cogwheel = hover
+	hover:SetShown(not ns.db.consoleOpts.hideCog)
 end
 
 function Config:OnLayout(L)
 	if self.cogwheel and L.cogwheel then
 		ns:PlaceRect(self.cogwheel, L.cogwheel)
+		self.cogwheel:SetShown(not ns.db.consoleOpts.hideCog)
 	end
+end
+
+-- Hides or shows the cogwheel (the chat input box takes its room).
+function Config:SetCogShown(on)
+	ns.db.consoleOpts.hideCog = not on
+	if self.cogwheel then
+		self.cogwheel:SetShown(on)
+	end
+	ns:Relayout()
+	self:Refresh()
+	ns:Print(on and "options cogwheel shown in the chat area."
+		or "options cogwheel hidden: open the options with /rui config or Options > AddOns > Reforged UI (/rui cog on brings it back).")
 end
 
 function Config:OnEnable()

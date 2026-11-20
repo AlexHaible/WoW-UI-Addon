@@ -76,8 +76,8 @@ local function font(fs, size)
 	end
 end
 
-local function place(region, r)
-	ns.modules.console.Place(region, r)
+local function place(region, r, anchor)
+	ns.modules.console.Place(region, r, anchor)
 end
 
 ----------------------------------------------------------------------------
@@ -311,22 +311,22 @@ end
 local LETTER_LIFT = 0.065
 
 -- Place a level plate made by CreateLevelPlate at X (Layout.LevelPlate).
-function Hero.PlaceLevelPlate(xp, X)
-	place(xp.left, X.left)
-	place(xp.middle, X.middle)
-	place(xp.right, X.right)
-	place(xp.bar, X.bar)
+function Hero.PlaceLevelPlate(xp, X, anchor)
+	place(xp.left, X.left, anchor)
+	place(xp.middle, X.middle, anchor)
+	place(xp.right, X.right, anchor)
+	place(xp.bar, X.bar, anchor)
 	for _, fs in ipairs({ xp.name, xp.level }) do
 		fs:ClearAllPoints()
 		fs:SetWidth(X.width)
 	end
-	xp.name:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.nameY)
+	xp.name:SetPoint("CENTER", anchor or ns.root, "BOTTOMLEFT", X.cx, X.nameY)
 	-- The game draws the letters a little above the middle of their line:
 	-- lower them by that much (measured in game: about 1.5 px of a 12 point
 	-- line at 1440p), so they sit in the middle of the plate's window.
 	local _, size = xp.level:GetFont()
 	size = xp.level.fitSize or size or 12
-	xp.level:SetPoint("CENTER", ns.root, "BOTTOMLEFT", X.cx, X.levelY - LETTER_LIFT * size)
+	xp.level:SetPoint("CENTER", anchor or ns.root, "BOTTOMLEFT", X.cx, X.levelY - LETTER_LIFT * size)
 end
 
 local LEVEL_SIZE = 12

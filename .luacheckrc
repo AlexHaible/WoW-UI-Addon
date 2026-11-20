@@ -34,7 +34,7 @@ read_globals = {
 	"GetSpellBonusHealing", "IsAltKeyDown", "IsShiftKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
 	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
 	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitAttackPower", "UnitRangedAttackPower", "UnitResistance", "GetDodgeChance", "GetParryChance",
-	"UnitClassification", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
+	"UnitClassification", "UnitDetailedThreatSituation", "GetThreatStatusColor", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "ToggleCharacter", "ToggleQuestLog", "ToggleFriendsFrame", "ToggleWorldMap", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",
 	-- The minimap bar (own action buttons, key bindings)
 	"C_ActionBar", "GetCVarBool", "GetBindingText", "LOCK_ACTIONBAR", "IsModifiedClick", "SetBinding", "SaveBindings", "GetCurrentBindingSet",

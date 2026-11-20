@@ -2711,7 +2711,8 @@ do
 		"chatInputAbove", "zoneText", "targetMode", "editModeBars", "freeChat", "uiScale", "themeTooltips",
 		"hpWarning", "portraitX", "portraitY", "portraitScale", "repBar", "hideTopBar", "clockTime", "clockHours",
 		"statIcon1", "statIcon2", "statIcon3", "statIcon4", "targetBar", "totBar", "transparency", "chatWiden",
-		"chatUp", "uiSize", "targetAuraSize", "targetBarSize", "targetBuffsFirst", "hideStance", "leaveStance" }) do
+		"chatUp", "uiSize", "targetAuraSize", "targetBarSize", "targetBuffsFirst", "hideStance", "leaveStance",
+		"targetThreat", "targetPlateSize", "targetPlateMirror", "hideCog" }) do
 		assert(option(key), "the options have " .. key)
 	end
 	for _, key in ipairs({ "hideBags", "placeChat", "hideMicro" }) do
@@ -2836,10 +2837,46 @@ do
 	option("theme"):SetValue(was)
 	assert(ReforgedUIDB.theme == was, "and back")
 end
+-- The wall plate's size (in steps of 5) and mirroring, and the threat badge.
+do
+	local o = ReforgedUIDB.consoleOpts
+	local size, mirror, threat = o.targetPlateSize, o.targetPlateMirror, o.targetThreat
+	option("targetPlateSize"):SetValue(122)
+	assert(o.targetPlateSize == 120, "wall plate size saved in steps of 5")
+	option("targetPlateMirror"):SetValue(not mirror)
+	assert(o.targetPlateMirror == not mirror, "the option mirrors the wall plate")
+	option("targetThreat"):SetValue(not threat)
+	assert(o.targetThreat == not threat, "the option turns the threat badge " .. (threat and "off" or "on"))
+	option("targetThreat"):SetValue(threat and true or false)
+	option("targetPlateMirror"):SetValue(mirror and true or false)
+	option("targetPlateSize"):SetValue(size or 100)
+	flushTimers()
+end
 local opened = #settingsOpened
 config.cogwheel._scripts.OnClick()
 assert(#settingsOpened == opened + 1 and settingsOpened[opened + 1] == config.category:GetID(),
 	"the cogwheel opens the options page")
+-- The cogwheel can be hidden (/rui cog off, or the option): the chat input
+-- box takes its room, and the options still open with /rui config.
+do
+	local editW = ns.layout.chatEdit.w
+	SlashCmdList.REFORGEDUI("cog off")
+	assert(ns.db.consoleOpts.hideCog == true and not config.cogwheel:IsShown(), "/rui cog off hides the cogwheel")
+	assert(ns.layout.chatEdit.w > editW, "the input box runs on where the cogwheel was")
+	assert(option("hideCog"):GetValue() == true, "the option shows it hidden")
+	opened = #settingsOpened
+	SlashCmdList.REFORGEDUI("config")
+	assert(#settingsOpened == opened + 1, "/rui config opens the options with the cogwheel hidden")
+	ns:Relayout()
+	assert(not config.cogwheel:IsShown(), "a relayout keeps the cogwheel hidden")
+	SlashCmdList.REFORGEDUI("cog on")
+	assert(ns.db.consoleOpts.hideCog == false and config.cogwheel:IsShown(), "/rui cog on brings it back")
+	assert(ns.layout.chatEdit.w == editW, "the input box stops short of the cogwheel again")
+	option("hideCog"):SetValue(true)
+	assert(not config.cogwheel:IsShown() and ns.layout.chatEdit.w > editW, "the option hides it too")
+	option("hideCog"):SetValue(false)
+	assert(config.cogwheel:IsShown(), "and brings it back")
+end
 
 -- The top bar's pieces never collide: micro buttons, clock and feed slots
 -- (slots give way first), the clock centred.
@@ -3438,6 +3475,43 @@ do
 		UnitClassification = oldClass
 		fire("UNIT_CLASSIFICATION_CHANGED", "target")
 	end
+	-- Your threat on the target: over the plate's portrait and on the target
+	-- bar while you are on its threat list, coloured by threat status; gone
+	-- at 0, with nothing returned, and with the option off.
+	do
+		local was, wasBar = UnitDetailedThreatSituation, ReforgedUIDB.consoleOpts.targetBar
+		local pct, status = 63.4, 2
+		UnitDetailedThreatSituation = function(unit, mob)
+			assert(unit == "player" and mob == "target", "threat: the player's on the target")
+			if pct then
+				return status == 3, status, pct, pct * 1.1, 1000
+			end
+		end
+		target:SetBarEnabled(true)
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(pl.threat:IsShown() and pl.threat.text._text == "63%", "plate: threat over the portrait")
+		assert(target.bar.threat:IsShown() and target.bar.threat.text._text == "63%", "target bar: threat on its edge")
+		assert(not target.totBar.threat, "no threat badge on the target of target bar")
+		pct, status = 100, 3
+		fire("UNIT_THREAT_SITUATION_UPDATE", "player")
+		assert(pl.threat.text._text == "100%" and pl.threat.text._textColor[1] == 1 and pl.threat.text._textColor[2] == 0,
+			"plate: red at 100 % (tanking)")
+		pct = 0
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown() and not target.bar.threat:IsShown(), "no threat badge at 0 %")
+		pct = nil
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown(), "no threat badge off the threat list")
+		pct = 40
+		SlashCmdList.REFORGEDUI("threat off")
+		assert(ReforgedUIDB.consoleOpts.targetThreat == false and not pl.threat:IsShown(), "/rui threat off")
+		SlashCmdList.REFORGEDUI("threat on")
+		assert(ReforgedUIDB.consoleOpts.targetThreat == true and pl.threat.text._text == "40%", "/rui threat on")
+		UnitDetailedThreatSituation = was
+		target:SetBarEnabled(wasBar and true or false)
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown(), "no threat API, no badge")
+	end
 	assert(pl.name == pl.plate.name and pl.info == pl.plate.level and not pl.plate.bar:IsShown(),
 		"plate: the hero's level plate, without an experience fill")
 	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
@@ -3711,6 +3785,124 @@ do
 			assert(PL.frame.x >= LT.tot.frame.x + LT.tot.frame.w and PL.frame.x + PL.frame.w <= LT.stance.x,
 				"plate fits beside the stance row for " .. key)
 		end
+	end
+	-- The wall plate moves (Shift-drag or Edit Mode), grows and turns, and
+	-- what belongs to it comes along.
+	do
+		local T, root = ns.modules.target, ns.root
+		local pl = T.plate
+		local f, m = pl.frame, T.plateMover
+		SlashCmdList.REFORGEDUI("target plate")
+		local L = ns.layout
+		local P = L.targetPlate
+		local function near(a, b) return math.abs(a - b) < 0.01 end
+		local function pt(frame) return frame._points[1] end
+		local fp = pt(f)
+		assert(fp[2] == root and near(fp[4], P.frame.x) and near(fp[5], P.frame.y) and f:GetScale() == 1,
+			"the plate stands on the wall")
+		local mp = pt(pl.model)
+		assert(mp[2] == f and near(mp[4], P.portrait.x - P.frame.x) and near(mp[5], P.portrait.y - P.frame.y),
+			"the plate's parts are placed on it")
+		assert(pt(pl.cast)[2] == f and pt(pl.plate.left)[2] == f and pt(pl.name)[2] == f and pt(pl.combo[1].gem)[2] == f,
+			"cast bar, level plate, name and combo points move with the plate")
+		assert(T:AuraSpot() == L.targetAuras.plate, "unmoved, the buffs stay where the layout has them")
+		-- Turned the other way: the portrait on the right, the info window on the left.
+		SlashCmdList.REFORGEDUI("plate mirror on")
+		mp = pt(pl.model)
+		assert(near(mp[4], P.frame.w - (P.portrait.x - P.frame.x) - P.portrait.w), "mirrored: the portrait on the other side")
+		assert(pt(pl.plate.left)[4] < mp[4] and pt(pl.cast)[4] < mp[4], "mirrored: info window left of the portrait")
+		assert(T:AuraSpot() == L.targetAuras.plate, "mirroring alone leaves the buffs in place")
+		-- Shift out of combat makes it draggable, over the target button.
+		local shift = false
+		IsShiftKeyDown = function() return shift end
+		assert(not m._mouse, "the plate lets clicks through to the target button")
+		shift = true
+		inCombat = true
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+		assert(not m._mouse, "not in combat")
+		inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		assert(m._mouse and not m.highlight:IsShown(), "Shift out of combat makes the plate draggable")
+		local rl, rb = root:GetLeft(), root:GetBottom()
+		f.GetLeft = function() return rl + L.W / 2 - 300 end
+		f.GetBottom = function() return rb + 40 end
+		m._scripts.OnDragStart(m)
+		assert(f.dragging, "dragging the mover drags the plate")
+		m._scripts.OnDragStop(m)
+		shift = false
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(not m._mouse, "click-through again after the drag")
+		local spot = ReforgedUIDB.consoleOpts.targetPlateSpot
+		assert(spot and spot.x == -300 and spot.y == 40, "the plate's spot is saved from the bottom centre")
+		fp = pt(f)
+		assert(near(fp[4], L.W / 2 - 300) and near(fp[5], 40), "the plate stays where it was dragged")
+		local bp = pt(ReforgedUITargetButton)
+		assert(near(bp[4], L.W / 2 - 300) and near(bp[5], 40) and near(ReforgedUITargetButton._w, P.frame.w),
+			"the target button follows the plate")
+		local tp, TT = pt(ReforgedUITargetTarget), L.tot.frame
+		local gap = P.frame.x - (TT.x + TT.w)
+		assert(near(tp[4], L.W / 2 - 300 + P.frame.w + gap) and near(tp[5], 40 + TT.y - P.frame.y),
+			"the target of target stands beside the mirrored plate's portrait")
+		local A = T:AuraSpot()
+		assert(near(A.x0, L.W / 2 - 298) and near(A.y, 40 + P.frame.h + 4)
+			and near(A.x1 - A.x0, L.targetAuras.plate.x1 - L.targetAuras.plate.x0), "the buffs go over the moved plate")
+		SlashCmdList.REFORGEDUI("plate mirror off")
+		tp = pt(ReforgedUITargetTarget)
+		assert(near(tp[4], L.W / 2 - 300 - gap - TT.w), "and left of it the right way round")
+		-- The same spot on every theme: the Edit Mode layout is account-wide.
+		for _, key in ipairs({ "orc", "nightelf", "undead" }) do
+			SlashCmdList.REFORGEDUI("theme " .. key)
+			local B = T:AuraSpot()
+			assert(near(B.x0, A.x0) and near(B.y, A.y), "the moved plate's buff spot is the same on " .. key)
+		end
+		SlashCmdList.REFORGEDUI("theme auto")
+		L, P = ns.layout, ns.layout.targetPlate
+		-- Bigger: the frame scales, its corner stays, the buffs rise with its top.
+		SlashCmdList.REFORGEDUI("plate size 120")
+		fp = pt(f)
+		assert(near(f:GetScale(), 1.2) and near(fp[4] * 1.2, L.W / 2 - 300) and near(fp[5] * 1.2, 40), "a bigger plate")
+		assert(near(T:AuraSpot().y, 40 + 1.2 * P.frame.h + 4), "the buffs stay over the bigger plate")
+		assert(near(ReforgedUITargetButton._w, 1.2 * P.frame.w), "the target button covers the bigger plate")
+		SlashCmdList.REFORGEDUI("plate size 999")
+		assert(ReforgedUIDB.consoleOpts.targetPlateSize == ns.TARGET_PLATE_SIZE_MAX, "size capped")
+		-- Off the screen (a smaller one now): kept on it.
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = 99999, y = -50 }
+		local R = T:PlateRect()
+		assert(near(R.x + R.w, L.W) and R.y == 0, "a plate past the screen's edge is kept on it")
+		assert(T:ToTSpot().x + L.tot.frame.w <= R.x, "the target of target goes left of a plate at the right edge")
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = -99999, y = 0 }
+		assert(T:ToTSpot().x >= T:PlateRect().x + T:PlateRect().w, "and right of one at the left edge")
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = 99999, y = -50 }
+		-- Edit Mode shows it without a target, to be moved; a move made
+		-- there reaches the Edit Mode layout as it closes.
+		hasTarget = false
+		fire("PLAYER_TARGET_CHANGED")
+		assert(not f:IsShown(), "no target, no plate")
+		EditModeManagerFrame._hooks.OnShow()
+		assert(f:IsShown() and pl.name._text == "Target" and m._mouse and m.highlight:IsShown(),
+			"Edit Mode shows a movable stand-in")
+		local setups = 0
+		local oldSetup = ns.SetupEditMode
+		ns.SetupEditMode = function() setups = setups + 1 end
+		m._scripts.OnDragStart(m)
+		m._scripts.OnDragStop(m)
+		assert(setups == 0 and T.plateAurasPending, "not while Edit Mode is open")
+		EditModeManagerFrame._hooks.OnHide()
+		assert(setups == 1 and not T.plateAurasPending, "the buffs follow once Edit Mode closes")
+		assert(not f:IsShown() and not m._mouse, "closing Edit Mode hides it again")
+		ns.SetupEditMode = oldSetup
+		hasTarget = true
+		fire("PLAYER_TARGET_CHANGED")
+		f.GetLeft, f.GetBottom = nil, nil
+		IsShiftKeyDown = nil
+		SlashCmdList.REFORGEDUI("plate reset")
+		SlashCmdList.REFORGEDUI("plate size 100")
+		fp = pt(f)
+		assert(not ReforgedUIDB.consoleOpts.targetPlateSpot and near(fp[4], P.frame.x) and f:GetScale() == 1,
+			"/rui plate reset")
+		assert(near(pt(ReforgedUITargetTarget)[4], L.tot.frame.x), "the target of target back on the wall")
+		-- Swap mode: the hero's portrait again, and the target of target on the wall.
+		SlashCmdList.REFORGEDUI("target swap")
 	end
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")
@@ -4208,6 +4400,7 @@ do
 		end
 	end })
 	swap("C_PetInfo", { GetPetHappiness = function() return SECRET, SECRET, SECRET end })
+	swap("UnitDetailedThreatSituation", function() return SECRET, SECRET, SECRET, SECRET, SECRET end)
 	local wasTarget, wasPet, wasCombat = hasTarget, hasPet, inCombat
 	local target, o = ns.modules.target, ns.db.consoleOpts
 	local wasMode, wasBar, wasToT = target:Mode(), o.targetBar, o.totBar
@@ -4221,6 +4414,7 @@ do
 		{ "UNIT_SPELLCAST_START", "target" }, { "UNIT_SPELLCAST_CHANNEL_START", "target" },
 		{ "UNIT_SPELLCAST_STOP", "target" }, { "PLAYER_TOTEM_UPDATE", 1 }, { "UPDATE_MOUSEOVER_UNIT" },
 		{ "PLAYER_REGEN_DISABLED" }, { "PLAYER_REGEN_ENABLED" }, { "PLAYER_ENTERING_WORLD" },
+		{ "UNIT_THREAT_LIST_UPDATE", "target" }, { "UNIT_THREAT_SITUATION_UPDATE", "player" },
 	}
 	hasTarget, hasPet = true, true
 	target:SetBarEnabled(true)
@@ -4271,7 +4465,8 @@ do
 		_G[name] = fn
 	end
 	for _, name in ipairs({ "UnitGetIncomingHeals", "UnitCastingInfo", "UnitChannelInfo", "UnitClassification",
-		"UnitCreatureType", "GetComboPoints", "UnitIsTapDenied", "GetTotemTimeLeft", "C_PetInfo", "C_UnitAuras" }) do
+		"UnitCreatureType", "GetComboPoints", "UnitIsTapDenied", "GetTotemTimeLeft", "C_PetInfo", "C_UnitAuras",
+		"UnitDetailedThreatSituation" }) do
 		if saved[name] == nil then _G[name] = nil end
 	end
 	target:SetBarEnabled(wasBar and true or false)

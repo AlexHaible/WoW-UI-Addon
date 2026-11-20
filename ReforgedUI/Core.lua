@@ -53,6 +53,11 @@ local DEFAULTS = {
 		hearthstone = {}, -- characters that already got the hearthstone placed
 		druidSlotsMoved = {}, -- druids whose minimap slots moved off the totem slots (1.15), hearthstone retried once
 		targetMode = "swap", -- target display: swap (the hero screen shows the target) | plate
+		-- Where the wall plate was moved ({ x, y } in console units, its
+		-- bottom-left corner from the screen's bottom centre), or on the wall.
+		targetPlateSpot = false,
+		targetPlateSize = 100, -- the wall plate's size, 50-150 %
+		targetPlateMirror = false, -- the wall plate turned the other way: portrait on the right, info window on the left
 		targetBar = false, -- a movable target health and power bar, besides the target display
 		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
 		totBar = false, -- the same window for the target's target
@@ -84,7 +89,9 @@ local DEFAULTS = {
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
+		targetThreat = true, -- your threat on the target (as in its tooltip) over its portrait and on the target bar
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
+		hideCog = false, -- no options cogwheel in the chat area (the menu still opens with /rui config or Options > AddOns)
 	},
 }
 
@@ -727,6 +734,7 @@ function ns:LayoutOptions()
 		portraitY = tonumber(o.portraitY) or 100,
 		portraitScale = tonumber(o.portraitScale) or 0,
 		chatInputAbove = o.chatInputAbove,
+		hideCog = o.hideCog,
 		-- With "Chat width" on, the chat area runs to the screen edge rather
 		-- than giving up width to the end caps.
 		capsOffScreen = (tonumber(o.chatWiden) or 0) > 0,
@@ -973,6 +981,7 @@ local function usage()
 	ns:Print("commands (the console's own options are in Options > AddOns > Reforged UI, also opened by the cogwheel"
 		.. " in the chat area's bottom-right corner):")
 	print("  /rui config  (open those options)")
+	print("  /rui cog on||off  (the cogwheel in the chat area; off: open the options with /rui config or Options > AddOns)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
 	print("  /rui slot <number> <feed or panel name>||none")
@@ -988,8 +997,12 @@ local function usage()
 	print("  /rui auras reset  (put them back on the wall after moving the Target Frame in Edit Mode)")
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
 	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
+	print("  /rui threat on||off  (your threat on your target, over its portrait)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
+	print("  /rui plate reset  (put the wall plate back on the wall; Shift-drag or Edit Mode moves it)")
+	print("  /rui plate size 50-150  (the wall plate's size, in %)")
+	print("  /rui plate mirror on||off  (on: the plate turned the other way, its portrait on the right)")
 	print("  /rui pet reset  (put your pet's icon back beside the target of target; Shift-drag moves it)")
 	print("  /rui totems reset  (put the totem timers back on the wall; Shift-drag or Edit Mode moves them)")
 	print("  /rui totems  (what each totem slot reports and how its time is shown)")
@@ -1022,6 +1035,8 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print("theme:", ns.theme.name, ns.THEME_ALIASES[arg] and ("(" .. arg .. ")") or "")
 	elseif cmd == "config" and ns.modules.config.enabled then
 		ns.modules.config:Open()
+	elseif cmd == "cog" and (arg == "on" or arg == "off") and ns.modules.config.enabled then
+		ns.modules.config:SetCogShown(arg == "on")
 	elseif cmd == "layout" and arg and LAYOUT_ALIASES[arg] then
 		ns.db.layout = LAYOUT_ALIASES[arg]
 		ns:Relayout()
@@ -1046,6 +1061,10 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.modules.target:SetBuffsFirst(arg == "on")
 		ns.modules.config:Refresh()
 		ns:Print(arg == "on" and "target buffs first, debuffs after them." or "target auras in the game's order.")
+	elseif cmd == "threat" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
+		ns.modules.target:SetThreatShown(arg == "on")
+		ns.modules.config:Refresh()
+		ns:Print(arg == "on" and "your threat shows on your target." or "no threat on your target.")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)
@@ -1061,6 +1080,22 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.modules.target:SetMode(arg)
 		ns.modules.config:Refresh()
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
+	elseif cmd == "plate" and ns.modules.target.enabled
+		and (arg == "reset" or (arg == "size" and tonumber(arg2)) or (arg == "mirror" and (arg2 == "on" or arg2 == "off"))) then
+		local target = ns.modules.target
+		if arg == "reset" then
+			target:ResetPlateSpot()
+			ns:Print("wall plate back on the wall.")
+		elseif arg == "size" then
+			ns:Print(("wall plate at %d%%."):format(target:SetPlateSize(tonumber(arg2))))
+		else
+			target:SetPlateMirrored(arg2 == "on")
+			ns:Print(arg2 == "on" and "wall plate turned: portrait on the right." or "wall plate: portrait on the left.")
+		end
+		if not target:PlateInUse() then
+			ns:Print("(the target shows on the hero screen now: /rui target plate shows it on the plate.)")
+		end
+		ns.modules.config:Refresh()
 	elseif cmd == "clock" and arg == "reset" and ns.modules.topbar.enabled then
 		ns.modules.topbar:ResetCapsuleSpot()
 		ns:Print("time back above the minimap.")

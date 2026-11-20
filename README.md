@@ -68,6 +68,14 @@ screen stays free on either side).
   top) so the icons land there. "Target aura size" in the options (or
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
+  The wall plate can be moved: hold Shift and drag it out of combat, or
+  drag it while Edit Mode is open (it shows then, target or not). Its
+  cast bar, combo points and tag are on it, the target of target follows
+  to stand beside it, and the buff and debuff icons follow above it through
+  the Edit Mode layout (after a reload). Its place is kept from the
+  screen's bottom centre, the same on every theme. "Wall plate size" (or
+  `/rui plate size 50-150`) scales it, "Mirror wall plate" (or `/rui plate
+  mirror on`) turns it round, and `/rui plate reset` puts it back.
   Move the Target Frame in Edit Mode and the icons stay where you put them
   (the size option still applies); a target display switch or `/rui auras
   reset` puts them back in that display's place.
@@ -77,6 +85,12 @@ screen stays free on either side).
   target. It does so by having Blizzard's aura container treat every target
   as friendly, so on hostile creatures it also shows other players'
   debuffs, as the game's "show all debuffs" option would.
+  Your threat on the target (the tooltip's percentage, from
+  UnitDetailedThreatSituation) stands at the top of its portrait and on the
+  target bar's top edge while you are on its threat list, coloured by threat
+  status; "Show threat on target" (or `/rui threat off`) turns it off. Where
+  the game makes it secret (bosses, in instances) the client formats the
+  number and it shows in white, only while you are in combat.
   Left-click targets, right-click opens the unit menu.
   The target's cast bar reads the game's cast info as it is: for any unit
   but you and your pet that info is secret, so it goes straight into the bar
@@ -234,15 +248,18 @@ sparks...).
 
 The options live in the game's own options, under **Options > AddOns >
 Reforged UI**, laid out like the game's: the cogwheel in the bottom-right
-corner of the chat area (or `/rui config`) opens them. The main page holds
-the theme, UI size, UI scale (240-270), console transparency and themed
-tooltips (and a Reload UI button); a page per part of the UI holds the rest:
+corner of the chat area (or `/rui config`) opens them ("Hide options
+cogwheel" or `/rui cog off` takes the cogwheel away and gives its room to
+the chat input box). The main page holds the theme, UI size, UI scale
+(240-270), console transparency, themed tooltips and hiding the cogwheel
+(and a Reload UI button); a page per part of the UI holds the rest:
 
 - **Hero screen**: health and power as percentages, the low health
   threshold, the portrait (stop its animation, position and zoom), the four
   stat icons of this class and the reputation bar.
 - **Target**: where the target shows (hero screen or wall plate), target
-  aura size, target buffs first, and the movable target and target of
+  aura size, target buffs first, your threat on the target, the wall plate
+  (size, mirrored, back on the wall) and the movable target and target of
   target bars with their size.
 - **Action bars**: hiding the grid texture, letting Edit Mode place bars
   1-3, and hiding the stance buttons or leaving them to a bar addon.
@@ -345,6 +362,7 @@ of your faction. Saved themes from earlier versions keep working.
 
 ```
 /rui config                      open the options (Options > AddOns > Reforged UI)
+/rui cog on|off                   show or hide the options cogwheel in the chat area
 /rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
@@ -354,6 +372,9 @@ of your faction. Saved themes from earlier versions keep working.
 /rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
 /rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui plate reset                 put the wall plate back on the wall (Shift-drag or Edit Mode moves it)
+/rui plate size 50-150           the wall plate's size, in %
+/rui plate mirror on|off         turn the wall plate round, portrait on the right
 /rui repbar on|off               the reputation bar under the experience bar
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)
@@ -362,6 +383,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui auras reset                 target buffs and debuffs back on the wall after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs on the bottom rows, debuffs after them
+/rui threat on|off               your threat % on the target, over its portrait and on the target bar
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset

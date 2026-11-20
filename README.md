@@ -246,7 +246,8 @@ sparks...).
 
 ## Options
 
-Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI). The
+Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI;
+"Hide options cogwheel" or `/rui cog off` takes the cogwheel away and gives its room to the chat input box). The
 menu keeps the original addon's options, minus the layout ones (the centre modes, chat
 area width, chat placement and hiding the bags: the console is always
 centred with its chat area and inventory): theme, UI scale (240-270), extend
@@ -344,6 +345,7 @@ of your faction. Saved themes from earlier versions keep working.
 
 ```
 /rui config                      open the options menu
+/rui cog on|off                   show or hide the options cogwheel in the chat area
 /rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot

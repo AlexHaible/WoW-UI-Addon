@@ -147,6 +147,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - health and power as percentages
 - moving and resizing the chat window yourself
 - hiding the top bar
+- hiding the options cogwheel (also `/rui cog off`): the menu still opens with `/rui config` or from Options → AddOns
 - letting Edit Mode place action bars 1-3
 - the four stat icons
 - and a few more.
@@ -155,6 +156,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 
 ```
 /rui config                      open the options
+/rui cog on|off                   show or hide the options cogwheel in the chat area
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
 /rui plate reset                 put the wall plate back on the wall (Shift-drag or Edit Mode moves it)

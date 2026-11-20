@@ -2745,6 +2745,22 @@ for _, theme in ipairs(ns.Layout.THEMES) do
 end
 config.cogwheel._scripts.OnClick()
 assert(not ReforgedUIConfig:IsShown(), "the cogwheel toggles the menu")
+-- The cogwheel can be hidden (/rui cog off): the chat input box takes its
+-- room, and the menu still opens with /rui config.
+do
+	local editW = ns.layout.chatEdit.w
+	SlashCmdList.REFORGEDUI("cog off")
+	assert(ns.db.consoleOpts.hideCog == true and not config.cogwheel:IsShown(), "/rui cog off hides the cogwheel")
+	assert(ns.layout.chatEdit.w > editW, "the input box runs on where the cogwheel was")
+	SlashCmdList.REFORGEDUI("config")
+	assert(ReforgedUIConfig:IsShown(), "/rui config opens the menu with the cogwheel hidden")
+	SlashCmdList.REFORGEDUI("config")
+	ns:Relayout()
+	assert(not config.cogwheel:IsShown(), "a relayout keeps the cogwheel hidden")
+	SlashCmdList.REFORGEDUI("cog on")
+	assert(ns.db.consoleOpts.hideCog == false and config.cogwheel:IsShown(), "/rui cog on brings it back")
+	assert(ns.layout.chatEdit.w == editW, "the input box stops short of the cogwheel again")
+end
 
 -- The top bar's pieces never collide: micro buttons, clock and feed slots
 -- (slots give way first), the clock centred.

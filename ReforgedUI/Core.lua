@@ -91,6 +91,7 @@ local DEFAULTS = {
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
 		targetThreat = true, -- your threat on the target (as in its tooltip) over its portrait and on the target bar
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
+		hideCog = false, -- no options cogwheel in the chat area (the menu still opens with /rui config or Options > AddOns)
 	},
 }
 
@@ -728,6 +729,7 @@ function ns:LayoutOptions()
 		portraitY = tonumber(o.portraitY) or 100,
 		portraitScale = tonumber(o.portraitScale) or 0,
 		chatInputAbove = o.chatInputAbove,
+		hideCog = o.hideCog,
 		-- With "Chat width" on, the chat area runs to the screen edge rather
 		-- than giving up width to the end caps.
 		capsOffScreen = (tonumber(o.chatWiden) or 0) > 0,
@@ -979,6 +981,7 @@ local LAYOUT_ALIASES = {
 local function usage()
 	ns:Print("commands (the console's own options are in its menu: the cogwheel in the chat area's bottom-right corner):")
 	print("  /rui config  (open that menu)")
+	print("  /rui cog on||off  (the cogwheel in the chat area; off: open the menu with /rui config or Options > AddOns)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
 	print("  /rui slot <number> <feed or panel name>||none")
@@ -1032,6 +1035,8 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print("theme:", ns.theme.name, ns.THEME_ALIASES[arg] and ("(" .. arg .. ")") or "")
 	elseif cmd == "config" and ns.modules.config.enabled then
 		ns.modules.config:Toggle()
+	elseif cmd == "cog" and (arg == "on" or arg == "off") and ns.modules.config.enabled then
+		ns.modules.config:SetCogShown(arg == "on")
 	elseif cmd == "layout" and arg and LAYOUT_ALIASES[arg] then
 		ns.db.layout = LAYOUT_ALIASES[arg]
 		ns:Relayout()

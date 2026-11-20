@@ -829,15 +829,17 @@ local function buildRight(L, o, W, g, add, themed, themedLayer, chatW)
 		local y1 = brTop.y - 2
 		local edit = 26
 		-- The options cogwheel stands in the bottom-right corner of the chat
-		-- area; an input box along the bottom stops short of it.
+		-- area; an input box along the bottom stops short of it (and runs the
+		-- whole width when the cogwheel is hidden).
 		local cog = 22
 		L.cogwheel = rect(x1 + 4 - cog, y0 + 1, cog, cog)
+		local cogRoom = o.hideCog and 0 or cog + 4
 		if o.chatInputAbove then
 			L.chat = rect(x0, y0, x1 - x0, y1 - y0 - edit)
 			L.chatEdit = rect(x0 - 4, y1 - edit + 2, x1 - x0 + 8, edit - 2)
 		else
 			L.chat = rect(x0, y0 + edit, x1 - x0, y1 - y0 - edit)
-			L.chatEdit = rect(x0 - 4, y0, x1 - x0 + 8 - cog - 4, edit - 2)
+			L.chatEdit = rect(x0 - 4, y0, x1 - x0 + 8 - cogRoom, edit - 2)
 		end
 	end
 	-- Bags in the 2x3 inventory, the key ring standing to its right (under
@@ -1114,7 +1116,7 @@ local function build(W, H, o, X0, chatW)
 end
 
 -- o: s (240-270), m (raise the chat area, 0-150), theme, zoneTextPos (1-3), portraitX/Y (100 = default), portraitScale (0-35),
--- chatInputAbove, capsOffScreen (never narrow the chat area for the end caps).
+-- chatInputAbove, hideCog (no cogwheel beside the input box), capsOffScreen (never narrow the chat area for the end caps).
 --
 -- The whole console, end caps included, is centred: with the original addon's chat
 -- width where it fits, else the chat area narrows to make room for the caps

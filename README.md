@@ -50,7 +50,7 @@ screen stays free on either side).
   stamina, spirit, crit chance (the best of melee, ranged and spell, with
   the Blademaster's Critical Strike icon) or nothing (an empty socket),
   chosen per class from each icon's right-click menu
-  or the options menu. Druid forms and Ghost Wolf swap
+  or the options' Hero screen page. Druid forms and Ghost Wolf swap
   the icons like the original addon.
 - **Target**: by default the hero screen switches to your target, as
   selecting a unit in Warcraft III: its portrait, name (coloured by reaction
@@ -161,7 +161,7 @@ screen stays free on either side).
   it, so it opens untainted and in combat too. The micro buttons
   are Blizzard's own, moved and scaled to the bar, so their tooltips, alerts
   and disabled states work as usual; the micro menu itself stays empty and
-  click-through wherever Edit Mode puts it. **Hide top bar** in the menu (or
+  click-through wherever Edit Mode puts it. **Hide top bar** in the options (or
   `/rui topbar off`) takes the bar away, clock and slots too; the micro
   buttons then stand on the minimap block's wall, the lower row half over
   it, between the left end cap and the addon compartment's button (in two
@@ -246,16 +246,33 @@ sparks...).
 
 ## Options
 
-Click the cogwheel in the bottom-right corner of the chat area (or type `/rui config`, or use Options > AddOns > Reforged UI;
-"Hide options cogwheel" or `/rui cog off` takes the cogwheel away and gives its room to the chat input box). The
-menu keeps the original addon's options, minus the layout ones (the centre modes, chat
-area width, chat placement and hiding the bags: the console is always
-centred with its chat area and inventory): theme, UI scale (240-270), extend
-the chat area upwards, portrait position and scale, low health threshold,
-zone text position, the time under the clock, chat input above the
-chat, health and power as percentages, and hiding the grid texture and chat
-icons, and hiding the top bar. (The micro buttons live in the top bar, or
-above the minimap without it.)
+The options live in the game's own options, under **Options > AddOns >
+Reforged UI**, laid out like the game's: the cogwheel in the bottom-right
+corner of the chat area (or `/rui config`) opens them ("Hide options
+cogwheel" or `/rui cog off` takes the cogwheel away and gives its room to
+the chat input box). The main page holds the theme, UI size, UI scale
+(240-270), console transparency, themed tooltips and hiding the cogwheel
+(and a Reload UI button); a page per part of the UI holds the rest:
+
+- **Hero screen**: health and power as percentages, the low health
+  threshold, the portrait (stop its animation, position and zoom), the four
+  stat icons of this class and the reputation bar.
+- **Target**: where the target shows (hero screen or wall plate), target
+  aura size, target buffs first, your threat on the target, the wall plate
+  (size, mirrored, back on the wall) and the movable target and target of
+  target bars with their size.
+- **Action bars**: hiding the grid texture, letting Edit Mode place bars
+  1-3, and hiding the stance buttons or leaving them to a bar addon.
+- **Chat**: chat width and height, the input box above the chat, moving and
+  resizing the chat window yourself, and hiding the chat icons.
+- **Top bar and minimap**: hiding the top bar, the time under the clock
+  (server, local or hidden, 24 or 12 hour) and the zone text position.
+
+Each page's **Defaults** button puts its options back. They are the original
+addon's options, minus the layout ones (the centre modes, chat area width,
+chat placement and hiding the bags: the console is always centred with its
+chat area and inventory). (The micro buttons live in the top bar, or above
+the minimap without it.)
 
 **Let Edit Mode place action bars 1-3** (off by default) leaves bars 1-3 on
 their own Edit Mode bars instead of in the grid: they are placed once over
@@ -325,7 +342,7 @@ picks the High Order or Windshapers theme. Without an id, the race name
 ("High Order", "Windshaper") or else the faction picks the variant.
 Any other race gets its faction's default (Alliance: Human, Horde: Orc), and
 later-expansion races take the closest theme (e.g. Dark Iron Dwarf: Dwarf).
-Choosing a theme in the menu or with `/rui theme` saves it and overrides the
+Choosing a theme in the options or with `/rui theme` saves it and overrides the
 race default until you pick `auto` again; `skyborne` picks the Skyborne theme
 of your faction. Saved themes from earlier versions keep working.
 
@@ -344,7 +361,7 @@ of your faction. Saved themes from earlier versions keep working.
 ## Commands
 
 ```
-/rui config                      open the options menu
+/rui config                      open the options (Options > AddOns > Reforged UI)
 /rui cog on|off                   show or hide the options cogwheel in the chat area
 /rui theme auto|human|dwarf|gnome|nightelf|highorder|orc|tauren|troll|forsaken|undead|windshapers|skyborne
 /rui feeds                       list data feeds, game panels and top bar slots

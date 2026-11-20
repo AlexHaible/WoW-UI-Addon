@@ -33,7 +33,7 @@ local DEFAULTS = {
 	-- feed's tooltip: { [realm] = { [name] = { money = n, class = "MAGE",
 	-- name = "full name", faction = "Horde" } } }.
 	money = {},
-	-- The original addon's options (its config menu, see Config.lua).
+	-- The original addon's options (in the game's options, see Config.lua).
 	consoleOpts = {
 		uiScale = 240, -- 240-270
 		chatUp = 10, -- "extend bottom right upwards", 0-150
@@ -107,6 +107,11 @@ local UNSET_OPTIONS = {
 -- option read or set that isn't).
 function ns:KnownOption(key)
 	return DEFAULTS.consoleOpts[key] ~= nil or UNSET_OPTIONS[key] or false
+end
+
+-- An option's default (the game's options pages offer it on their Defaults button).
+function ns:OptionDefault(key)
+	return DEFAULTS.consoleOpts[key]
 end
 
 -- Settings saved by older versions.
@@ -780,10 +785,7 @@ function ns:SetTopBarShown(on)
 	self.db.consoleOpts.hideTopBar = not on
 	self:Relayout()
 	self:RunOutOfCombat("edit-mode", function() self:SetupEditMode() end)
-	local config = self.modules.config
-	if config.frame then
-		config:Refresh()
-	end
+	self.modules.config:Refresh()
 end
 
 -- The watched faction's strip under the experience bar (the bar is a
@@ -791,10 +793,7 @@ end
 function ns:SetRepBarShown(on)
 	self.db.consoleOpts.repBar = on and true or false
 	self:Relayout()
-	local config = self.modules.config
-	if config.frame then
-		config:Refresh()
-	end
+	self.modules.config:Refresh()
 end
 
 function ns:Relayout()
@@ -979,9 +978,10 @@ local LAYOUT_ALIASES = {
 }
 
 local function usage()
-	ns:Print("commands (the console's own options are in its menu: the cogwheel in the chat area's bottom-right corner):")
-	print("  /rui config  (open that menu)")
-	print("  /rui cog on||off  (the cogwheel in the chat area; off: open the menu with /rui config or Options > AddOns)")
+	ns:Print("commands (the console's own options are in Options > AddOns > Reforged UI, also opened by the cogwheel"
+		.. " in the chat area's bottom-right corner):")
+	print("  /rui config  (open those options)")
+	print("  /rui cog on||off  (the cogwheel in the chat area; off: open the options with /rui config or Options > AddOns)")
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
 	print("  /rui slot <number> <feed or panel name>||none")
@@ -1034,7 +1034,7 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:ApplyTheme()
 		ns:Print("theme:", ns.theme.name, ns.THEME_ALIASES[arg] and ("(" .. arg .. ")") or "")
 	elseif cmd == "config" and ns.modules.config.enabled then
-		ns.modules.config:Toggle()
+		ns.modules.config:Open()
 	elseif cmd == "cog" and (arg == "on" or arg == "off") and ns.modules.config.enabled then
 		ns.modules.config:SetCogShown(arg == "on")
 	elseif cmd == "layout" and arg and LAYOUT_ALIASES[arg] then
@@ -1049,29 +1049,21 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.db.consoleOpts.uiSize = math.max(ns.UI_SIZE_MIN, math.min(ns.UI_SIZE_MAX, math.floor(tonumber(arg))))
 		ns:Relayout()
 		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:Print("UI size:", ns.db.consoleOpts.uiSize .. "%")
 	elseif cmd == "aurasize" and tonumber(arg) and ns.modules.target.enabled then
 		ns.db.consoleOpts.targetAuraSize = math.max(ns.TARGET_AURA_SIZE_MIN, math.min(ns.TARGET_AURA_SIZE_MAX,
 			math.floor(tonumber(arg) / 5 + 0.5) * 5))
 		ns:RunOutOfCombat("edit-mode", function() ns:SetupEditMode() end)
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:SayTargetAuraSize()
 	elseif cmd == "buffsfirst" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
 		ns.modules.target:SetBuffsFirst(arg == "on")
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:Print(arg == "on" and "target buffs first, debuffs after them." or "target auras in the game's order.")
 	elseif cmd == "threat" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
 		ns.modules.target:SetThreatShown(arg == "on")
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:Print(arg == "on" and "your threat shows on your target." or "no threat on your target.")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
@@ -1086,9 +1078,7 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print(arg, arg2, "- type /reload to apply.")
 	elseif cmd == "target" and (arg == "swap" or arg == "plate") and ns.modules.target.enabled then
 		ns.modules.target:SetMode(arg)
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:Print("target display:", arg == "swap" and "swap (hero screen)" or "wall plate")
 	elseif cmd == "plate" and ns.modules.target.enabled
 		and (arg == "reset" or (arg == "size" and tonumber(arg2)) or (arg == "mirror" and (arg2 == "on" or arg2 == "off"))) then
@@ -1105,9 +1095,7 @@ SlashCmdList.REFORGEDUI = function(msg)
 		if not target:PlateInUse() then
 			ns:Print("(the target shows on the hero screen now: /rui target plate shows it on the plate.)")
 		end
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 	elseif cmd == "clock" and arg == "reset" and ns.modules.topbar.enabled then
 		ns.modules.topbar:ResetCapsuleSpot()
 		ns:Print("time back above the minimap.")
@@ -1126,15 +1114,11 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns:Print("stance buttons back on the wall over the action bars.")
 	elseif cmd == "stance" and (arg == "hide" or arg == "show") and ns.modules.actionbars.enabled then
 		ns.modules.actionbars:SetStanceShown(arg == "show")
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:Print(arg == "hide" and "stance buttons hidden (their key bindings still work)." or "stance buttons shown.")
 	elseif cmd == "stance" and (arg == "on" or arg == "off") then
 		ns.db.consoleOpts.leaveStance = arg == "off"
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 		ns:AskReload(arg == "off" and "the stance buttons are left to Blizzard or your bar addon."
 			or "the stance buttons go back on the console's wall.")
 	elseif cmd == "repbar" and (arg == "on" or arg == "off") then
@@ -1155,15 +1139,11 @@ SlashCmdList.REFORGEDUI = function(msg)
 			target:SetBarEnabled(arg == "on", v)
 			ns:Print(arg == "on" and what .. " on: hold Shift and drag it, or move it in Edit Mode." or what .. " off.")
 		end
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 	elseif cmd == "barsize" and tonumber(arg) and ns.modules.target.enabled then
 		local pct = ns.modules.target:SetBarSize(tonumber(arg))
 		ns:Print(("target bars at %d%%."):format(pct))
-		if ns.modules.config.frame then
-			ns.modules.config:Refresh()
-		end
+		ns.modules.config:Refresh()
 	elseif cmd == "auras" and arg == "reset" and ns.modules.target.enabled then
 		ns.db.consoleOpts.targetAuraOwn, ns.db.consoleOpts.targetAuraLast = nil, nil
 		ns:RunOutOfCombat("target-auras", function()

@@ -68,6 +68,14 @@ screen stays free on either side).
   top) so the icons land there. "Target aura size" in the options (or
   `/rui aurasize 100-200`) makes them bigger through that layout's Frame
   Size for the target frame, as far as a full row still fits on the wall.
+  The wall plate can be moved: hold Shift and drag it out of combat, or
+  drag it while Edit Mode is open (it shows then, target or not). Its
+  cast bar, combo points and tag are on it, the target of target follows
+  to stand beside it, and the buff and debuff icons follow above it through
+  the Edit Mode layout (after a reload). Its place is kept from the
+  screen's bottom centre, the same on every theme. "Wall plate size" (or
+  `/rui plate size 50-150`) scales it, "Mirror wall plate" (or `/rui plate
+  mirror on`) turns it round, and `/rui plate reset` puts it back.
   Move the Target Frame in Edit Mode and the icons stay where you put them
   (the size option still applies); a target display switch or `/rui auras
   reset` puts them back in that display's place.
@@ -339,6 +347,9 @@ of your faction. Saved themes from earlier versions keep working.
 /rui topbar on|off               show or hide the top bar (menu buttons above the minimap when hidden)
 /rui clock reset                 put the time back above the minimap (top bar hidden)
 /rui target swap|plate           target display: on the hero screen, or a plate on the wall
+/rui plate reset                 put the wall plate back on the wall (Shift-drag or Edit Mode moves it)
+/rui plate size 50-150           the wall plate's size, in %
+/rui plate mirror on|off         turn the wall plate round, portrait on the right
 /rui repbar on|off               the reputation bar under the experience bar
 /rui tooltips on|off             tooltips in the theme's frame, like the damage meter
 /rui targetbar on|off|reset      a movable target health and power bar (Shift-drag it, or use Edit Mode)

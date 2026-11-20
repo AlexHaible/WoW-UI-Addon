@@ -381,6 +381,24 @@ function Config:Build()
 	-- Bigger target and target of target bars.
 	self:Slider("Target bar size", "targetBarSize", ns.TARGET_BAR_SIZE_MIN, ns.TARGET_BAR_SIZE_MAX, 20, list(), 300,
 		function(v) ns.modules.target:SetBarSize(v) end)
+	-- The wall plate: bigger or smaller, turned the other way, or put back
+	-- on the wall after moving it (Shift-drag, or in Edit Mode).
+	-- The buffs above it follow when the slider is let go.
+	local plate = self:Slider("Wall plate size", "targetPlateSize", ns.TARGET_PLATE_SIZE_MIN, ns.TARGET_PLATE_SIZE_MAX,
+		20, list(), 300, function(v) ns.modules.target:SetPlateSize(v, true) end)
+	plate:SetValueStep(5)
+	plate:SetScript("OnMouseUp", function() ns.modules.target:PlateAurasFollow() end)
+	plate:SetScript("OnMouseWheel", function(slider, delta)
+		slider:SetValue(slider:GetValue() + delta * 5)
+		ns.modules.target:PlateAurasFollow()
+	end)
+	y = list(6)
+	self.plateMirrorCheck = self:Check("Mirror wall plate", "targetPlateMirror", 20, y + 1, function(on)
+		ns.modules.target:SetPlateMirrored(on)
+	end)
+	button(f, "Wall plate back on the wall", 180, 290, y, function()
+		ns.modules.target:ResetPlateSpot()
+	end)
 	-- Under it, beside the buttons: the target's buffs on the bottom rows,
 	-- nearest its portrait, and its debuffs after them (the game puts a
 	-- hostile target's debuffs first). (A checkbox is two taller than a
@@ -457,7 +475,7 @@ function Config:Refresh()
 	end
 	-- Greyed out like the buttons above while the target module is off.
 	local shade = target.enabled and 1 or 0.5
-	for _, cb in ipairs({ self.targetBarCheck, self.totBarCheck }) do
+	for _, cb in ipairs({ self.targetBarCheck, self.totBarCheck, self.plateMirrorCheck }) do
 		cb:SetEnabled(target.enabled and true or false)
 		cb.label:SetTextColor(shade, shade, shade)
 	end

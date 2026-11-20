@@ -3635,6 +3635,124 @@ do
 				"plate fits beside the stance row for " .. key)
 		end
 	end
+	-- The wall plate moves (Shift-drag or Edit Mode), grows and turns, and
+	-- what belongs to it comes along.
+	do
+		local T, root = ns.modules.target, ns.root
+		local pl = T.plate
+		local f, m = pl.frame, T.plateMover
+		SlashCmdList.REFORGEDUI("target plate")
+		local L = ns.layout
+		local P = L.targetPlate
+		local function near(a, b) return math.abs(a - b) < 0.01 end
+		local function pt(frame) return frame._points[1] end
+		local fp = pt(f)
+		assert(fp[2] == root and near(fp[4], P.frame.x) and near(fp[5], P.frame.y) and f:GetScale() == 1,
+			"the plate stands on the wall")
+		local mp = pt(pl.model)
+		assert(mp[2] == f and near(mp[4], P.portrait.x - P.frame.x) and near(mp[5], P.portrait.y - P.frame.y),
+			"the plate's parts are placed on it")
+		assert(pt(pl.cast)[2] == f and pt(pl.plate.left)[2] == f and pt(pl.name)[2] == f and pt(pl.combo[1].gem)[2] == f,
+			"cast bar, level plate, name and combo points move with the plate")
+		assert(T:AuraSpot() == L.targetAuras.plate, "unmoved, the buffs stay where the layout has them")
+		-- Turned the other way: the portrait on the right, the info window on the left.
+		SlashCmdList.REFORGEDUI("plate mirror on")
+		mp = pt(pl.model)
+		assert(near(mp[4], P.frame.w - (P.portrait.x - P.frame.x) - P.portrait.w), "mirrored: the portrait on the other side")
+		assert(pt(pl.plate.left)[4] < mp[4] and pt(pl.cast)[4] < mp[4], "mirrored: info window left of the portrait")
+		assert(T:AuraSpot() == L.targetAuras.plate, "mirroring alone leaves the buffs in place")
+		-- Shift out of combat makes it draggable, over the target button.
+		local shift = false
+		IsShiftKeyDown = function() return shift end
+		assert(not m._mouse, "the plate lets clicks through to the target button")
+		shift = true
+		inCombat = true
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+		assert(not m._mouse, "not in combat")
+		inCombat = false
+		fire("PLAYER_REGEN_ENABLED")
+		assert(m._mouse and not m.highlight:IsShown(), "Shift out of combat makes the plate draggable")
+		local rl, rb = root:GetLeft(), root:GetBottom()
+		f.GetLeft = function() return rl + L.W / 2 - 300 end
+		f.GetBottom = function() return rb + 40 end
+		m._scripts.OnDragStart(m)
+		assert(f.dragging, "dragging the mover drags the plate")
+		m._scripts.OnDragStop(m)
+		shift = false
+		fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+		assert(not m._mouse, "click-through again after the drag")
+		local spot = ReforgedUIDB.consoleOpts.targetPlateSpot
+		assert(spot and spot.x == -300 and spot.y == 40, "the plate's spot is saved from the bottom centre")
+		fp = pt(f)
+		assert(near(fp[4], L.W / 2 - 300) and near(fp[5], 40), "the plate stays where it was dragged")
+		local bp = pt(ReforgedUITargetButton)
+		assert(near(bp[4], L.W / 2 - 300) and near(bp[5], 40) and near(ReforgedUITargetButton._w, P.frame.w),
+			"the target button follows the plate")
+		local tp, TT = pt(ReforgedUITargetTarget), L.tot.frame
+		local gap = P.frame.x - (TT.x + TT.w)
+		assert(near(tp[4], L.W / 2 - 300 + P.frame.w + gap) and near(tp[5], 40 + TT.y - P.frame.y),
+			"the target of target stands beside the mirrored plate's portrait")
+		local A = T:AuraSpot()
+		assert(near(A.x0, L.W / 2 - 298) and near(A.y, 40 + P.frame.h + 4)
+			and near(A.x1 - A.x0, L.targetAuras.plate.x1 - L.targetAuras.plate.x0), "the buffs go over the moved plate")
+		SlashCmdList.REFORGEDUI("plate mirror off")
+		tp = pt(ReforgedUITargetTarget)
+		assert(near(tp[4], L.W / 2 - 300 - gap - TT.w), "and left of it the right way round")
+		-- The same spot on every theme: the Edit Mode layout is account-wide.
+		for _, key in ipairs({ "orc", "nightelf", "undead" }) do
+			SlashCmdList.REFORGEDUI("theme " .. key)
+			local B = T:AuraSpot()
+			assert(near(B.x0, A.x0) and near(B.y, A.y), "the moved plate's buff spot is the same on " .. key)
+		end
+		SlashCmdList.REFORGEDUI("theme auto")
+		L, P = ns.layout, ns.layout.targetPlate
+		-- Bigger: the frame scales, its corner stays, the buffs rise with its top.
+		SlashCmdList.REFORGEDUI("plate size 120")
+		fp = pt(f)
+		assert(near(f:GetScale(), 1.2) and near(fp[4] * 1.2, L.W / 2 - 300) and near(fp[5] * 1.2, 40), "a bigger plate")
+		assert(near(T:AuraSpot().y, 40 + 1.2 * P.frame.h + 4), "the buffs stay over the bigger plate")
+		assert(near(ReforgedUITargetButton._w, 1.2 * P.frame.w), "the target button covers the bigger plate")
+		SlashCmdList.REFORGEDUI("plate size 999")
+		assert(ReforgedUIDB.consoleOpts.targetPlateSize == ns.TARGET_PLATE_SIZE_MAX, "size capped")
+		-- Off the screen (a smaller one now): kept on it.
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = 99999, y = -50 }
+		local R = T:PlateRect()
+		assert(near(R.x + R.w, L.W) and R.y == 0, "a plate past the screen's edge is kept on it")
+		assert(T:ToTSpot().x + L.tot.frame.w <= R.x, "the target of target goes left of a plate at the right edge")
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = -99999, y = 0 }
+		assert(T:ToTSpot().x >= T:PlateRect().x + T:PlateRect().w, "and right of one at the left edge")
+		ReforgedUIDB.consoleOpts.targetPlateSpot = { x = 99999, y = -50 }
+		-- Edit Mode shows it without a target, to be moved; a move made
+		-- there reaches the Edit Mode layout as it closes.
+		hasTarget = false
+		fire("PLAYER_TARGET_CHANGED")
+		assert(not f:IsShown(), "no target, no plate")
+		EditModeManagerFrame._hooks.OnShow()
+		assert(f:IsShown() and pl.name._text == "Target" and m._mouse and m.highlight:IsShown(),
+			"Edit Mode shows a movable stand-in")
+		local setups = 0
+		local oldSetup = ns.SetupEditMode
+		ns.SetupEditMode = function() setups = setups + 1 end
+		m._scripts.OnDragStart(m)
+		m._scripts.OnDragStop(m)
+		assert(setups == 0 and T.plateAurasPending, "not while Edit Mode is open")
+		EditModeManagerFrame._hooks.OnHide()
+		assert(setups == 1 and not T.plateAurasPending, "the buffs follow once Edit Mode closes")
+		assert(not f:IsShown() and not m._mouse, "closing Edit Mode hides it again")
+		ns.SetupEditMode = oldSetup
+		hasTarget = true
+		fire("PLAYER_TARGET_CHANGED")
+		f.GetLeft, f.GetBottom = nil, nil
+		IsShiftKeyDown = nil
+		SlashCmdList.REFORGEDUI("plate reset")
+		SlashCmdList.REFORGEDUI("plate size 100")
+		fp = pt(f)
+		assert(not ReforgedUIDB.consoleOpts.targetPlateSpot and near(fp[4], P.frame.x) and f:GetScale() == 1,
+			"/rui plate reset")
+		assert(near(pt(ReforgedUITargetTarget)[4], L.tot.frame.x), "the target of target back on the wall")
+		-- Swap mode: the hero's portrait again, and the target of target on the wall.
+		SlashCmdList.REFORGEDUI("target swap")
+	end
 	hasTarget = false
 	fire("PLAYER_TARGET_CHANGED")
 	for fn, f in pairs(orig) do _G[fn] = f end

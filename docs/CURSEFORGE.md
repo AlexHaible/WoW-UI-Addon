@@ -48,6 +48,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 **Target**
 - By default the hero screen switches to your target, just like selecting a unit in Warcraft III: portrait, name coloured by reaction, level and type, health and power, combo points and cast bar.
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall, fully solid so the world never shows through it.
+- Want the wall plate somewhere else? Hold Shift and drag it (out of combat), or drag it in **Edit Mode**, where it shows even without a target. Its cast bar and combo points go with it, the target of target stands beside it, and the target's buffs and debuffs move above it after a reload. **Wall plate size** in the options (or `/rui plate size 120`) makes it 50-150% as big, **Mirror wall plate** (or `/rui plate mirror on`) turns it round so its portrait is on the right, and `/rui plate reset` puts it back on the wall.
 - Rare, elite and boss targets stand out: a small tag over the portrait says **Rare**, **Elite**, **Rare Elite** or **Boss** in the colours of the game's own dragons (silver for rare, gold for elite, red for a boss), and the same word is coloured in the level line. The target bars carry the tag on their top edge and a coloured mark after the level (R, +, R+).
 - The target's cast bar works on players and creatures alike: gold while it casts, a draining green bar while it channels, with the spell's name inside.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
@@ -136,6 +137,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - target aura size, for bigger target buff and debuff icons (100-200%, also `/rui aurasize 150`)
 - target buffs first, with the debuffs after them (also `/rui buffsfirst on`)
 - movable target and target of target bars, and their size (100-200%, also `/rui barsize 150`)
+- wall plate size (50-150%, also `/rui plate size 120`) and a mirrored wall plate (also `/rui plate mirror on`)
 - portrait position
 - low-health warning threshold
 - zone text position
@@ -153,6 +155,9 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui config                      open the options
 /rui theme <name>|auto           pick a theme (auto follows your race)
 /rui target swap|plate           target on the hero screen, or a plate on the wall
+/rui plate reset                 put the wall plate back on the wall (Shift-drag or Edit Mode moves it)
+/rui plate size 50-150           the wall plate's size, in %
+/rui plate mirror on|off         turn the wall plate round, portrait on the right
 /rui pet reset                   put the pet icon back beside the target's target
 /rui totems reset                put the totem timers back on the wall
 /rui totems                      show what each totem slot reports, if a timer doesn't show

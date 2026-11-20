@@ -50,6 +50,7 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - Prefer seeing both at once? Switch to **wall plate** mode. A small portrait arch with the target's details then stands on the console wall, fully solid so the world never shows through it.
 - Want the wall plate somewhere else? Hold Shift and drag it (out of combat), or drag it in **Edit Mode**, where it shows even without a target. Its cast bar and combo points go with it, the target of target stands beside it, and the target's buffs and debuffs move above it after a reload. **Wall plate size** in the options (or `/rui plate size 120`) makes it 50-150% as big, **Mirror wall plate** (or `/rui plate mirror on`) turns it round so its portrait is on the right, and `/rui plate reset` puts it back on the wall.
 - Rare, elite and boss targets stand out: a small tag over the portrait says **Rare**, **Elite**, **Rare Elite** or **Boss** in the colours of the game's own dragons (silver for rare, gold for elite, red for a boss), and the same word is coloured in the level line. The target bars carry the tag on their top edge and a coloured mark after the level (R, +, R+).
+- Your threat on the target at a glance, the same percentage as in its tooltip: a small number at the top of the portrait (and on the target bar's top edge) while you're on its threat list, grey, yellow, orange or red like the game's threat warnings, red when you have aggro. It goes away when you leave combat. Don't want it? Untick **Show threat on target** in the options (or `/rui threat off`).
 - The target's cast bar works on players and creatures alike: gold while it casts, a draining green bar while it channels, with the spell's name inside.
 - The target's target appears as a small Warcraft III unit icon in your theme's frame. A gem on its corner shows who it is: red, yellow or green by reaction, blue when it's you, and crossed swords when an enemy has you targeted.
 - The target's buffs and debuffs show next to it (above the plate in wall plate mode). They work in combat too: they're Blizzard's own aura icons, placed for you through the **Reforged UI** Edit Mode layout. After switching between swap and wall plate, reload when asked so they move along. If they ever sit in the wrong spot, the chat tells you why a few seconds after login (usually another Edit Mode layout is active, or a reload is due), and `/rui auras` shows where they are.
@@ -136,6 +137,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 - chat width and height
 - target aura size, for bigger target buff and debuff icons (100-200%, also `/rui aurasize 150`)
 - target buffs first, with the debuffs after them (also `/rui buffsfirst on`)
+- your threat on the target (also `/rui threat off`)
 - movable target and target of target bars, and their size (100-200%, also `/rui barsize 150`)
 - wall plate size (50-150%, also `/rui plate size 120`) and a mirrored wall plate (also `/rui plate mirror on`)
 - portrait position
@@ -169,6 +171,7 @@ Click the **cogwheel** in the bottom-right corner of the chat area, type `/rui c
 /rui aurasize 100-200            target buff and debuff icon size, in %
 /rui auras reset                 put the target's buffs and debuffs back after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs first, debuffs after them
+/rui threat on|off               your threat on the target, over its portrait
 /rui feeds                       list data feeds, game panels and top bar slots
 /rui slot <number> <feed>|none   put a feed or game panel ("quests", "map") in a top bar slot
 /rui size 70-100                 console and top bar size, in %

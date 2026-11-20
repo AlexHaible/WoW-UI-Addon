@@ -85,6 +85,12 @@ screen stays free on either side).
   target. It does so by having Blizzard's aura container treat every target
   as friendly, so on hostile creatures it also shows other players'
   debuffs, as the game's "show all debuffs" option would.
+  Your threat on the target (the tooltip's percentage, from
+  UnitDetailedThreatSituation) stands at the top of its portrait and on the
+  target bar's top edge while you are on its threat list, coloured by threat
+  status; "Show threat on target" (or `/rui threat off`) turns it off. Where
+  the game makes it secret (bosses, in instances) the client formats the
+  number and it shows in white, only while you are in combat.
   Left-click targets, right-click opens the unit menu.
   The target's cast bar reads the game's cast info as it is: for any unit
   but you and your pet that info is secret, so it goes straight into the bar
@@ -358,6 +364,7 @@ of your faction. Saved themes from earlier versions keep working.
 /rui aurasize 100-200            target buff and debuff icon size on the wall, in %
 /rui auras reset                 target buffs and debuffs back on the wall after moving them in Edit Mode
 /rui buffsfirst on|off           target buffs on the bottom rows, debuffs after them
+/rui threat on|off               your threat % on the target, over its portrait and on the target bar
 /rui module <console|hero|actionbars|minimap|chat|inventory|blizzard|target|topbar|config> on|off   (then /reload)
 /rui status
 /rui reset

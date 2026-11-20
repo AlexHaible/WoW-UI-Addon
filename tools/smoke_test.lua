@@ -3343,6 +3343,43 @@ do
 		UnitClassification = oldClass
 		fire("UNIT_CLASSIFICATION_CHANGED", "target")
 	end
+	-- Your threat on the target: over the plate's portrait and on the target
+	-- bar while you are on its threat list, coloured by threat status; gone
+	-- at 0, with nothing returned, and with the option off.
+	do
+		local was, wasBar = UnitDetailedThreatSituation, ReforgedUIDB.consoleOpts.targetBar
+		local pct, status = 63.4, 2
+		UnitDetailedThreatSituation = function(unit, mob)
+			assert(unit == "player" and mob == "target", "threat: the player's on the target")
+			if pct then
+				return status == 3, status, pct, pct * 1.1, 1000
+			end
+		end
+		target:SetBarEnabled(true)
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(pl.threat:IsShown() and pl.threat.text._text == "63%", "plate: threat over the portrait")
+		assert(target.bar.threat:IsShown() and target.bar.threat.text._text == "63%", "target bar: threat on its edge")
+		assert(not target.totBar.threat, "no threat badge on the target of target bar")
+		pct, status = 100, 3
+		fire("UNIT_THREAT_SITUATION_UPDATE", "player")
+		assert(pl.threat.text._text == "100%" and pl.threat.text._textColor[1] == 1 and pl.threat.text._textColor[2] == 0,
+			"plate: red at 100 % (tanking)")
+		pct = 0
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown() and not target.bar.threat:IsShown(), "no threat badge at 0 %")
+		pct = nil
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown(), "no threat badge off the threat list")
+		pct = 40
+		SlashCmdList.REFORGEDUI("threat off")
+		assert(ReforgedUIDB.consoleOpts.targetThreat == false and not pl.threat:IsShown(), "/rui threat off")
+		SlashCmdList.REFORGEDUI("threat on")
+		assert(ReforgedUIDB.consoleOpts.targetThreat == true and pl.threat.text._text == "40%", "/rui threat on")
+		UnitDetailedThreatSituation = was
+		target:SetBarEnabled(wasBar and true or false)
+		fire("UNIT_THREAT_LIST_UPDATE", "target")
+		assert(not pl.threat:IsShown(), "no threat API, no badge")
+	end
 	assert(pl.name == pl.plate.name and pl.info == pl.plate.level and not pl.plate.bar:IsShown(),
 		"plate: the hero's level plate, without an experience fill")
 	assert(pl.healthText._text == "412 / 666" and pl.powerText._text == "30 / 100" and pl.power:IsShown(),
@@ -4249,6 +4286,7 @@ do
 		end
 	end })
 	swap("C_PetInfo", { GetPetHappiness = function() return SECRET, SECRET, SECRET end })
+	swap("UnitDetailedThreatSituation", function() return SECRET, SECRET, SECRET, SECRET, SECRET end)
 	local wasTarget, wasPet, wasCombat = hasTarget, hasPet, inCombat
 	local target, o = ns.modules.target, ns.db.consoleOpts
 	local wasMode, wasBar, wasToT = target:Mode(), o.targetBar, o.totBar
@@ -4262,6 +4300,7 @@ do
 		{ "UNIT_SPELLCAST_START", "target" }, { "UNIT_SPELLCAST_CHANNEL_START", "target" },
 		{ "UNIT_SPELLCAST_STOP", "target" }, { "PLAYER_TOTEM_UPDATE", 1 }, { "UPDATE_MOUSEOVER_UNIT" },
 		{ "PLAYER_REGEN_DISABLED" }, { "PLAYER_REGEN_ENABLED" }, { "PLAYER_ENTERING_WORLD" },
+		{ "UNIT_THREAT_LIST_UPDATE", "target" }, { "UNIT_THREAT_SITUATION_UPDATE", "player" },
 	}
 	hasTarget, hasPet = true, true
 	target:SetBarEnabled(true)
@@ -4312,7 +4351,8 @@ do
 		_G[name] = fn
 	end
 	for _, name in ipairs({ "UnitGetIncomingHeals", "UnitCastingInfo", "UnitChannelInfo", "UnitClassification",
-		"UnitCreatureType", "GetComboPoints", "UnitIsTapDenied", "GetTotemTimeLeft", "C_PetInfo", "C_UnitAuras" }) do
+		"UnitCreatureType", "GetComboPoints", "UnitIsTapDenied", "GetTotemTimeLeft", "C_PetInfo", "C_UnitAuras",
+		"UnitDetailedThreatSituation" }) do
 		if saved[name] == nil then _G[name] = nil end
 	end
 	target:SetBarEnabled(wasBar and true or false)

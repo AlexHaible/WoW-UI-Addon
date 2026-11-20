@@ -89,6 +89,7 @@ local DEFAULTS = {
 		repBar = true, -- the watched faction's strip under the experience bar (a flatter bar to make room)
 		targetAuraSize = false, -- the target's buff and debuff icons at this size, 100-200 % (false: as Edit Mode has them)
 		targetBuffsFirst = false, -- the target's buffs in the bottom rows, on its portrait, and its debuffs after them
+		targetThreat = true, -- your threat on the target (as in its tooltip) over its portrait and on the target bar
 		themeTooltips = true, -- the game's tooltips in the theme's frame, like the damage meter (Tooltip.lua)
 	},
 }
@@ -993,6 +994,7 @@ local function usage()
 	print("  /rui auras reset  (put them back on the wall after moving the Target Frame in Edit Mode)")
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
 	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
+	print("  /rui threat on||off  (your threat on your target, over its portrait)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui plate reset  (put the wall plate back on the wall; Shift-drag or Edit Mode moves it)")
@@ -1060,6 +1062,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 			ns.modules.config:Refresh()
 		end
 		ns:Print(arg == "on" and "target buffs first, debuffs after them." or "target auras in the game's order.")
+	elseif cmd == "threat" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
+		ns.modules.target:SetThreatShown(arg == "on")
+		if ns.modules.config.frame then
+			ns.modules.config:Refresh()
+		end
+		ns:Print(arg == "on" and "your threat shows on your target." or "no threat on your target.")
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)

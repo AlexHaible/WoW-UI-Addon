@@ -292,20 +292,24 @@ TopBar.Ruleset = ruleset
 local FACTIONS = {
 	{ key = "Horde", label = _G.FACTION_HORDE or "Horde", color = { 0.9, 0.25, 0.2 } },
 	{ key = "Alliance", label = _G.FACTION_ALLIANCE or "Alliance", color = { 0.3, 0.55, 1 } },
-	{ key = "?", label = "Faction not known yet (log that character in)", color = { 0.6, 0.6, 0.6 } },
+	{ key = "?", label = "Faction not known yet (log that character in)", short = "faction not known",
+		color = { 0.6, 0.6, 0.6 } },
 }
 
--- The gold feed's tooltip: a section per faction with every character's
--- gold, richest first, grouped by ruleset on Forever or realm elsewhere (this
--- character's first), and the faction's total.
-function TopBar:GoldTooltip(tip)
-	self:SaveMoney()
-	tip:AddLine("Gold", 1, 1, 1)
-	local function group(realm)
-		local label, rank = ruleset(realm)
-		return label or realm, rank or #RULESETS + 1
+-- Every saved character in the gold tooltip's order: a section per faction
+-- (this character's first), in it a group per ruleset on Forever or realm
+-- elsewhere (this character's first), richest first. Also counts the groups,
+-- as their headers only show when there is more than one.
+local function groupOf(realm)
+	local label, rank = ruleset(realm)
+	if not label then
+		label = type(realm) == "string" and realm ~= "" and realm or "Unknown realm"
 	end
-	local here = GetRealmName and group(GetRealmName())
+	return label, rank or #RULESETS + 1
+end
+
+function TopBar:GoldSections()
+	local here = GetRealmName and groupOf(GetRealmName())
 	local mine = UnitFactionGroup and UnitFactionGroup("player")
 	local known = {}
 	for _, f in ipairs(FACTIONS) do
@@ -315,7 +319,7 @@ function TopBar:GoldTooltip(tip)
 	-- faction -> group -> characters
 	local byFaction, groups, groupCount, rankOf = {}, {}, 0, {}
 	for realm, chars in pairs(ns.db.money) do
-		local g, rank = group(realm)
+		local g, rank = groupOf(realm)
 		rankOf[g] = rank
 		if not groups[g] then
 			groups[g] = true
@@ -326,7 +330,8 @@ function TopBar:GoldTooltip(tip)
 			byFaction[faction] = byFaction[faction] or {}
 			local list = byFaction[faction][g] or {}
 			byFaction[faction][g] = list
-			list[#list + 1] = { name = info.name or key, money = info.money or 0, class = info.class }
+			list[#list + 1] = { realm = realm, key = key, name = info.name or key, money = info.money or 0,
+				class = info.class }
 		end
 	end
 
@@ -338,6 +343,7 @@ function TopBar:GoldTooltip(tip)
 			order[#order + 1] = f
 		end
 	end
+	local sections = {}
 	for _, f in ipairs(order) do
 		local byGroup = byFaction[f.key]
 		if byGroup then
@@ -354,9 +360,7 @@ function TopBar:GoldTooltip(tip)
 				end
 				return a < b
 			end)
-			tip:AddLine(" ")
-			tip:AddLine(f.label, f.color[1], f.color[2], f.color[3])
-			local total = 0
+			local section = { faction = f, groups = {} }
 			for _, g in ipairs(names) do
 				local chars = byGroup[g]
 				table.sort(chars, function(a, b)
@@ -365,21 +369,158 @@ function TopBar:GoldTooltip(tip)
 					end
 					return a.name < b.name
 				end)
-				if groupCount > 1 then
-					tip:AddLine(g, 1, 0.82, 0)
+				section.groups[#section.groups + 1] = { label = g, chars = chars }
+			end
+			sections[#sections + 1] = section
+		end
+	end
+	return sections, groupCount
+end
+
+-- The gold feed's tooltip: every character's gold as GoldSections orders it,
+-- and each faction's total.
+function TopBar:GoldTooltip(tip)
+	self:SaveMoney()
+	tip:AddLine("Gold", 1, 1, 1)
+	local sections, groupCount = self:GoldSections()
+	for _, section in ipairs(sections) do
+		local f = section.faction
+		tip:AddLine(" ")
+		tip:AddLine(f.label, f.color[1], f.color[2], f.color[3])
+		local total = 0
+		for _, group in ipairs(section.groups) do
+			if groupCount > 1 then
+				tip:AddLine(group.label, 1, 0.82, 0)
+			end
+			for _, c in ipairs(group.chars) do
+				local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
+				local r, g2, b = 1, 1, 1
+				if color and color.r then
+					r, g2, b = color.r, color.g, color.b
 				end
-				for _, c in ipairs(chars) do
-					local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
-					local r, g2, b = 1, 1, 1
-					if color and color.r then
-						r, g2, b = color.r, color.g, color.b
-					end
-					tip:AddDoubleLine(c.name, formatMoney(c.money), r, g2, b, 1, 1, 1)
-					total = total + c.money
+				tip:AddDoubleLine(c.name, formatMoney(c.money), r, g2, b, 1, 1, 1)
+				total = total + c.money
+			end
+		end
+		tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
+	end
+	tip:AddLine("/rui gold to forget a character.", 0.6, 0.6, 0.6)
+end
+
+----------------------------------------------------------------------------
+-- Forgetting characters: one deleted, renamed or moved leaves its gold in
+-- the tooltip for good, so the player can take it out (/rui gold, or the
+-- Top bar options page).
+
+-- Whether this saved entry is the character logged in now (it would come
+-- straight back).
+function TopBar:IsThisCharacter(realm, key)
+	if not (GetRealmName and realm == GetRealmName()) then
+		return false
+	end
+	local name = ns:FullName("player")
+	return key == UnitName("player") or (type(name) == "string" and not ns.IsSecret(name) and key == name)
+end
+
+-- Every saved character, numbered in the tooltip's order, with where it
+-- shows: { realm, key, name, money, class, faction (label), group, current }.
+function TopBar:SavedCharacters()
+	local list = {}
+	for _, section in ipairs(self:GoldSections()) do
+		for _, group in ipairs(section.groups) do
+			for _, c in ipairs(group.chars) do
+				c.faction, c.group = section.faction.short or section.faction.label, group.label
+				c.current = self:IsThisCharacter(c.realm, c.key)
+				list[#list + 1] = c
+			end
+		end
+	end
+	return list
+end
+
+-- Takes a saved character out of the gold list. Not the one logged in.
+function TopBar:ForgetCharacter(realm, key)
+	local chars = ns.db.money[realm]
+	if not (chars and chars[key]) or self:IsThisCharacter(realm, key) then
+		return false
+	end
+	chars[key] = nil
+	if next(chars) == nil then
+		ns.db.money[realm] = nil
+	end
+	return true
+end
+
+local FORGET_POPUP = "REFORGEDUI_FORGET_GOLD"
+local forgetting
+
+-- Asks first, then forgets the character c (an entry of SavedCharacters).
+function TopBar:ConfirmForget(c, done)
+	local dialogs, show = _G.StaticPopupDialogs, _G.StaticPopup_Show
+	local function forget()
+		if self:ForgetCharacter(c.realm, c.key) then
+			ns:Print(("%s (%s, %s) forgotten from the gold list."):format(c.name, c.group, c.faction))
+		end
+		if done then
+			done()
+		end
+	end
+	if not (dialogs and show) then
+		forget()
+		return
+	end
+	dialogs[FORGET_POPUP] = dialogs[FORGET_POPUP] or {
+		text = "Reforged UI: forget %s's gold?",
+		button1 = _G.YES or "Yes",
+		button2 = _G.NO or "No",
+		OnAccept = function()
+			if forgetting then
+				forgetting()
+			end
+			forgetting = nil
+		end,
+		OnCancel = function() forgetting = nil end,
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	forgetting = forget
+	show(FORGET_POPUP, ("%s (%s, %s)"):format(c.name, c.group, c.faction))
+end
+
+-- /rui gold: the saved characters, numbered; /rui gold forget <number or
+-- name> takes one out.
+function TopBar:GoldCommand(what)
+	local list = self:SavedCharacters()
+	if what and what ~= "" then
+		local pick = list[tonumber(what)]
+		if not pick then
+			local matches = {}
+			for _, c in ipairs(list) do
+				if c.name:lower() == what:lower() then
+					matches[#matches + 1] = c
 				end
 			end
-			tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
+			if #matches > 1 then
+				ns:Print(("more than one %s is saved: forget it by its number."):format(what))
+			end
+			pick = #matches == 1 and matches[1] or nil
 		end
+		if not pick then
+			ns:Print("no saved character", what, "- /rui gold lists them.")
+		elseif pick.current then
+			ns:Print("that's you: log another character in to forget this one.")
+		else
+			self:ForgetCharacter(pick.realm, pick.key)
+			ns:Print(("%s (%s, %s) forgotten from the gold list."):format(pick.name, pick.group, pick.faction))
+			list = self:SavedCharacters()
+		end
+	end
+	ns:Print("saved gold (/rui gold forget <number> takes a character out):")
+	for i, c in ipairs(list) do
+		print(("  %d. %s  %s, %s  %s%s"):format(i, c.name, c.group, c.faction, formatMoney(c.money),
+			c.current and "  (you)" or ""))
 	end
 end
 

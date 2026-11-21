@@ -114,6 +114,42 @@ local function statIcon(i)
 	}
 end
 
+-- The gold tooltip's saved characters, to forget one: pick it, then the
+-- button. The one logged in isn't offered (it would come straight back).
+local NO_CHARACTER = ""
+local goldPick = NO_CHARACTER
+
+local function goldEntries()
+	local list = {}
+	for _, c in ipairs(ns.modules.topbar:SavedCharacters()) do
+		if not c.current then
+			list[#list + 1] = c
+		end
+	end
+	return list
+end
+
+local function goldValue(c)
+	return c.realm .. "\001" .. c.key
+end
+
+local function goldChoices()
+	local entries = goldEntries()
+	local list = { { NO_CHARACTER, #entries > 0 and "Pick a character" or "No other characters saved" } }
+	for _, c in ipairs(entries) do
+		list[#list + 1] = { goldValue(c), ("%s (%s, %s)"):format(c.name, c.group, c.faction) }
+	end
+	return list
+end
+
+local function goldPicked()
+	for _, c in ipairs(goldEntries()) do
+		if goldValue(c) == goldPick then
+			return c
+		end
+	end
+end
+
 Config.PAGES = {
 	{
 		name = "Reforged UI", -- the main page
@@ -370,6 +406,29 @@ Config.PAGES = {
 			choices = { { 24, "24-hour" }, { 12, "12-hour" } },
 			get = function() return ns.modules.topbar:TimeHours() end,
 			set = function(v) ns.modules.topbar:SetTimeHours(v) end,
+		},
+		{ header = "Gold tooltip" },
+		{
+			kind = "choice", id = "goldCharacter", name = "Saved character", choices = goldChoices,
+			tip = "A character whose gold the gold feed's tooltip lists. Pick an old one, then Forget.",
+			get = function() return goldPicked() and goldPick or NO_CHARACTER end,
+			set = function(v) goldPick = v end,
+			default = NO_CHARACTER,
+		},
+		{
+			kind = "button", name = "Forget saved character", text = "Forget",
+			tip = "Takes the character picked above out of the gold tooltip. It comes back if you log it in.",
+			click = function()
+				local c = goldPicked()
+				if not c then
+					ns:Print("pick a saved character first.")
+					return
+				end
+				ns.modules.topbar:ConfirmForget(c, function()
+					goldPick = NO_CHARACTER
+					Config:Refresh()
+				end)
+			end,
 		},
 		{ header = "Minimap" },
 		{

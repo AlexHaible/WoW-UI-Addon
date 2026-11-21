@@ -2503,6 +2503,43 @@ do
 	assert(at("Normal") < at("Thrall Son of Durotan=") and at("Jane Darnassus=") < at("PvP\n"), "Normal (this ruleset) first")
 	assert(at("PvP\n") < at("Jane Skywall="), "then PvP")
 	assert(text:find("Total=" .. tb.FormatMoney(1234567 + 500 + 85 + 7), 1, true), "faction total")
+	-- Old characters can be forgotten: /rui gold numbers them in the
+	-- tooltip's order, /rui gold forget <number or name> takes one out, never
+	-- the one logged in.
+	local printed = {}
+	local realPrint = print
+	print = function(...) printed[#printed + 1] = table.concat({ ... }, " ") end -- luacheck: ignore
+	local function heard(s)
+		for _, line in ipairs(printed) do
+			if line:find(s, 1, true) then return true end
+		end
+	end
+	SlashCmdList.REFORGEDUI("gold")
+	assert(heard("1. Thrall Son of Durotan") and heard("(you)"), "/rui gold lists this character first")
+	assert(heard("Jane Skywall  PvP, Horde"), "with its ruleset and faction")
+	printed = {}
+	SlashCmdList.REFORGEDUI("gold forget 1")
+	assert(heard("that's you") and realm1["Thrall Son of Durotan"], "this character isn't forgotten")
+	local list = tb:SavedCharacters()
+	local n
+	for i, c in ipairs(list) do
+		if c.name == "Jane Darnassus" then n = i end
+	end
+	SlashCmdList.REFORGEDUI("gold forget " .. n)
+	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 7 PvE"] == nil, "forgotten by number; an emptied server goes")
+	SlashCmdList.REFORGEDUI("gold forget Jane Skywall")
+	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 2 PvP"] == nil, "forgotten by name")
+	printed = {}
+	SlashCmdList.REFORGEDUI("gold forget nobody")
+	assert(heard("no saved character"), "an unknown name is said")
+	print = realPrint -- luacheck: ignore
+	-- A realm with no name still gets a group header.
+	ReforgedUIDB.money[""] = { Ghost = { money = 3, class = "MAGE", faction = "Horde" } }
+	lines = {}
+	tb.feeds.gold.OnTooltipShow(fake)
+	text = table.concat(lines, "\n")
+	assert(text:find("Unknown realm\nGhost=", 1, true), "a nameless realm is Unknown realm")
+	ReforgedUIDB.money[""] = nil
 	GetRealmName = realGetRealmName
 end
 ReforgedUIDB.money = { Forever = { ["Thrall Son of Durotan"] = thrall } }
@@ -2718,6 +2755,29 @@ do
 	for _, key in ipairs({ "hideBags", "placeChat", "hideMicro" }) do
 		assert(not option(key), "no " .. key .. " option (no centre modes)")
 	end
+end
+-- The Top bar page forgets a saved character: pick it, press Forget, say yes.
+do
+	ReforgedUIDB.money.Forever.Garrosh = { money = 5, class = "WARRIOR", faction = "Horde", name = "Garrosh" }
+	local pick = option("goldCharacter")
+	local offered = config.initializers.goldCharacter.options()
+	assert(offered[1].value == "" and #offered == 2, "only the other character is offered")
+	assert(not offered[2].label:find("Thrall"), "not this character")
+	pick:SetValue(offered[2].value)
+	local button
+	for _, page in ipairs(config.pages) do
+		for _, init in ipairs(page.layout.initializers) do
+			if init.kind == "button" and init.name == "Forget saved character" then button = init end
+		end
+	end
+	button.click()
+	assert(popups[#popups].which == "REFORGEDUI_FORGET_GOLD" and popups[#popups].text:find("Garrosh", 1, true),
+		"asks before forgetting")
+	assert(ReforgedUIDB.money.Forever.Garrosh, "not forgotten before the answer")
+	StaticPopupDialogs.REFORGEDUI_FORGET_GOLD.OnAccept()
+	assert(ReforgedUIDB.money.Forever.Garrosh == nil and ReforgedUIDB.money.Forever["Thrall Son of Durotan"],
+		"forgotten, this character kept")
+	assert(pick:GetValue() == "", "the pick goes back to none")
 end
 -- "Let me move and resize the chat window" lets go of the chat window and
 -- puts the input box back on it; turning it off holds it again.

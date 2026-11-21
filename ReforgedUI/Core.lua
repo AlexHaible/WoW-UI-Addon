@@ -29,10 +29,11 @@ local DEFAULTS = {
 	},
 	-- Data broker feeds shown in the top bar, by slot number (see TopBar.lua).
 	broker = {},
-	-- Each character's money in copper, by realm then name, for the gold
-	-- feed's tooltip: { [realm] = { [name] = { money = n, class = "MAGE",
-	-- name = "full name", faction = "Horde" } } }.
-	money = {},
+	-- Each character's money in copper, by full name, for the gold feed's
+	-- tooltip: { [name] = { money = n, class = "MAGE", name = "full name",
+	-- faction = "Horde" } }. Not by realm: Forever hides which server a
+	-- character is on (see migrate for the old per-realm "money").
+	gold = {},
 	-- The original addon's options (in the game's options, see Config.lua).
 	consoleOpts = {
 		uiScale = 240, -- 240-270
@@ -148,6 +149,36 @@ local function migrate(db)
 		-- The minimap's addon compartment used to remember being open; it
 		-- now always starts closed.
 		db.consoleOpts.addonDrawerOpen = nil
+	end
+	if type(db.money) == "table" then
+		-- Gold used to be saved by realm, then name. Forever now hides the
+		-- realm (players used it to tell which layer they were on), so the
+		-- same character turned up again under a nameless realm. One list
+		-- by full name now; a character saved more than once keeps its
+		-- copy from a nameless realm, the newest, else the richest.
+		local gold = type(db.gold) == "table" and db.gold or {}
+		db.gold = gold
+		local fromNameless = {}
+		for realm, chars in pairs(db.money) do
+			local nameless = type(realm) ~= "string" or realm == ""
+			if type(chars) == "table" then
+				for key, info in pairs(chars) do
+					if type(info) == "table" then
+						local name = type(info.name) == "string" and info.name ~= "" and info.name or key
+						local have = gold[name]
+						local better = not have
+							or (nameless and not fromNameless[name])
+							or (nameless == (fromNameless[name] or false) and (info.money or 0) > (have.money or 0))
+						if better then
+							info.name = type(info.name) == "string" and info.name or nil
+							gold[name] = info
+							fromNameless[name] = nameless
+						end
+					end
+				end
+			end
+		end
+		db.money = nil
 	end
 	db.version = DEFAULTS.version
 end
@@ -608,6 +639,45 @@ function ns:FitText(fs, text)
 	if not ok then
 		self:ResizeFont(fs, fs.fitSize)
 	end
+end
+
+-- What one-time things done per character (bars turned on, hearthstone
+-- placed) are remembered by: the character's full name. Not the realm:
+-- Forever hides it. `tail` is added after it (a layout's name, say).
+function ns:CharacterKey(tail)
+	local name = self:FullName("player")
+	if type(name) ~= "string" or isSecret(name) or name == "" then
+		name = UnitName("player")
+	end
+	if type(name) ~= "string" or isSecret(name) or name == "" then
+		name = "?"
+	end
+	return name .. (tail or "")
+end
+
+-- This character's entry in `done` (a table by CharacterKey). Older
+-- versions remembered characters as "Name-Realm" (and "Name-" once Forever
+-- hid the realm): such an entry counts, and is copied to the new key, so
+-- nothing done once is done again.
+function ns:CharacterDone(done, tail)
+	tail = tail or ""
+	local key = self:CharacterKey(tail)
+	if done[key] ~= nil then
+		return done[key]
+	end
+	local short = UnitName("player")
+	if type(short) ~= "string" or isSecret(short) or short == "" then
+		return nil
+	end
+	local head = short .. "-"
+	for k, v in pairs(done) do
+		if type(k) == "string" and #k >= #head + #tail and k:sub(1, #head) == head
+			and k:sub(#k - #tail + 1) == tail and not k:sub(#head + 1, #k - #tail):find(":", 1, true) then
+			done[key] = v
+			return v
+		end
+	end
+	return nil
 end
 
 -- A unit's full name: on Forever a character's surname comes back where

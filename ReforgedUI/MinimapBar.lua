@@ -63,7 +63,7 @@ local function call(name, ...)
 end
 
 local function characterKey()
-	return (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	return ns:CharacterKey()
 end
 
 -- The action slot behind minimap slot `i` for this character.
@@ -355,7 +355,7 @@ function MinimapBar:OnEnable()
 		-- Whether the addon turned Action Bar 8 on in an earlier session
 		-- (read before this session's EnableBars runs).
 		if self.addonBar8 == nil then
-			self.addonBar8 = ns.db.consoleOpts.barsEnabled[characterKey()] and true or false
+			self.addonBar8 = ns:CharacterDone(ns.db.consoleOpts.barsEnabled) and true or false
 		end
 		C_Timer.After(2, function()
 			self:MoveFromBar8()
@@ -404,7 +404,7 @@ end
 function MinimapBar:MoveFromBar8()
 	local key = characterKey()
 	local done = ns.db.consoleOpts.minimapBarMoved
-	if done[key] or InCombatLockdown() or GetCursorInfo() then
+	if ns:CharacterDone(done) or InCombatLockdown() or GetCursorInfo() then
 		return
 	end
 	local ok, err = pcall(function()
@@ -461,9 +461,10 @@ function MinimapBar:PlaceHearthstone()
 	local key = characterKey()
 	local opts = ns.db.consoleOpts
 	local done = opts.hearthstone
-	if isDruid() and not opts.druidSlotsMoved[key] then
+	ns:CharacterDone(done) -- an older key counts (it's copied to this one)
+	if isDruid() and not ns:CharacterDone(opts.druidSlotsMoved) then
 		opts.druidSlotsMoved[key] = true
-		done[key] = nil
+		done[key] = false -- not nil: an older key would count again
 	end
 	if done[key] or InCombatLockdown() or GetCursorInfo() then
 		return

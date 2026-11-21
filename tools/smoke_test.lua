@@ -943,8 +943,27 @@ end
 -- key then.
 ReforgedUIDB = { scale = 1, theme = "auto",
 	wiii = { center = "noinv", hideBags = true, chatWidth = 900, placeChat = false, uiScale = 240, hideMicro = true,
-		targetMode = "plate", addonDrawerOpen = true } }
+		targetMode = "plate", addonDrawerOpen = true },
+	-- Gold saved by realm, as before Forever hid the realm: a character
+	-- saved again under a nameless realm since.
+	money = {
+		["CAMWOW EU5 Realm 1 PvE"] = {
+			["Jane Elf"] = { money = 9157, class = "MAGE", faction = "Alliance", name = "Jane Elf" },
+			Jane = { money = 50, class = "ROGUE", faction = "Alliance", name = "Jane Shimsham" },
+			Rexxar = { money = 1, class = "HUNTER", faction = "Horde" },
+		},
+		[""] = { ["Jane Elf"] = { money = 1426, class = "MAGE", faction = "Alliance", name = "Jane Elf" } },
+		["CAMWOW EU5 Realm 2 PvP"] = { Rexxar = { money = 7, class = "HUNTER", faction = "Horde" } },
+	} }
 fire("PLAYER_LOGIN")
+do
+	local gold = ReforgedUIDB.gold
+	assert(ReforgedUIDB.money == nil, "gold isn't kept by realm any more")
+	assert(gold["Jane Elf"].money == 1426, "a character saved twice keeps its copy from the nameless realm")
+	assert(gold["Jane Shimsham"].money == 50 and gold.Jane == nil, "an entry under the first name moves to the full name")
+	assert(gold.Rexxar.money == 7, "else the richer copy")
+	gold["Jane Elf"], gold["Jane Shimsham"], gold.Rexxar = nil, nil, nil
+end
 
 -- From here on every option read or set must be one Core.lua lists (with its
 -- default, or among the unset ones): checked at the end.
@@ -1372,7 +1391,7 @@ do
 	savedLayouts = { activeLayout = 4, layouts = { { layoutName = "Shared", layoutType = 1, systems = {} },
 		{ layoutName = "Mine here", layoutType = 2, systems = {} } } }
 	local mineHere = savedLayouts.layouts[2]
-	ns.db.consoleOpts.editLayout = { [(UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")] = true }
+	ns.db.consoleOpts.editLayout = { ["Thrall-Forever"] = true } -- an older key counts
 	local ready, wasInit = false, EditModeManagerFrame.IsInitialized
 	EditModeManagerFrame.IsInitialized = function() return ready end
 	ns:SetupEditMode()
@@ -2167,11 +2186,11 @@ do
 	assert(hidden == false, "cooldown numbers shown with the option on")
 	GetCVarBool = nil
 end
-assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"], "moved once per character")
+assert(ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall Son of Durotan"], "moved once per character")
 actions[171] = "Earth Shock"
 ns.modules.minimapbar:MoveFromBar8()
 assert(actions[171] and not actions[111], "the move happens only once")
-assert(ReforgedUIDB.consoleOpts.hearthstone["Thrall-Forever"], "the hearthstone is placed once per character")
+assert(ReforgedUIDB.consoleOpts.hearthstone["Thrall Son of Durotan"], "the hearthstone is placed once per character")
 assert(actions[109] == "Hearthstone", "the hearthstone is in the first minimap slot")
 -- A druid placed on the shaman totem slots up to 1.15 (refused there) gets
 -- one more try on the new slots, and a slot that refuses an action leaves it
@@ -2180,10 +2199,10 @@ do
 	local mb, opts, class = ns.modules.minimapbar, ReforgedUIDB.consoleOpts, UnitClass
 	UnitClass = function() return "Druid", "DRUID" end
 	mb:PlaceHearthstone()
-	assert(actions[121] == "Hearthstone" and opts.hearthstone["Thrall-Forever"]
-		and opts.druidSlotsMoved["Thrall-Forever"], "a druid's hearthstone retried on the new slots")
+	assert(actions[121] == "Hearthstone" and opts.hearthstone["Thrall Son of Durotan"]
+		and opts.druidSlotsMoved["Thrall Son of Durotan"], "a druid's hearthstone retried on the new slots")
 	actions[121] = nil
-	opts.hearthstone["Thrall-Forever"] = nil
+	opts.hearthstone["Thrall Son of Durotan"] = nil
 	mb:PlaceHearthstone()
 	assert(actions[121] == "Hearthstone", "until it is placed")
 	actions[121] = nil
@@ -2199,7 +2218,7 @@ do
 		place(slot)
 	end
 	actions[109], actions[169] = nil, "Moonfire"
-	opts.minimapBarMoved["Thrall-Forever"] = nil
+	opts.minimapBarMoved["Thrall Son of Durotan"] = nil
 	mb:MoveFromBar8()
 	assert(actions[169] == "Moonfire" and not actions[109], "a refused action goes back to its old slot")
 	PlaceAction = place
@@ -2436,15 +2455,16 @@ assert(math.abs(tb.dial._rotation) < 1e-6, "noon should put the sun in the windo
 assert(tb.slots[1].text._text == tb.FormatMoney(1234567), "slot 1 should show the money")
 -- The gold tooltip lists every character's saved gold, richest first, under
 -- its faction (this one first), with a total per faction and none across them.
-local thrall = ReforgedUIDB.money.Forever["Thrall Son of Durotan"]
+local thrall = ReforgedUIDB.gold["Thrall Son of Durotan"]
 assert(thrall and thrall.money == 1234567, "this character's money is saved, under the full name")
 assert(thrall.name == "Thrall Son of Durotan", "with the full name")
 assert(thrall.faction == "Horde", "and the faction")
-ReforgedUIDB.money.Forever.Garrosh = { money = 5000000, class = "WARRIOR", faction = "Horde" }
-ReforgedUIDB.money.Forever.Jaina = { money = 7000000, class = "MAGE", faction = "Alliance", name = "Jaina Proudmoore" }
-ReforgedUIDB.money.Forever.Anduin = { money = 300, class = "PRIEST", faction = "Alliance" }
-ReforgedUIDB.money.Elsewhere = { Rexxar = { money = 100, class = "HUNTER", faction = "Horde" } }
-ReforgedUIDB.money.Forever.Old = { money = 42, class = "ROGUE" } -- saved before factions were
+ReforgedUIDB.gold.Garrosh = { money = 5000000, class = "WARRIOR", faction = "Horde" }
+ReforgedUIDB.gold["Jaina Proudmoore"] = { money = 7000000, class = "MAGE", faction = "Alliance", name = "Jaina Proudmoore" }
+ReforgedUIDB.gold.Anduin = { money = 300, class = "PRIEST", faction = "Alliance" }
+ReforgedUIDB.gold.Old = { money = 42, class = "ROGUE" } -- saved before factions were
+-- Older versions saved this character under its first name: that goes.
+ReforgedUIDB.gold.Thrall = { money = 1, class = "SHAMAN", faction = "Horde", name = "Thrall Son of Durotan" }
 do
 	local lines = {}
 	local fake = {
@@ -2454,55 +2474,15 @@ do
 	tb.feeds.gold.OnTooltipShow(fake)
 	local text = table.concat(lines, "\n")
 	local function at(s) return assert(text:find(s, 1, true), s .. " missing from the gold tooltip") end
+	assert(ReforgedUIDB.gold.Thrall == nil, "the old first-name entry goes")
 	assert(at("Horde") < at("Garrosh=") and at("Garrosh=") < at("Thrall Son of Durotan="), "richest first")
-	assert(at("Thrall Son of Durotan=") < at("Elsewhere") and at("Elsewhere") < at("Rexxar="), "this realm first")
-	assert(at("Rexxar=") < at("Alliance") and at("Alliance") < at("Jaina Proudmoore="), "this faction first")
+	assert(at("Thrall Son of Durotan=") < at("Alliance") and at("Alliance") < at("Jaina Proudmoore="), "this faction first")
 	assert(at("Jaina Proudmoore=") < at("Anduin="), "Alliance richest first")
-	assert(at("Total=" .. tb.FormatMoney(5000000 + 1234567 + 100)) < at("Alliance"), "Horde total")
+	assert(at("Total=" .. tb.FormatMoney(5000000 + 1234567)) < at("Alliance"), "Horde total")
 	assert(text:find("Total=" .. tb.FormatMoney(7000000 + 300), 1, true), "Alliance total")
 	assert(at("Anduin=") < at("not known") and at("not known") < at("Old="), "unknown faction last")
-	assert(not text:find(tb.FormatMoney(5000000 + 1234567 + 100 + 7000000 + 300), 1, true), "no total across factions")
-end
--- Forever: realm names are servers behind a ruleset; the tooltip groups
--- them by ruleset under its clean name, this character's first.
-do
-	local R = tb.Ruleset
-	assert(R("CAMWOW EU5 Realm 1 PvE") == "Normal" and R("CAMWOW EU5 Realm 7 PvE") == "Normal", "PvE is Normal")
-	assert(R("Realm 2 PvP") == "PvP" and R("Realm 3 RP") == "RP", "PvP, RP")
-	assert(R("Realm 4 RP-PvP") == "RP-PvP" and R("Realm 4 RPPvP") == "RP-PvP", "RP-PvP")
-	assert(R("Realm 5 Hardcore") == "Hardcore", "Hardcore")
-	assert(R("Forever") == nil and R("Stormrage") == nil and R("Skarp") == nil, "real realm names stay")
-	local realGetRealmName = GetRealmName
-	GetRealmName = function() return "CAMWOW EU5 Realm 1 PvE" end
-	ReforgedUIDB.money = {
-		["CAMWOW EU5 Realm 1 PvE"] = {
-			-- saved by older versions under the first name: this character
-			Thrall = { money = 1, class = "SHAMAN", faction = "Horde", name = "Thrall Son of Durotan" },
-			Jane = { money = 500, class = "SHAMAN", faction = "Horde", name = "Jane Shimsham" },
-		},
-		["CAMWOW EU5 Realm 7 PvE"] = {
-			["Jane Darnassus"] = { money = 85, class = "ROGUE", faction = "Horde" },
-			["Thrall Son of Durotan"] = { money = 2, class = "SHAMAN", faction = "Horde", name = "Thrall Son of Durotan" },
-		},
-		["CAMWOW EU5 Realm 2 PvP"] = { ["Jane Skywall"] = { money = 7, class = "MAGE", faction = "Horde" } },
-	}
-	local lines = {}
-	local fake = {
-		AddLine = function(_, text) lines[#lines + 1] = text end,
-		AddDoubleLine = function(_, l, r) lines[#lines + 1] = l .. "=" .. r end,
-	}
-	tb.feeds.gold.OnTooltipShow(fake)
-	local text = table.concat(lines, "\n")
-	local function at(s) return assert(text:find(s, 1, true), s .. " missing from the gold tooltip") end
-	local realm1 = ReforgedUIDB.money["CAMWOW EU5 Realm 1 PvE"]
-	assert(realm1.Thrall == nil and realm1["Thrall Son of Durotan"].money == 1234567, "old first-name entry replaced")
-	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 7 PvE"]["Thrall Son of Durotan"] == nil, "stale copy on the same ruleset goes")
-	assert(not text:find("CAMWOW", 1, true), "no server names")
-	local _, normals = text:gsub("\nNormal\n", "")
-	assert(normals == 1, "both PvE servers under one Normal header")
-	assert(at("Normal") < at("Thrall Son of Durotan=") and at("Jane Darnassus=") < at("PvP\n"), "Normal (this ruleset) first")
-	assert(at("PvP\n") < at("Jane Skywall="), "then PvP")
-	assert(text:find("Total=" .. tb.FormatMoney(1234567 + 500 + 85 + 7), 1, true), "faction total")
+	assert(not text:find(tb.FormatMoney(5000000 + 1234567 + 7000000 + 300), 1, true), "no total across factions")
+	assert(not text:find("realm", 1, true) and not text:find("Forever", 1, true), "no realm anywhere")
 	-- Old characters can be forgotten: /rui gold numbers them in the
 	-- tooltip's order, /rui gold forget <number or name> takes one out, never
 	-- the one logged in.
@@ -2515,34 +2495,40 @@ do
 		end
 	end
 	SlashCmdList.REFORGEDUI("gold")
-	assert(heard("1. Thrall Son of Durotan") and heard("(you)"), "/rui gold lists this character first")
-	assert(heard("Jane Skywall  PvP, Horde"), "with its ruleset and faction")
+	assert(heard("1. Garrosh  Horde") and heard("2. Thrall Son of Durotan  Horde") and heard("(you)"),
+		"/rui gold lists them in the tooltip's order, with the faction")
 	printed = {}
+	SlashCmdList.REFORGEDUI("gold forget 2")
+	assert(heard("that's you") and ReforgedUIDB.gold["Thrall Son of Durotan"], "this character isn't forgotten")
 	SlashCmdList.REFORGEDUI("gold forget 1")
-	assert(heard("that's you") and realm1["Thrall Son of Durotan"], "this character isn't forgotten")
-	local list = tb:SavedCharacters()
-	local n
-	for i, c in ipairs(list) do
-		if c.name == "Jane Darnassus" then n = i end
-	end
-	SlashCmdList.REFORGEDUI("gold forget " .. n)
-	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 7 PvE"] == nil, "forgotten by number; an emptied server goes")
-	SlashCmdList.REFORGEDUI("gold forget Jane Skywall")
-	assert(ReforgedUIDB.money["CAMWOW EU5 Realm 2 PvP"] == nil, "forgotten by name")
+	assert(ReforgedUIDB.gold.Garrosh == nil, "forgotten by number")
+	SlashCmdList.REFORGEDUI("gold forget jaina proudmoore")
+	assert(ReforgedUIDB.gold["Jaina Proudmoore"] == nil, "forgotten by name")
 	printed = {}
 	SlashCmdList.REFORGEDUI("gold forget nobody")
 	assert(heard("no saved character"), "an unknown name is said")
 	print = realPrint -- luacheck: ignore
-	-- A realm with no name still gets a group header.
-	ReforgedUIDB.money[""] = { Ghost = { money = 3, class = "MAGE", faction = "Horde" } }
-	lines = {}
-	tb.feeds.gold.OnTooltipShow(fake)
-	text = table.concat(lines, "\n")
-	assert(text:find("Unknown realm\nGhost=", 1, true), "a nameless realm is Unknown realm")
-	ReforgedUIDB.money[""] = nil
+	-- Forever hides the realm: nothing changes without one.
+	local realGetRealmName = GetRealmName
+	GetRealmName = function() return "" end
+	tb:SaveMoney()
+	assert(ReforgedUIDB.gold["Thrall Son of Durotan"].money == 1234567, "saved the same without a realm")
 	GetRealmName = realGetRealmName
 end
-ReforgedUIDB.money = { Forever = { ["Thrall Son of Durotan"] = thrall } }
+-- Things done once per character are remembered by the full name; one
+-- remembered as "Name-Realm" (or "Name-") by older versions counts.
+do
+	assert(ns:CharacterKey() == "Thrall Son of Durotan" and ns:CharacterKey(":Mine") == "Thrall Son of Durotan:Mine",
+		"the character key is the full name")
+	local done = { ["Thrall-CAMWOW EU5 Realm 1 PvE"] = true }
+	assert(ns:CharacterDone(done) and done["Thrall Son of Durotan"], "an old key counts, and is copied")
+	assert(ns:CharacterDone({ ["Thrall-"] = true }), "so does one with no realm")
+	assert(not ns:CharacterDone({ ["Thrall-Forever:Mine"] = true }), "not another layout's")
+	assert(ns:CharacterDone({ ["Thrall-Forever:Mine"] = true }, ":Mine"), "a layout's own")
+	assert(not ns:CharacterDone({ ["Thrall Son of Durotan"] = false, ["Thrall-Forever"] = true }), "a newer no stands")
+	assert(not ns:CharacterDone({ ["Thrallson-Forever"] = true }), "not another character's")
+end
+ReforgedUIDB.gold = { ["Thrall Son of Durotan"] = thrall }
 assert(tb.slots[2].text._text == "25 / 80", "slot 2 should show bag space")
 assert(tb.slots[3].text._text:find("20%%"), "slot 3 should show durability")
 assert(tb.slots[4].text._text == "", "slot 4 should start empty")
@@ -2758,7 +2744,7 @@ do
 end
 -- The Top bar page forgets a saved character: pick it, press Forget, say yes.
 do
-	ReforgedUIDB.money.Forever.Garrosh = { money = 5, class = "WARRIOR", faction = "Horde", name = "Garrosh" }
+	ReforgedUIDB.gold.Garrosh = { money = 5, class = "WARRIOR", faction = "Horde", name = "Garrosh" }
 	local pick = option("goldCharacter")
 	local offered = config.initializers.goldCharacter.options()
 	assert(offered[1].value == "" and #offered == 2, "only the other character is offered")
@@ -2773,9 +2759,9 @@ do
 	button.click()
 	assert(popups[#popups].which == "REFORGEDUI_FORGET_GOLD" and popups[#popups].text:find("Garrosh", 1, true),
 		"asks before forgetting")
-	assert(ReforgedUIDB.money.Forever.Garrosh, "not forgotten before the answer")
+	assert(ReforgedUIDB.gold.Garrosh, "not forgotten before the answer")
 	StaticPopupDialogs.REFORGEDUI_FORGET_GOLD.OnAccept()
-	assert(ReforgedUIDB.money.Forever.Garrosh == nil and ReforgedUIDB.money.Forever["Thrall Son of Durotan"],
+	assert(ReforgedUIDB.gold.Garrosh == nil and ReforgedUIDB.gold["Thrall Son of Durotan"],
 		"forgotten, this character kept")
 	assert(pick:GetValue() == "", "the pick goes back to none")
 end
@@ -3277,7 +3263,7 @@ assert(settingValues.PROXY_SHOW_ACTIONBAR_3 == false, "bars are only turned on o
 do
 	local mb = ns.modules.minimapbar
 	settingValues.PROXY_SHOW_ACTIONBAR_8 = true
-	ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall-Forever"] = nil
+	ReforgedUIDB.consoleOpts.minimapBarMoved["Thrall Son of Durotan"] = nil
 	mb.addonBar8 = true
 	mb:MoveFromBar8()
 	assert(settingValues.PROXY_SHOW_ACTIONBAR_8 == false, "Action Bar 8 back to off")

@@ -985,6 +985,8 @@ local function usage()
 	print("  /rui theme auto||" .. table.concat(ns.THEME_ORDER, "||") .. "||skyborne  (auto: your race's theme)")
 	print("  /rui feeds  (list data feeds, game panels and top bar slots)")
 	print("  /rui slot <number> <feed or panel name>||none")
+	print("  /rui gold  (every character's saved gold, numbered)")
+	print("  /rui gold forget <number or name>  (take an old character out of the gold tooltip)")
 	print("  /rui size 70-100  (console and top bar, in %)")
 	print("  /rui scale 0.5-1.5  (top bar)")
 	print("  /rui layout auto||16:9||21:9||32:9  (top bar)")
@@ -1073,6 +1075,9 @@ SlashCmdList.REFORGEDUI = function(msg)
 	elseif cmd == "slot" and tonumber(arg) and arg2 and ns.modules.topbar.enabled then
 		local result = ns.modules.topbar:SetSlotByName(tonumber(arg), arg2)
 		ns:Print(result and ("slot " .. arg .. ": " .. (result == true and "empty" or result)) or ("no feed matches " .. arg2))
+	elseif cmd == "gold" and (arg == nil or arg == "forget") then
+		ns.modules.topbar:GoldCommand(arg2)
+		ns.modules.config:Refresh()
 	elseif cmd == "module" and arg and ns.modules[arg] and (arg2 == "on" or arg2 == "off") then
 		ns.db.modules[arg] = arg2 == "on"
 		ns:Print(arg, arg2, "- type /reload to apply.")

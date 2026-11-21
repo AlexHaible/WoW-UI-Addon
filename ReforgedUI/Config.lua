@@ -130,14 +130,14 @@ local function goldEntries()
 end
 
 local function goldValue(c)
-	return c.realm .. "\001" .. c.key
+	return c.key
 end
 
 local function goldChoices()
 	local entries = goldEntries()
 	local list = { { NO_CHARACTER, #entries > 0 and "Pick a character" or "No other characters saved" } }
 	for _, c in ipairs(entries) do
-		list[#list + 1] = { goldValue(c), ("%s (%s, %s)"):format(c.name, c.group, c.faction) }
+		list[#list + 1] = { goldValue(c), ("%s (%s)"):format(c.name, c.faction) }
 	end
 	return list
 end

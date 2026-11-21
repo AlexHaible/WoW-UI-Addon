@@ -94,12 +94,16 @@ local function findSystem(layout, system, index)
 end
 
 -- What a layout is remembered by in consoleOpts.editPlaced: its name, and
--- for a character's own layout, the character too.
-local function layoutKey(layout)
+-- for a character's own layout, the character too (ns:CharacterKey; an
+-- older "Name-Realm:" key counts, see ns:CharacterDone).
+local function layoutKey(layout, placedOnce)
 	local name = tostring(layout.layoutName or "?")
 	local character = Enum.EditModeLayoutType and Enum.EditModeLayoutType.Character
 	if character ~= nil and layout.layoutType == character then
-		name = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?") .. ":" .. name
+		if placedOnce then
+			ns:CharacterDone(placedOnce, ":" .. name)
+		end
+		name = ns:CharacterKey(":" .. name)
 	end
 	return name
 end
@@ -805,7 +809,7 @@ function ns:SetupEditMode(why)
 	-- for the session (see AskReload).
 	local placedOnce, newlyPlaced = self.db.consoleOpts.editPlaced, {}
 	for _, layout in ipairs(info.layouts) do
-		local key = layoutKey(layout)
+		local key = layoutKey(layout, placedOnce)
 		local fresh = not placedOnce[key]
 		for _, p in ipairs(PLACEMENTS) do
 			if p.place(self, layout, spots[p.key], follow and lasts[p.key] or nil, fresh) then
@@ -850,9 +854,9 @@ function ns:SetupEditMode(why)
 		end
 	end
 
-	local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	local key = ns:CharacterKey()
 	local switched = self.db.consoleOpts.editLayout
-	if index and not switched[key] and C_EditMode.SetActiveLayout
+	if index and not ns:CharacterDone(switched) and C_EditMode.SetActiveLayout
 		and pcall(C_EditMode.SetActiveLayout, presets + index) then
 		switched[key] = true
 		self:AskReload(("switched to the %q Edit Mode layout (cast bar above the console, raid-style party"

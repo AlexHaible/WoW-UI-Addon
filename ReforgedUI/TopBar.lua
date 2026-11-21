@@ -209,13 +209,13 @@ end
 
 -- Remember this character's money, so every character's gold can be listed.
 -- Saved under the character's full name (with the surname on Forever, see
--- ns:FullName): Forever has many characters of the same first name on one
--- realm (Jane Shimsham, Jane Skywall), and they mustn't overwrite each other.
--- An entry saved under the bare first name by older versions is this same
--- character, and goes.
+-- ns:FullName): Forever has many characters of the same first name (Jane
+-- Shimsham, Jane Skywall), and they mustn't overwrite each other. Not by
+-- realm: Forever hides which server a character is on. An entry saved under
+-- the bare first name by older versions is this same character, and goes.
 function TopBar:SaveMoney()
-	local short, realm = UnitName("player"), GetRealmName and GetRealmName()
-	if not (short and realm) then
+	local short = UnitName("player")
+	if type(short) ~= "string" or ns.IsSecret(short) or short == "" then
 		return
 	end
 	local name = ns:FullName("player")
@@ -223,68 +223,14 @@ function TopBar:SaveMoney()
 		name = short
 	end
 	local _, class = UnitClass("player")
-	local byRealm = ns.db.money[realm] or {}
-	ns.db.money[realm] = byRealm
-	local old = byRealm[short]
+	local gold = ns.db.gold
+	local old = gold[short]
 	if short ~= name and old and (old.name == nil or old.name == name) then
-		byRealm[short] = nil
+		gold[short] = nil
 	end
-	byRealm[name] = { money = GetMoney(), class = class, name = name,
+	gold[name] = { money = GetMoney(), class = class, name = name,
 		faction = UnitFactionGroup and UnitFactionGroup("player") }
-	-- On Forever the server behind a ruleset may differ between logins: a
-	-- copy of this character under another server of the same ruleset is
-	-- out of date.
-	local rs = self.Ruleset(realm)
-	if rs then
-		for other, chars in pairs(ns.db.money) do
-			if other ~= realm and self.Ruleset(other) == rs then
-				chars[name] = nil
-				if chars[short] and chars[short].name == name then
-					chars[short] = nil
-				end
-				if next(chars) == nil then
-					ns.db.money[other] = nil
-				end
-			end
-		end
-	end
 end
-
--- Forever has no realms to pick: players pick a ruleset, and the client's
--- realm name is the server behind it ("CAMWOW EU5 Realm 1 PvE"). The client has no in-game call for the
--- ruleset (only the realm list at the login screen knows isPvP/isRP), so it
--- is read from the end of the realm name. Characters are grouped by ruleset
--- under its clean name; a realm name without one (other clients' real
--- realms) is its own group, as before.
-local RULESETS = {
-	{ label = "Normal", match = { "pve", "normal" } },
-	{ label = "PvP", match = { "pvp" } },
-	{ label = "RP", match = { "rp", "roleplay", "roleplaying" } },
-	{ label = "RP-PvP", match = { "rppvp", "rp-pvp", "rp pvp" } },
-	{ label = "Hardcore", match = { "hardcore", "hc" } },
-}
-
-local function ruleset(realm)
-	if type(realm) ~= "string" then
-		return nil
-	end
-	local lower = realm:lower():gsub("[%s%(%)%[%]]+$", "")
-	local best, bestLen
-	for i, r in ipairs(RULESETS) do
-		for _, m in ipairs(r.match) do
-			-- the token ends the name and starts a word
-			local from = #lower - #m + 1
-			if from >= 1 and lower:sub(from) == m and (from == 1 or lower:sub(from - 1, from - 1):find("[^%w]"))
-				and (not bestLen or #m > bestLen) then
-				best, bestLen = i, #m
-			end
-		end
-	end
-	if best then
-		return RULESETS[best].label, best
-	end
-end
-TopBar.Ruleset = ruleset
 
 -- Gold can't be mailed across factions, so each gets its own list and total.
 -- This character's faction comes first. Characters saved before factions
@@ -297,42 +243,20 @@ local FACTIONS = {
 }
 
 -- Every saved character in the gold tooltip's order: a section per faction
--- (this character's first), in it a group per ruleset on Forever or realm
--- elsewhere (this character's first), richest first. Also counts the groups,
--- as their headers only show when there is more than one.
-local function groupOf(realm)
-	local label, rank = ruleset(realm)
-	if not label then
-		label = type(realm) == "string" and realm ~= "" and realm or "Unknown realm"
-	end
-	return label, rank or #RULESETS + 1
-end
-
+-- (this character's first), richest first in each.
 function TopBar:GoldSections()
-	local here = GetRealmName and groupOf(GetRealmName())
 	local mine = UnitFactionGroup and UnitFactionGroup("player")
 	local known = {}
 	for _, f in ipairs(FACTIONS) do
 		known[f.key] = true
 	end
 
-	-- faction -> group -> characters
-	local byFaction, groups, groupCount, rankOf = {}, {}, 0, {}
-	for realm, chars in pairs(ns.db.money) do
-		local g, rank = groupOf(realm)
-		rankOf[g] = rank
-		if not groups[g] then
-			groups[g] = true
-			groupCount = groupCount + 1
-		end
-		for key, info in pairs(chars) do
-			local faction = known[info.faction] and info.faction or "?"
-			byFaction[faction] = byFaction[faction] or {}
-			local list = byFaction[faction][g] or {}
-			byFaction[faction][g] = list
-			list[#list + 1] = { realm = realm, key = key, name = info.name or key, money = info.money or 0,
-				class = info.class }
-		end
+	local byFaction = {}
+	for key, info in pairs(ns.db.gold) do
+		local faction = known[info.faction] and info.faction or "?"
+		local list = byFaction[faction] or {}
+		byFaction[faction] = list
+		list[#list + 1] = { key = key, name = info.name or key, money = info.money or 0, class = info.class }
 	end
 
 	local order = {}
@@ -345,36 +269,18 @@ function TopBar:GoldSections()
 	end
 	local sections = {}
 	for _, f in ipairs(order) do
-		local byGroup = byFaction[f.key]
-		if byGroup then
-			local names = {}
-			for g in pairs(byGroup) do
-				names[#names + 1] = g
-			end
-			table.sort(names, function(a, b)
-				if (a == here) ~= (b == here) then
-					return a == here
+		local chars = byFaction[f.key]
+		if chars then
+			table.sort(chars, function(a, b)
+				if a.money ~= b.money then
+					return a.money > b.money
 				end
-				if rankOf[a] ~= rankOf[b] then
-					return rankOf[a] < rankOf[b]
-				end
-				return a < b
+				return a.name < b.name
 			end)
-			local section = { faction = f, groups = {} }
-			for _, g in ipairs(names) do
-				local chars = byGroup[g]
-				table.sort(chars, function(a, b)
-					if a.money ~= b.money then
-						return a.money > b.money
-					end
-					return a.name < b.name
-				end)
-				section.groups[#section.groups + 1] = { label = g, chars = chars }
-			end
-			sections[#sections + 1] = section
+			sections[#sections + 1] = { faction = f, chars = chars }
 		end
 	end
-	return sections, groupCount
+	return sections
 end
 
 -- The gold feed's tooltip: every character's gold as GoldSections orders it,
@@ -382,25 +288,19 @@ end
 function TopBar:GoldTooltip(tip)
 	self:SaveMoney()
 	tip:AddLine("Gold", 1, 1, 1)
-	local sections, groupCount = self:GoldSections()
-	for _, section in ipairs(sections) do
+	for _, section in ipairs(self:GoldSections()) do
 		local f = section.faction
 		tip:AddLine(" ")
 		tip:AddLine(f.label, f.color[1], f.color[2], f.color[3])
 		local total = 0
-		for _, group in ipairs(section.groups) do
-			if groupCount > 1 then
-				tip:AddLine(group.label, 1, 0.82, 0)
+		for _, c in ipairs(section.chars) do
+			local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
+			local r, g, b = 1, 1, 1
+			if color and color.r then
+				r, g, b = color.r, color.g, color.b
 			end
-			for _, c in ipairs(group.chars) do
-				local color = RAID_CLASS_COLORS and c.class and RAID_CLASS_COLORS[c.class]
-				local r, g2, b = 1, 1, 1
-				if color and color.r then
-					r, g2, b = color.r, color.g, color.b
-				end
-				tip:AddDoubleLine(c.name, formatMoney(c.money), r, g2, b, 1, 1, 1)
-				total = total + c.money
-			end
+			tip:AddDoubleLine(c.name, formatMoney(c.money), r, g, b, 1, 1, 1)
+			total = total + c.money
 		end
 		tip:AddDoubleLine("Total", formatMoney(total), 1, 0.82, 0, 1, 1, 1)
 	end
@@ -408,46 +308,37 @@ function TopBar:GoldTooltip(tip)
 end
 
 ----------------------------------------------------------------------------
--- Forgetting characters: one deleted, renamed or moved leaves its gold in
--- the tooltip for good, so the player can take it out (/rui gold, or the
--- Top bar options page).
+-- Forgetting characters: one deleted or renamed leaves its gold in the
+-- tooltip for good, so the player can take it out (/rui gold, or the Top bar
+-- options page).
 
 -- Whether this saved entry is the character logged in now (it would come
 -- straight back).
-function TopBar:IsThisCharacter(realm, key)
-	if not (GetRealmName and realm == GetRealmName()) then
-		return false
-	end
+function TopBar:IsThisCharacter(key)
 	local name = ns:FullName("player")
 	return key == UnitName("player") or (type(name) == "string" and not ns.IsSecret(name) and key == name)
 end
 
--- Every saved character, numbered in the tooltip's order, with where it
--- shows: { realm, key, name, money, class, faction (label), group, current }.
+-- Every saved character, numbered in the tooltip's order:
+-- { key, name, money, class, faction (label), current }.
 function TopBar:SavedCharacters()
 	local list = {}
 	for _, section in ipairs(self:GoldSections()) do
-		for _, group in ipairs(section.groups) do
-			for _, c in ipairs(group.chars) do
-				c.faction, c.group = section.faction.short or section.faction.label, group.label
-				c.current = self:IsThisCharacter(c.realm, c.key)
-				list[#list + 1] = c
-			end
+		for _, c in ipairs(section.chars) do
+			c.faction = section.faction.short or section.faction.label
+			c.current = self:IsThisCharacter(c.key)
+			list[#list + 1] = c
 		end
 	end
 	return list
 end
 
 -- Takes a saved character out of the gold list. Not the one logged in.
-function TopBar:ForgetCharacter(realm, key)
-	local chars = ns.db.money[realm]
-	if not (chars and chars[key]) or self:IsThisCharacter(realm, key) then
+function TopBar:ForgetCharacter(key)
+	if not ns.db.gold[key] or self:IsThisCharacter(key) then
 		return false
 	end
-	chars[key] = nil
-	if next(chars) == nil then
-		ns.db.money[realm] = nil
-	end
+	ns.db.gold[key] = nil
 	return true
 end
 
@@ -458,8 +349,8 @@ local forgetting
 function TopBar:ConfirmForget(c, done)
 	local dialogs, show = _G.StaticPopupDialogs, _G.StaticPopup_Show
 	local function forget()
-		if self:ForgetCharacter(c.realm, c.key) then
-			ns:Print(("%s (%s, %s) forgotten from the gold list."):format(c.name, c.group, c.faction))
+		if self:ForgetCharacter(c.key) then
+			ns:Print(("%s (%s) forgotten from the gold list."):format(c.name, c.faction))
 		end
 		if done then
 			done()
@@ -486,7 +377,7 @@ function TopBar:ConfirmForget(c, done)
 		preferredIndex = 3,
 	}
 	forgetting = forget
-	show(FORGET_POPUP, ("%s (%s, %s)"):format(c.name, c.group, c.faction))
+	show(FORGET_POPUP, ("%s (%s)"):format(c.name, c.faction))
 end
 
 -- /rui gold: the saved characters, numbered; /rui gold forget <number or
@@ -496,30 +387,26 @@ function TopBar:GoldCommand(what)
 	if what and what ~= "" then
 		local pick = list[tonumber(what)]
 		if not pick then
-			local matches = {}
 			for _, c in ipairs(list) do
 				if c.name:lower() == what:lower() then
-					matches[#matches + 1] = c
+					pick = c
+					break
 				end
 			end
-			if #matches > 1 then
-				ns:Print(("more than one %s is saved: forget it by its number."):format(what))
-			end
-			pick = #matches == 1 and matches[1] or nil
 		end
 		if not pick then
 			ns:Print("no saved character", what, "- /rui gold lists them.")
 		elseif pick.current then
 			ns:Print("that's you: log another character in to forget this one.")
 		else
-			self:ForgetCharacter(pick.realm, pick.key)
-			ns:Print(("%s (%s, %s) forgotten from the gold list."):format(pick.name, pick.group, pick.faction))
+			self:ForgetCharacter(pick.key)
+			ns:Print(("%s (%s) forgotten from the gold list."):format(pick.name, pick.faction))
 			list = self:SavedCharacters()
 		end
 	end
 	ns:Print("saved gold (/rui gold forget <number> takes a character out):")
 	for i, c in ipairs(list) do
-		print(("  %d. %s  %s, %s  %s%s"):format(i, c.name, c.group, c.faction, formatMoney(c.money),
+		print(("  %d. %s  %s  %s%s"):format(i, c.name, c.faction, formatMoney(c.money),
 			c.current and "  (you)" or ""))
 	end
 end

@@ -285,9 +285,9 @@ local SHOW_SETTINGS = { "PROXY_SHOW_ACTIONBAR_2", "PROXY_SHOW_ACTIONBAR_3" }
 local TOGGLES = { 1, 2 }
 
 function ActionBars:EnableBars()
-	local key = (UnitName("player") or "?") .. "-" .. (GetRealmName and GetRealmName() or "?")
+	local key = ns:CharacterKey()
 	local done = ns.db.consoleOpts.barsEnabled
-	if done[key] or InCombatLockdown() then
+	if ns:CharacterDone(done) or InCombatLockdown() then
 		return
 	end
 	local ok = pcall(function()

@@ -76,6 +76,9 @@ screen stays free on either side).
   screen's bottom centre, the same on every theme. "Wall plate size" (or
   `/rui plate size 50-150`) scales it, "Mirror wall plate" (or `/rui plate
   mirror on`) turns it round, and `/rui plate reset` puts it back.
+  "Show target of target" (or `/rui tot off`) turns the target of target
+  icon off where it gets in the way (out of combat; the target of target
+  bar can stand in for it).
   Move the Target Frame in Edit Mode and the icons stay where you put them
   (the size option still applies); a target display switch or `/rui auras
   reset` puts them back in that display's place.

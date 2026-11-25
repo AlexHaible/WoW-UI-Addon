@@ -277,6 +277,8 @@ QueueStatusButton._w, QueueStatusButton._h, QueueStatusButton._shown = 45, 45, f
 -- The leave vehicle button: an Edit Mode frame.
 MainMenuBarVehicleLeaveButton = new("button", "MainMenuBarVehicleLeaveButton", UIParent)
 MainMenuBarVehicleLeaveButton._w, MainMenuBarVehicleLeaveButton._h = 32, 32
+DurabilityFrame = new("Frame", "DurabilityFrame", UIParent)
+DurabilityFrame._w, DurabilityFrame._h = 60, 75
 -- Another addon's minimap button (LibDBIcon): it goes in the drawer.
 local addonButton = new("button", "LibDBIcon10_SomeAddon", Minimap)
 addonButton._w, addonButton._h = 31, 31
@@ -573,7 +575,8 @@ FACTION_BAR_COLORS = { [2] = { r = 1, g = 0.3, b = 0 } }
 
 local savedLayouts
 Enum = Enum or {}
-Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6, VehicleLeaveButton = 9 }
+Enum.EditModeSystem = { ActionBar = 0, CastBar = 1, UnitFrame = 3, AuraFrame = 6, VehicleLeaveButton = 9,
+	DurabilityFrame = 14 }
 Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
 Enum.EditModeCastBarSetting = { LockToPlayerFrame = 0 }
 Enum.EditModeUnitFrameSystemIndices = { Target = 1, Party = 2 }
@@ -617,6 +620,7 @@ C_EditMode = {
 			{ system = 6, systemIndex = 2, isInDefaultPosition = true },
 			{ system = 0, systemIndex = 13, isInDefaultPosition = true },
 			{ system = 9, isInDefaultPosition = true },
+			{ system = 14, isInDefaultPosition = true },
 		} }, { layoutName = "Locked", systems = {
 			{ system = 1, isInDefaultPosition = true, settings = { { setting = 0, value = 1 } } },
 			{ system = 6, systemIndex = 1, isInDefaultPosition = false, anchorInfo = { point = "TOPLEFT",
@@ -625,6 +629,8 @@ C_EditMode = {
 				relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
 			{ system = 9, isInDefaultPosition = false, anchorInfo = { point = "TOP",
 				relativeTo = "UIParent", relativePoint = "TOP", offsetX = 0, offsetY = -100 } },
+			{ system = 14, isInDefaultPosition = false, anchorInfo = { point = "TOPRIGHT",
+				relativeTo = "UIParent", relativePoint = "TOPRIGHT", offsetX = -40, offsetY = -300 } },
 		} } } }
 	end,
 	SaveLayouts = function(info) savedLayouts = info end,
@@ -1078,6 +1084,25 @@ do
 	assert(ns.db.consoleOpts.leaveSpot and ns.db.consoleOpts.leaveSpot.y == leaveSpot.y,
 		"the leave button's place is remembered")
 	assert(#MainMenuBarVehicleLeaveButton._points == 0, "the leave button is only moved through Edit Mode")
+	-- The durability figure starts just above the console's right end, left
+	-- of the end cap (or the screen's edge); a player's own place is kept.
+	local durSpot = ns:DurabilitySpot()
+	local capX = math.min(ns.layout.endcaps.right.x, ns.layout.W)
+	local k = ns:ConsoleScale()
+	assert(durSpot and durSpot.y >= ns.layout.consoleTop * k and durSpot.x <= 0
+		and math.abs(durSpot.x - (capX - ns.layout.W) * k) < 10 * k,
+		"durability spot just above the console's right end")
+	for _, layout in ipairs({ L[1], ours }) do
+		local dur = layout.systems[11]
+		assert(dur.system == 14 and not dur.isInDefaultPosition and dur.anchorInfo.point == "BOTTOMRIGHT"
+			and dur.anchorInfo.relativePoint == "BOTTOMRIGHT" and dur.anchorInfo.relativeTo == "UIParent"
+			and dur.anchorInfo.offsetX == durSpot.x and dur.anchorInfo.offsetY == durSpot.y,
+			"durability figure placed above the console")
+	end
+	assert(L[2].systems[5].anchorInfo.point == "TOPRIGHT", "a durability figure the player moved stays put")
+	assert(ns.db.consoleOpts.durabilitySpot and ns.db.consoleOpts.durabilitySpot.y == durSpot.y,
+		"the durability figure's place is remembered")
+	assert(#DurabilityFrame._points == 0, "the durability figure is only moved through Edit Mode")
 	-- Blizzard's target frame, buffs on top, puts its first aura icon at the
 	-- target aura spot: above the plate (the mode at login), then beside the
 	-- target of target once swap mode is picked.
@@ -4617,6 +4642,25 @@ do
 	hasTarget, hasPet, inCombat = wasTarget, wasPet, wasCombat
 	fire("PLAYER_TARGET_CHANGED")
 	fire("UNIT_PET", "player")
+end
+
+-- Layouts placed before the durability figure was: it is placed in them
+-- once too, and stays where the player puts it after that.
+do
+	local dur = savedLayouts.layouts[1].systems[11]
+	assert(dur.system == 14, "the durability entry")
+	dur.isInDefaultPosition, dur.anchorInfo = true, nil
+	ns.db.consoleOpts.durabilityPlaced = {}
+	local asked = #popups
+	ns:SetupEditMode()
+	dur = savedLayouts.layouts[1].systems[11]
+	assert(not dur.isInDefaultPosition and dur.anchorInfo.point == "BOTTOMRIGHT"
+		and #popups == asked + 1 and popups[#popups].text:find("durability"),
+		"placed in a layout placed before it existed")
+	dur.isInDefaultPosition, dur.anchorInfo = true, nil
+	ns:SetupEditMode()
+	assert(savedLayouts.layouts[1].systems[11].isInDefaultPosition and #popups == asked + 1,
+		"only once: put back in its default place, it stays there")
 end
 
 print("smoke test passed")

@@ -55,15 +55,47 @@ local function isAddonButton(f)
 	return issecurevariable ~= nil and not issecurevariable(name)
 end
 
+-- Map pins: the icons other addons draw on the map itself (Questie's
+-- innkeepers, flight masters and mailboxes, HandyNotes' and GatherMate's
+-- nodes, TomTom's arrows). They are small named buttons on the minimap like
+-- the addon buttons around it, but they belong on the map: moved into the
+-- drawer they would show there and no longer on the map. Most come through
+-- HereBeDragons-Pins (one or more copies in LibStub, each with its list of
+-- minimap pins); Questie keeps its own copy outside LibStub, so its pins are
+-- known by their name.
+local PIN_NAMES = { "^QuestieFrame%d+$" }
+
+local function isMapPin(f)
+	local libs = LibStub and LibStub.libs
+	if type(libs) == "table" then
+		for major, lib in pairs(libs) do
+			if type(major) == "string" and major:find("^HereBeDragons") and type(lib) == "table"
+				and type(lib.minimapPins) == "table" and lib.minimapPins[f] then
+				return true
+			end
+		end
+	end
+	local ok, name = pcall(f.GetName, f)
+	if ok and type(name) == "string" then
+		for _, pattern in ipairs(PIN_NAMES) do
+			if name:find(pattern) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- Buttons that normally sit around the round minimap, other than the ones
 -- with a place of their own: Blizzard's known ones (for the row on the map),
 -- and any other small button on the minimap or its cluster (other addons'
 -- and client-specific ones, for the drawer), so nothing is left stranded on
--- the map. `drawer` finds buttons already moved into the drawer too.
+-- the map. Other addons' map pins stay where they are. `drawer` finds
+-- buttons already moved into the drawer too.
 local function collectButtons(skip, drawer)
 	local row, list, seen = {}, {}, {}
 	local function add(f, into)
-		if f and not seen[f] and not skip[f] and not ns.IsForbidden(f) then
+		if f and not seen[f] and not skip[f] and not ns.IsForbidden(f) and not isMapPin(f) then
 			seen[f] = true
 			into = into or list
 			into[#into + 1] = f

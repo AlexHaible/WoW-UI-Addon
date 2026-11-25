@@ -290,6 +290,13 @@ function addonButton:IsFixedFrameLevel() return self._fixedLevel end
 function addonButton:SetFixedFrameLevel(on) self._fixedLevel = on end
 function addonButton:IsFixedFrameStrata() return self._fixedStrata end
 function addonButton:SetFixedFrameStrata(on) self._fixedStrata = on end
+-- Other addons' map pins (Questie's innkeepers, flight masters and
+-- mailboxes; HereBeDragons-Pins' for HandyNotes, TomTom and friends): small
+-- named buttons on the minimap that stay on the map.
+local questiePin = new("button", "QuestieFrame12", Minimap)
+questiePin._w, questiePin._h = 16, 16
+local hbdPin = new("button", "SilverDragonOverlayMinimapPin3", Minimap)
+hbdPin._w, hbdPin._h = 14, 14
 function issecurevariable(name) return not name:find("^LibDBIcon") end
 IssueReporterButton = new("button", "IssueReporterButton", UIParent)
 IssueReporterButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 10, 10)
@@ -963,6 +970,10 @@ ReforgedUIDB = { scale = 1, theme = "auto",
 		[""] = { ["Jane Elf"] = { money = 1426, class = "MAGE", faction = "Alliance", name = "Jane Elf" } },
 		["CAMWOW EU5 Realm 2 PvP"] = { Rexxar = { money = 7, class = "HUNTER", faction = "Horde" } },
 	} }
+do
+	local hbd = LibStub:NewLibrary("HereBeDragons-Pins-2.0", 1)
+	hbd.minimapPins = { [hbdPin] = {} }
+end
 fire("PLAYER_LOGIN")
 do
 	local gold = ReforgedUIDB.gold
@@ -1682,6 +1693,15 @@ do
 	assert(not mm.drawer:IsShown(), "and closes it")
 	for _, b in ipairs(mm.buttons) do
 		assert(b ~= addonButton, "addon buttons leave the row")
+	end
+	for _, pin in ipairs({ questiePin, hbdPin }) do
+		assert(pin:GetParent() == Minimap and #pin._points == 0, "map pins stay on the map")
+		for _, b in ipairs(mm.buttons) do
+			assert(b ~= pin, "map pins stay out of the row")
+		end
+		for _, b in ipairs(mm.addonButtons) do
+			assert(b ~= pin, "map pins stay out of the drawer")
+		end
 	end
 end
 do

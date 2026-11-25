@@ -43,12 +43,34 @@ function Blizzard:OnEnable()
 		end
 	end
 
+	self:WatchDurability()
+
 	-- Bag windows open above the console instead of over it.
 	local hookName = (UpdateContainerFrameAnchors and "UpdateContainerFrameAnchors")
 		or (updateContainerFrameAnchors and "updateContainerFrameAnchors")
 	if hookName then
 		hooksecurefunc(hookName, function() self:LiftContainers() end)
 	end
+end
+
+-- Blizzard's durability figure (the armour man on the right, under the
+-- minimap's old place) shows at login, but with the addon on it stayed
+-- hidden when gear wore down to yellow or broke during play. Asking
+-- Blizzard's own code to update it brings it up, so do that whenever the
+-- alerts change: out of combat, as it is laid out in the same column as the
+-- right action bars.
+function Blizzard:WatchDurability()
+	local frame = _G.DurabilityFrame
+	if not (frame and type(frame.SetAlerts) == "function") or ns.IsForbidden(frame) then
+		return
+	end
+	local function update()
+		ns:RunOutOfCombat("durability alerts", function()
+			pcall(frame.SetAlerts, frame)
+		end)
+	end
+	ns:On("UPDATE_INVENTORY_ALERTS", update)
+	ns:On("UPDATE_INVENTORY_DURABILITY", update)
 end
 
 function Blizzard:LiftContainers()

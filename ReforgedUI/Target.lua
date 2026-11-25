@@ -404,11 +404,17 @@ end
 -- away on the cast's stop events (and at its end, when the end is known).
 local CAST_COLOR, CHANNEL_COLOR = { 1, 0.7, 0 }, { 0.2, 0.85, 0.2 }
 local INTERRUPT_COLOR, INTERRUPT_HOLD = { 0.85, 0.1, 0.1 }, 0.6
+-- Seconds after a stop that can't be matched to the cast on the bar before
+-- the cast is read again, and between reads while there is no cast.
+local CAST_RECHECK, CAST_WATCH = 0.2, 0.5
 
 -- `active` says a cast is on the bar: `endMS` may be secret, never tested.
 -- `held` is the interrupt shown on it, if any (see interruptCast).
+-- `castID` is the cast's id when it is known (casts only, channels have
+-- none), `stoppedAt` when the bar last went away.
 local function stopCast(bar)
-	bar.active, bar.endMS, bar.channel, bar.held = false, nil, false, nil
+	bar.active, bar.endMS, bar.channel, bar.held, bar.castID = false, nil, false, nil, nil
+	bar.stoppedAt = GetTime()
 	bar:Hide()
 end
 
@@ -417,7 +423,7 @@ end
 -- new cast in the meantime takes the bar over; its timer then lets it be.
 local function interruptCast(bar)
 	local held = {}
-	bar.active, bar.endMS, bar.channel, bar.held = false, nil, false, held
+	bar.active, bar.endMS, bar.channel, bar.held, bar.castID = false, nil, false, held, nil
 	bar:SetMinMaxValues(0, 1)
 	bar:SetValue(1)
 	if bar.SetReverseFill then
@@ -453,13 +459,14 @@ local function makeCast(parent, level, textSize)
 	return bar
 end
 
--- The unit's cast or channel now: name, start and end (ms, maybe secret) and
--- whether it is a channel; nothing when it casts nothing. A secret name means
--- there is a cast, so that is checked before the name is looked at.
+-- The unit's cast or channel now: name, start and end (ms, maybe secret),
+-- whether it is a channel and the cast's id (maybe secret, nil for a
+-- channel); nothing when it casts nothing. A secret name means there is a
+-- cast, so that is checked before the name is looked at.
 local function castInfo(unit)
-	local name, _, _, startMS, endMS = UnitCastingInfo(unit)
+	local name, _, _, startMS, endMS, _, castID = UnitCastingInfo(unit)
 	if isSecret(name) or name ~= nil then
-		return name, startMS, endMS, false
+		return name, startMS, endMS, false, castID
 	end
 	if UnitChannelInfo then
 		name, _, _, startMS, endMS = UnitChannelInfo(unit)
@@ -470,8 +477,9 @@ local function castInfo(unit)
 end
 
 
-local function showCast(bar, name, startMS, endMS, channel)
+local function showCast(bar, name, startMS, endMS, channel, castID)
 	bar.channel = channel and true or false
+	bar.castID = castID
 	bar:SetMinMaxValues(startMS, endMS)
 	bar:SetValue(GetTime() * 1000)
 	if bar.SetReverseFill then
@@ -1394,12 +1402,22 @@ function Target:OnEnable()
 	for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
 		"UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START",
 		"UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE" }) do
-		ns:On(e, function(_, unit)
+		ns:On(e, function(_, unit, castGUID)
 			if unit == "target" then
-				self:UpdateCast(e)
+				self:UpdateCast(e, castGUID)
 			end
 		end)
 	end
+	-- A cast that started where we couldn't hear it (the target out of range
+	-- then) is picked up while it lasts.
+	local watch, since = CreateFrame("Frame"), 0
+	watch:SetScript("OnUpdate", function(_, elapsed)
+		since = since + (elapsed or 0)
+		if since >= CAST_WATCH then
+			since = 0
+			self:RecheckCast(CAST_WATCH)
+		end
+	end)
 	ns:On("PLAYER_TARGET_CHANGED", function()
 		self:KeepBlizzardAuras()
 		self:Refresh()
@@ -1602,30 +1620,72 @@ function Target:CastBars()
 	return bars
 end
 
--- `event` is the spellcast event that asked (nil on a target change). A stop
--- hides the bar outright: the cast's info may not be gone yet, and a secret
--- end can't be waited for.
+-- `event` is the spellcast event that asked (nil on a target change) and
+-- `castGUID` the cast it is about. A stop hides the bar outright: the cast's
+-- info may not be gone yet, and a secret end can't be waited for. But only
+-- the stop of the cast on the bar: a failed second spell (pressed while it
+-- casts), or the last cast's stop coming after the next one's start, would
+-- hide a cast that goes on. When the ids can't be compared (secret, or not
+-- given), the bar goes anyway and the cast is read again a moment later.
 local CAST_STOPS = { UNIT_SPELLCAST_STOP = false, UNIT_SPELLCAST_FAILED = false,
 	UNIT_SPELLCAST_INTERRUPTED = false, UNIT_SPELLCAST_CHANNEL_STOP = true }
+-- Whether `castGUID` is the cast on the bar: true, false, or nil when that
+-- can't be told.
+local function sameCast(bar, castGUID)
+	local id = bar.castID
+	if id == nil or castGUID == nil or isSecret(id) or isSecret(castGUID) then
+		return nil
+	end
+	return id == castGUID
+end
 
-function Target:UpdateCast(event)
+local function readCast(bar)
+	local ok, name, startMS, endMS, channel, castID = pcall(castInfo, "target")
+	if ok and (isSecret(name) or name ~= nil) then
+		if pcall(showCast, bar, name, startMS, endMS, channel, castID) then
+			return true
+		end
+	end
+	return false
+end
+
+function Target:UpdateCast(event, castGUID)
 	local stopChannel = event and CAST_STOPS[event]
+	local recheck = false
 	for _, bar in ipairs(self:CastBars()) do
 		if stopChannel ~= nil then
-			if event == "UNIT_SPELLCAST_INTERRUPTED" and bar.active and not bar.channel then
-				interruptCast(bar)
-			elseif bar.active and bar.channel == stopChannel then
-				stopCast(bar)
-			end
-		else
-			local ok, name, startMS, endMS, channel = pcall(castInfo, "target")
-			if ok and (isSecret(name) or name ~= nil) then
-				if not pcall(showCast, bar, name, startMS, endMS, channel) then
-					stopCast(bar)
+			if bar.active and bar.channel == stopChannel then
+				local same = not stopChannel and sameCast(bar, castGUID)
+				if same ~= false then
+					if event == "UNIT_SPELLCAST_INTERRUPTED" then
+						interruptCast(bar)
+					else
+						stopCast(bar)
+					end
+					recheck = recheck or same == nil
 				end
-			else
-				stopCast(bar)
 			end
+		elseif not readCast(bar) then
+			stopCast(bar)
+		end
+	end
+	if recheck then
+		C_Timer.After(CAST_RECHECK, function() self:RecheckCast() end)
+	end
+end
+
+-- Read the target's cast again for every bar without one (an interrupt
+-- shown on it gives way to a cast still going). `quiet`: only bars that have
+-- been without a cast that long, so a cast just stopped isn't read back
+-- from info the game hasn't cleared yet.
+function Target:RecheckCast(quiet)
+	if not UnitExists("target") then
+		return
+	end
+	local now = GetTime()
+	for _, bar in ipairs(self:CastBars()) do
+		if not bar.active and not (quiet and (bar.held or now - (bar.stoppedAt or 0) < quiet)) then
+			readCast(bar)
 		end
 	end
 end

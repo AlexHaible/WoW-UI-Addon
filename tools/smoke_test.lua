@@ -535,7 +535,7 @@ function GetShieldBlock() return 10 end
 function GetSpellBonusDamage(school) return school * 10 end
 function GetSpellBonusHealing() return 207 end
 local secret = false
-function issecretvalue() return secret end
+function issecretvalue(v) return secret and v ~= nil end -- nil is never secret
 function UnitAffectingCombat() return false end
 function IsResting() return true end
 function UnitIsPVP() return true end
@@ -3449,6 +3449,51 @@ do
 		casting = false
 		fire("UNIT_SPELLCAST_STOP", "target")
 		assert(not cast:IsShown(), "and its stop hides it")
+		flushTimers()
+		-- Stops are matched to the cast on the bar by its id: a failed second
+		-- spell, or an old cast's late stop, leaves the cast that goes on.
+		secret, casting = false, true
+		local castID = "Cast-7"
+		UnitCastingInfo = function(u)
+			if u == "target" and casting then return "Fireball", "Fireball", 135, 99500, 102500, false, castID end
+		end
+		fire("UNIT_SPELLCAST_START", "target", "Cast-7")
+		assert(cast:IsShown() and cast.castID == "Cast-7", "the cast's id is kept")
+		fire("UNIT_SPELLCAST_FAILED", "target", "Cast-8")
+		assert(cast:IsShown() and cast.active, "another spell's failure leaves the cast")
+		fire("UNIT_SPELLCAST_INTERRUPTED", "target", "Cast-8")
+		assert(cast:IsShown() and cast.text._text == "Fireball", "another spell's interrupt leaves the cast")
+		fire("UNIT_SPELLCAST_STOP", "target", "Cast-6")
+		assert(cast:IsShown() and cast.active, "an older cast's late stop leaves the cast")
+		casting = false
+		fire("UNIT_SPELLCAST_STOP", "target", "Cast-7")
+		assert(not cast:IsShown(), "its own stop hides it")
+		flushTimers()
+		assert(not cast:IsShown(), "a matched stop isn't read back")
+		-- Ids that can't be compared: the bar goes, and comes back a moment
+		-- later if the cast is still going.
+		casting, castID = true, nil
+		fire("UNIT_SPELLCAST_START", "target")
+		fire("UNIT_SPELLCAST_FAILED", "target")
+		assert(not cast:IsShown(), "an unmatched stop hides the bar")
+		flushTimers()
+		assert(cast:IsShown() and cast.active and cast.text._text == "Fireball", "and the cast still going comes back")
+		casting = false
+		fire("UNIT_SPELLCAST_STOP", "target")
+		flushTimers()
+		assert(not cast:IsShown(), "a cast that ended stays gone")
+		-- A cast we never heard start (out of range then) is picked up.
+		casting = true
+		target:RecheckCast(0.5)
+		assert(not cast:IsShown(), "not straight after a stop")
+		local oldNow = GetTime
+		GetTime = function() return 101 end
+		target:RecheckCast(0.5)
+		assert(cast:IsShown() and cast.text._text == "Fireball", "a cast missed is read in")
+		GetTime = oldNow
+		casting = false
+		fire("UNIT_SPELLCAST_STOP", "target")
+		flushTimers()
 		-- A plain channel drains, and ends by itself at its end.
 		secret, UnitCastingInfo = false, function() return nil end
 		UnitChannelInfo = function(u)

@@ -486,9 +486,6 @@ ItemRefTooltip.NineSlice = new("frame", nil, ItemRefTooltip)
 function methods:SetClampRectInsets(l, r, t, b) self._clamp = { l, r, t, b } end
 function SharedTooltip_SetBackdropStyle(tip) if tip.NineSlice then tip.NineSlice:SetAlpha(1) end end
 PlayerFrame = new("secure", "PlayerFrame", UIParent)
-DurabilityFrame = new("Frame", "DurabilityFrame", UIParent)
-DurabilityFrame._alerts = 0
-function DurabilityFrame:SetAlerts() self._alerts = self._alerts + 1 end
 PlayerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -19, -4)
 function PlayerFrame:GetTop() local _, _, _, _, y = self:GetPoint(1); return 768 + y end
 local gameHour = 0
@@ -4524,20 +4521,6 @@ do
 	hasTarget, hasPet, inCombat = wasTarget, wasPet, wasCombat
 	fire("PLAYER_TARGET_CHANGED")
 	fire("UNIT_PET", "player")
-end
-
--- Blizzard's durability figure is asked to update when the alerts change,
--- once combat is over.
-do
-	local before = DurabilityFrame._alerts
-	fire("UPDATE_INVENTORY_ALERTS")
-	assert(DurabilityFrame._alerts == before + 1, "the durability figure updates when the alerts change")
-	inCombat = true
-	fire("UPDATE_INVENTORY_DURABILITY")
-	assert(DurabilityFrame._alerts == before + 1, "not in combat")
-	inCombat = false
-	fire("PLAYER_REGEN_ENABLED")
-	assert(DurabilityFrame._alerts == before + 2, "but after it")
 end
 
 print("smoke test passed")

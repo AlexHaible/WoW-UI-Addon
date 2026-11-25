@@ -505,7 +505,9 @@ local function flushTimers()
 	for _, fn in ipairs(list) do fn() end
 end
 function securecallfunction(fn, ...) return fn(...) end
-function RegisterUnitWatch() end
+local unitWatched = {}
+function RegisterUnitWatch(f) unitWatched[f] = true end
+function UnregisterUnitWatch(f) unitWatched[f] = nil end
 -- No target until the target display tests pick one.
 local hasTarget, totIsPlayer, hasPet = false, false, false
 function UnitExists(u) if u == "pet" then return hasPet end return u == "player" or hasTarget end
@@ -1556,6 +1558,10 @@ assert(py == -4, "the player frame must not be moved")
 for _, f in ipairs({ TargetFrameToT, TargetFrameSpellBar, targetHealthArt }) do
 	assert(f._alpha == 0 and #f._points == 0, tostring(f._name) .. " should be concealed, not moved")
 end
+-- Its cast bar shows itself on an interrupt (an animation, no SetAlpha):
+-- kept hidden outright.
+TargetFrameSpellBar:Show()
+assert(not TargetFrameSpellBar:IsShown(), "Blizzard's target cast bar stays hidden")
 -- Its unnamed inner frames hold the aura icons on modern clients: what is
 -- in them is hidden, not they themselves.
 assert(TargetFrame.TargetFrameContent._alpha ~= 0 and TargetFrame.TargetFrameContent._mouse == false,
@@ -1581,7 +1587,7 @@ do
 	local lines = ns.modules.target:DescribeAuras()
 	local all = table.concat(lines, "\n")
 	assert(all:find("\nTargetFrame: ") and all:find("aura icons shown: 2") and all:find("TargetFrameBuff1, ")
-		and all:find("TargetFrameSpellBar %(hidden by us%)") and all:find("%(parts hidden%)")
+		and all:find("TargetFrameSpellBar %(hidden%) %(hidden by us%)") and all:find("%(parts hidden%)")
 		and all:find("still drawn %(0%)"), "/rui auras")
 	SlashCmdList.REFORGEDUI("auras")
 end
@@ -3422,6 +3428,27 @@ do
 		casting = false
 		fire("UNIT_SPELLCAST_STOP", "target")
 		assert(not cast:IsShown(), "the cast's stop hides it")
+		-- Interrupted: a moment, red and saying so; the stop after it waits.
+		casting = true
+		fire("UNIT_SPELLCAST_START", "target")
+		casting = false
+		fire("UNIT_SPELLCAST_INTERRUPTED", "target")
+		assert(cast:IsShown() and cast.text._text == (INTERRUPTED or "Interrupted") and cast._value == 1
+			and cast._color[1] > 0.5 and cast._color[2] < 0.5, "an interrupt shows on the bar")
+		fire("UNIT_SPELLCAST_STOP", "target")
+		assert(cast:IsShown(), "the stop after an interrupt leaves it a moment")
+		flushTimers()
+		assert(not cast:IsShown(), "then it goes")
+		-- A new cast during that moment keeps the bar.
+		casting = true
+		fire("UNIT_SPELLCAST_START", "target")
+		fire("UNIT_SPELLCAST_INTERRUPTED", "target")
+		fire("UNIT_SPELLCAST_START", "target")
+		flushTimers()
+		assert(cast:IsShown() and cast.text._text == sName, "a new cast takes the bar over")
+		casting = false
+		fire("UNIT_SPELLCAST_STOP", "target")
+		assert(not cast:IsShown(), "and its stop hides it")
 		-- A plain channel drains, and ends by itself at its end.
 		secret, UnitCastingInfo = false, function() return nil end
 		UnitChannelInfo = function(u)
@@ -3814,6 +3841,18 @@ do
 	assert(math.abs(p[4] - LL.portrait.x) < 0.01 and ReforgedUITargetButton:GetFrameLevel() > 1, "target button over the portrait")
 	assert(ReforgedUITargetButton:GetAttribute("unit") == "target" and ReforgedUIPortraitButton:GetAttribute("unit") == "player"
 		and ReforgedUITargetTarget:GetAttribute("unit") == "targettarget", "secure unit buttons")
+	-- The target of target icon can be turned off (out of combat: it is secure).
+	local tot = ReforgedUITargetTarget
+	assert(unitWatched[tot] and option("targetToT"):GetValue() == true, "the target of target shows by default")
+	inCombat = true
+	SlashCmdList.REFORGEDUI("tot off")
+	assert(unitWatched[tot] and ReforgedUIDB.consoleOpts.targetToT == false, "in combat it waits")
+	inCombat = false
+	fire("PLAYER_REGEN_ENABLED")
+	assert(not unitWatched[tot] and not tot:IsShown() and option("targetToT"):GetValue() == false,
+		"/rui tot off")
+	option("targetToT"):SetValue(true)
+	assert(unitWatched[tot] and ReforgedUIDB.consoleOpts.targetToT == true, "on again from the options")
 	assert(hero.viewUnit == "target", "back to swap with a target")
 	-- The setting persists and the options show it.
 	assert(ReforgedUIDB.consoleOpts.targetMode == "swap", "the target mode is saved")
@@ -3904,7 +3943,19 @@ do
 		SlashCmdList.REFORGEDUI("theme auto")
 		L, P = ns.layout, ns.layout.targetPlate
 		-- Bigger: the frame scales, its corner stays, the buffs rise with its top.
+		-- Its portrait is set again, or the model keeps its old camera.
+		local modelSets, oldSetModel = 0, ns.SetUnitModel
+		ns.SetUnitModel = function(nsSelf, model, ...)
+			if model == pl.model then modelSets = modelSets + 1 end
+			return oldSetModel(nsSelf, model, ...)
+		end
 		SlashCmdList.REFORGEDUI("plate size 120")
+		assert(modelSets > 0, "the portrait is set again at the new size")
+		modelSets = 0
+		SlashCmdList.REFORGEDUI("plate mirror on")
+		SlashCmdList.REFORGEDUI("plate mirror off")
+		assert(modelSets > 1, "and when the plate turns round")
+		ns.SetUnitModel = oldSetModel
 		fp = pt(f)
 		assert(near(f:GetScale(), 1.2) and near(fp[4] * 1.2, L.W / 2 - 300) and near(fp[5] * 1.2, 40), "a bigger plate")
 		assert(near(T:AuraSpot().y, 40 + 1.2 * P.frame.h + 4), "the buffs stay over the bigger plate")

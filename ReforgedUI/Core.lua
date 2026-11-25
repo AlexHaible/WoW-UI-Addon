@@ -59,6 +59,7 @@ local DEFAULTS = {
 		targetPlateSpot = false,
 		targetPlateSize = 100, -- the wall plate's size, 50-150 %
 		targetPlateMirror = false, -- the wall plate turned the other way: portrait on the right, info window on the left
+		targetToT = true, -- the target of target icon on the wall (or beside a moved plate)
 		targetBar = false, -- a movable target health and power bar, besides the target display
 		targetBarPos = false, -- where it was dragged to ({ x, y } from the screen's centre)
 		totBar = false, -- the same window for the target's target
@@ -1070,6 +1071,7 @@ local function usage()
 	print("  /rui aurasize 100-200  (your target's buff and debuff icons on the wall, in %)")
 	print("  /rui buffsfirst on||off  (your target's buffs on the bottom rows, its debuffs after them)")
 	print("  /rui threat on||off  (your threat on your target, over its portrait)")
+	print("  /rui tot on||off  (the target of target icon beside the target display)")
 	print("  /rui font  (whether names in Korean, Chinese and Cyrillic get their fonts)")
 	print("  /rui target swap||plate  (target display: on the hero screen, or a plate on the wall)")
 	print("  /rui plate reset  (put the wall plate back on the wall; Shift-drag or Edit Mode moves it)")
@@ -1137,6 +1139,12 @@ SlashCmdList.REFORGEDUI = function(msg)
 		ns.modules.target:SetThreatShown(arg == "on")
 		ns.modules.config:Refresh()
 		ns:Print(arg == "on" and "your threat shows on your target." or "no threat on your target.")
+	elseif cmd == "tot" and (arg == "on" or arg == "off") and ns.modules.target.enabled then
+		ns.modules.target:SetToTShown(arg == "on")
+		ns.modules.config:Refresh()
+		ns:Print((arg == "on" and "the target of target shows beside your target." or "no target of target icon"
+			.. " (the target of target bar, /rui totbar on, can take its place).")
+			.. (InCombatLockdown() and " It changes once you leave combat." or ""))
 	elseif cmd == "topbar" and (arg == "on" or arg == "off") then
 		ns:SetTopBarShown(arg == "on")
 		ns:Print("top bar:", arg)

@@ -403,11 +403,37 @@ end
 -- green back, so the green that is left shrinks the same way. The bar goes
 -- away on the cast's stop events (and at its end, when the end is known).
 local CAST_COLOR, CHANNEL_COLOR = { 1, 0.7, 0 }, { 0.2, 0.85, 0.2 }
+local INTERRUPT_COLOR, INTERRUPT_HOLD = { 0.85, 0.1, 0.1 }, 0.6
 
 -- `active` says a cast is on the bar: `endMS` may be secret, never tested.
+-- `held` is the interrupt shown on it, if any (see interruptCast).
 local function stopCast(bar)
-	bar.active, bar.endMS, bar.channel = false, nil, false
+	bar.active, bar.endMS, bar.channel, bar.held = false, nil, false, nil
 	bar:Hide()
+end
+
+-- Interrupted: the bar stays a moment, full and red, saying so, as
+-- Blizzard's does (and as ours did not, so Blizzard's showed instead). A
+-- new cast in the meantime takes the bar over; its timer then lets it be.
+local function interruptCast(bar)
+	local held = {}
+	bar.active, bar.endMS, bar.channel, bar.held = false, nil, false, held
+	bar:SetMinMaxValues(0, 1)
+	bar:SetValue(1)
+	if bar.SetReverseFill then
+		bar:SetReverseFill(false)
+	end
+	bar:SetStatusBarColor(INTERRUPT_COLOR[1], INTERRUPT_COLOR[2], INTERRUPT_COLOR[3])
+	bar.back:SetColorTexture(0, 0, 0, 0.6)
+	if bar.text then
+		bar.text:SetText(_G.INTERRUPTED or "Interrupted")
+	end
+	bar:Show()
+	C_Timer.After(INTERRUPT_HOLD, function()
+		if bar.held == held then
+			stopCast(bar)
+		end
+	end)
 end
 
 local function makeCast(parent, level, textSize)
@@ -461,7 +487,7 @@ local function showCast(bar, name, startMS, endMS, channel)
 	if bar.text then
 		bar.text:SetText(name)
 	end
-	bar.active, bar.endMS = true, endMS
+	bar.active, bar.endMS, bar.held = true, endMS, nil
 	bar:Show()
 end
 
@@ -750,6 +776,7 @@ end
 function Target:PlateMoved(auras)
 	self:PlacePlate()
 	self:PlacePlateParts()
+	self:RefreshPlateModel()
 	ns:RunOutOfCombat("target-buttons", function() self:PlaceButtons() end)
 	if auras then
 		self:PlateAurasFollow()
@@ -772,6 +799,19 @@ function Target:PlacePlateAuras()
 	ns:RunOutOfCombat("target-auras", function()
 		ns:SetupEditMode("the target's buffs and debuffs follow the wall plate once the UI reloads.")
 	end)
+end
+
+-- A 3D model keeps the camera it had when its unit was set: once the plate
+-- is scaled, moved or turned, the portrait would draw at its old size and
+-- place (outside its window) until the next target. Set the unit again, as
+-- the hero screen does after its layout. The stand-in has no model to fix.
+function Target:RefreshPlateModel()
+	local v = self.plate
+	if not (v and v.frame:IsShown() and self:View() == v) then
+		return
+	end
+	v.model:ClearModel()
+	ns:SetUnitModel(v.model, v.flatPortrait, "target")
 end
 
 -- After a drag: the plate's corner from the screen's bottom centre.
@@ -999,6 +1039,33 @@ function Target:CreateToT()
 	end)
 	b:HookScript("OnShow", function() self:UpdateToT() end)
 	self.tot = b
+	self:ApplyToTShown()
+end
+
+-- The target of target icon on the wall (or beside a moved plate) can be
+-- turned off (db.consoleOpts.targetToT), for players who put the plate
+-- where it gets in the way; the target of target bar can stand in for it.
+-- It is a secure unit button shown by the unit watch, so this waits for
+-- the end of combat.
+function Target:ToTShown()
+	return ns.db.consoleOpts.targetToT ~= false
+end
+
+function Target:ApplyToTShown()
+	ns:RunOutOfCombat("target-tot-shown", function()
+		local b = self.tot
+		if self:ToTShown() then
+			RegisterUnitWatch(b)
+		else
+			UnregisterUnitWatch(b)
+			b:Hide()
+		end
+	end)
+end
+
+function Target:SetToTShown(on)
+	ns.db.consoleOpts.targetToT = on and true or false
+	self:ApplyToTShown()
 end
 
 ----------------------------------------------------------------------------
@@ -1098,6 +1165,24 @@ local function hideNameStrips(tf)
 	end
 end
 
+-- Blizzard's target cast bar. Clear is not enough: on an interrupt it plays
+-- its fade-out animation, which shows it again without a SetAlpha call, as
+-- the default bar over the plate's name and level. It is no secure frame,
+-- so it is kept hidden outright (shown again, hidden again).
+local castBarHidden = {}
+local function hideCastBar(bar)
+	if not bar or ns.IsForbidden(bar) then
+		return
+	end
+	ns:Conceal(bar)
+	bar:Hide()
+	if not castBarHidden[bar] then
+		castBarHidden[bar] = true
+		hooksecurefunc(bar, "Show", bar.Hide)
+		bar:HookScript("OnShow", bar.Hide)
+	end
+end
+
 function Target:KeepBlizzardAuras()
 	local tf = TargetFrame
 	if not tf then
@@ -1106,10 +1191,10 @@ function Target:KeepBlizzardAuras()
 	-- Again on each target change: parts Blizzard makes later get hidden too.
 	keepAuras(tf, 1)
 	hideNameStrips(tf)
-	for _, f in ipairs({ tf.spellbar or _G.TargetFrameSpellBar, tf.totFrame or TargetFrameToT,
-		_G.TargetFrameNumericalThreat }) do
+	for _, f in ipairs({ tf.totFrame or TargetFrameToT, _G.TargetFrameNumericalThreat }) do
 		ns:Conceal(f)
 	end
+	hideCastBar(tf.spellbar or _G.TargetFrameSpellBar)
 	-- Clicks go to our own target button; the aura icons keep theirs.
 	ns:RunOutOfCombat("target-frame-mouse", function() tf:EnableMouse(false) end)
 end
@@ -1527,7 +1612,9 @@ function Target:UpdateCast(event)
 	local stopChannel = event and CAST_STOPS[event]
 	for _, bar in ipairs(self:CastBars()) do
 		if stopChannel ~= nil then
-			if bar.active and bar.channel == stopChannel then
+			if event == "UNIT_SPELLCAST_INTERRUPTED" and bar.active and not bar.channel then
+				interruptCast(bar)
+			elseif bar.active and bar.channel == stopChannel then
 				stopCast(bar)
 			end
 		else
@@ -1993,6 +2080,7 @@ function Target:OnLayout(L)
 	self.plate.art:SetTexture(ns:ArtPath(L.targetPlate.file))
 	self:PlacePlate()
 	self:PlacePlateParts()
+	self:RefreshPlateModel()
 
 	-- Its parts follow the button, which PlaceButtons places (out of combat).
 	local heroModel = ns.modules.hero.model

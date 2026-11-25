@@ -284,6 +284,13 @@ Config.PAGES = {
 			tip = "Puts the wall plate back after moving it (Shift-drag, or in Edit Mode).",
 			click = function() ns.modules.target:ResetPlateSpot() end,
 		},
+		{
+			kind = "check", key = "targetToT", name = "Show target of target", enabled = targetOn,
+			tip = "The target of target icon beside the target display. Turn it off if it gets in the way;"
+				.. " the target of target bar below can take its place. Changes once out of combat.",
+			get = function() return ns.modules.target:ToTShown() end,
+			set = function(on) ns.modules.target:SetToTShown(on) end,
+		},
 		{ header = "Target bars" },
 		{
 			kind = "check", key = "targetBar", name = "Target bar", enabled = targetOn,

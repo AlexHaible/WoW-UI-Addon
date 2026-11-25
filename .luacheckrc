@@ -32,7 +32,7 @@ read_globals = {
 	"C_DurationUtil", "C_StringUtil", "ELITE", "Enum", "FACTION_BAR_COLORS", "GetBlockChance", "GetCoinTextureString", "GetComboPoints",
 	"GetInventoryItemCount", "GetInventoryItemID", "GetItemInfoInstant", "GetShieldBlock", "GetSpellBonusDamage",
 	"GetSpellBonusHealing", "IsAltKeyDown", "IsShiftKeyDown", "KEYRING", "KEYRING_CONTAINER", "KeyRingButton", "LibStub", "MenuUtil",
-	"PutKeyInKeyRing", "RegisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
+	"PutKeyInKeyRing", "RegisterUnitWatch", "UnregisterUnitWatch", "SetPortraitTexture", "TargetFrame", "ToggleAllBags", "ToggleKeyRing",
 	"UnitArmor", "UnitStat", "GetCritChance", "GetRangedCritChance", "GetSpellCritChance", "UnitAttackPower", "UnitRangedAttackPower", "UnitResistance", "GetDodgeChance", "GetParryChance",
 	"UnitClassification", "UnitDetailedThreatSituation", "GetThreatStatusColor", "UnitCreatureType", "UnitDamage", "UnitExists", "UnitIsPlayer",
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "ToggleCharacter", "ToggleQuestLog", "ToggleFriendsFrame", "ToggleWorldMap", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",

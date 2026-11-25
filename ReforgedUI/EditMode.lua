@@ -1,6 +1,6 @@
 -- Edit Mode: the account-wide "Reforged UI" layout and the Blizzard frames
--- placed through it (cast bar, buffs, pet bar, leave vehicle button, target
--- frame, action bars 1-3). Everything here only edits the saved layouts
+-- placed through it (cast bar, buffs, pet bar, leave vehicle button,
+-- durability figure, target frame, action bars 1-3). Everything here only edits the saved layouts
 -- (C_EditMode.GetLayouts / SaveLayouts): it is Edit Mode that then moves the
 -- frames, so every one of them can still be moved and changed there.
 
@@ -350,6 +350,45 @@ local function placeLeaveButton(_, layout, spot, last, fresh)
 	return true
 end
 
+-- Blizzard's durability figure (the armour man that shows when gear wears
+-- down) starts in the right-hand column under the minimap's old corner, out
+-- at the screen's edge on a wide screen and far from the console. It goes
+-- just above the console's right end instead: above the chat area, left of
+-- the end cap. Placed once in every layout where it is still in its
+-- default place, including layouts placed before it was added
+-- (consoleOpts.durabilityPlaced); like the leave button it only follows
+-- after a shared setting changes.
+local DURABILITY_GAP = 6
+
+function ns:DurabilitySpot()
+	local L = self.layout
+	local systems = Enum and Enum.EditModeSystem
+	local frame = _G.DurabilityFrame
+	if not (L and L.consoleTop and L.W and frame and not forbidden(frame) and systems and systems.DurabilityFrame) then
+		return nil
+	end
+	local right = math.min(L.endcaps and L.endcaps.right and L.endcaps.right.x or L.rightPoint or L.W, L.W)
+	local k = self:ConsoleScale()
+	return { x = math.floor((right - L.W - DURABILITY_GAP) * k + 0.5),
+		y = math.floor((L.consoleTop + DURABILITY_GAP) * k + 0.5) }
+end
+
+local function placeDurability(self, layout, spot, last, fresh)
+	local entry = spot and findSystem(layout, Enum.EditModeSystem.DurabilityFrame)
+	if not entry then
+		return false
+	end
+	local done = self.db.consoleOpts.durabilityPlaced
+	local key = layoutKey(layout)
+	fresh = fresh or not done[key]
+	done[key] = true
+	if not wantsPlacing(entry, "BOTTOMRIGHT", spot, last, fresh) then
+		return false
+	end
+	anchorTo(entry, "BOTTOMRIGHT", spot)
+	return true
+end
+
 -- The frames placed in every layout, in the order their reload messages
 -- take precedence. To place another Blizzard frame, add an entry:
 --   key      its name here (and in the smoke test);
@@ -398,6 +437,15 @@ local PLACEMENTS = {
 		message = function(n)
 			return ("placed the leave vehicle (and flight path stop) button above the minimap in %d Edit Mode"
 				.. " layout(s); move it there as you like."):format(n)
+		end,
+	},
+	{
+		key = "durability", saved = "durabilitySpot",
+		spot = function(self) return self:DurabilitySpot() end,
+		place = placeDurability,
+		message = function(n)
+			return ("placed the durability figure just above the console's right end in %d Edit Mode layout(s);"
+				.. " move it there as you like."):format(n)
 		end,
 	},
 }

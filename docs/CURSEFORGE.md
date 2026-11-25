@@ -115,6 +115,7 @@ The first time each character logs in, Reforged UI creates an Edit Mode layout c
 - Your buffs and debuffs start in the top-right corner, just below the top bar (or at the very top with the top bar hidden).
 - The pet bar starts on the console wall, just above the stance buttons (in your other layouts too, unless you've moved it).
 - The leave vehicle button (also the flight path "request stop" button) starts just above the minimap's top-left corner (in your other layouts too, unless you've moved it). It's the same spot for all your characters, so switching characters or relogging doesn't move it again.
+- The durability figure (the armour man that shows when your gear is damaged or broken) starts just above the right end of the console, above the chat, instead of out at the screen's right edge (in your other layouts too, unless you've moved it). Move it in Edit Mode as you like.
 
 When Reforged UI changes the layout it offers a quick reload, so Blizzard's frames pick the change up cleanly. It moves each frame out of its default place only once per layout, so if you put one back, it stays there and you won't be asked again at every login.
 

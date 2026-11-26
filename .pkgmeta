@@ -2,12 +2,13 @@ package-as: ReforgedUI
 enable-nolib-creation: no
 
 # Each addon lives in its own folder; only those folders are packaged. The
-# damage meter and bags skins are separate addons so they can be turned off
+# damage meter, bags and Spoken skins are separate addons so they can be turned off
 # in the addon list, but they ship in the same zip and with the same version.
 move-folders:
   ReforgedUI/ReforgedUI: ReforgedUI
   ReforgedUI/ReforgedUI_DamageMeter: ReforgedUI_DamageMeter
   ReforgedUI/ReforgedUI_Bags: ReforgedUI_Bags
+  ReforgedUI/ReforgedUI_Spoken: ReforgedUI_Spoken
 
 ignore:
   - README.md

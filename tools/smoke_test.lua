@@ -4683,5 +4683,143 @@ do
 		"only once: put back in its default place, it stays there")
 end
 
+-- Reforged UI: Spoken, a separate addon that needs Reforged UI and adds a
+-- narrator style to Spoken through its Public API. Without Spoken it does
+-- nothing; with a stand-in for Spoken's API it registers the style and draws
+-- the lines Spoken hands it.
+do
+	local SP_ADDON = ADDON .. "../ReforgedUI_Spoken/"
+	local spFiles = {}
+	for line in io.lines(SP_ADDON .. "ReforgedUI_Spoken.toc") do
+		if line:match("^## Dependencies:") then
+			assert(line:find("ReforgedUI", 1, true), "the Spoken skin needs Reforged UI")
+		end
+		if line:match("^## OptionalDeps:") then
+			assert(line:find("Spoken", 1, true), "Spoken loads before the Spoken skin")
+		end
+		if line:match("^[%w_\\%.%-]+%.lua$") then spFiles[#spFiles + 1] = (line:gsub("\\", "/")) end
+	end
+	assert(#spFiles >= 1, "the Spoken skin's TOC lists its files")
+	local function load()
+		for _, file in ipairs(spFiles) do
+			assert(loadfile(SP_ADDON .. file))("ReforgedUI_Spoken", {})
+		end
+	end
+	assert(_G.Spoken == nil)
+	load() -- no Spoken: nothing happens
+	assert(_G.ReforgedUISpokenFrame == nil, "no narrator window without Spoken")
+
+	local speaker = {}
+	local callbacks = {}
+	local sp = { API_VERSION = 1, narrators = {}, suggested = {}, captionsH = 40, waiting = 0 }
+	function sp:IsCompatible(n) return n <= self.API_VERSION end
+	function sp:RegisterNarrator(id, info)
+		assert(type(id) == "string" and type(info.addon) == "string" and type(info.title) == "string"
+			and type(info.description) == "string" and type(info.Update) == "function", "a full narrator")
+		self.narrators[id] = info
+	end
+	function sp:SuggestNarrator(id) self.suggested[#self.suggested + 1] = id end
+	function sp:RegisterCallback(event, fn) callbacks[event] = fn; return {} end
+	function sp:GetSpeaker() return { race = speaker.race } end
+	function sp:GetCaption() return self.caption end
+	function sp:IsPaused() return self.paused end
+	function sp:GetWaitingCount() return self.waiting end
+	function sp:GetHeldReason() return nil end
+	function sp:ShowCaptions(parent, width)
+		assert(parent and width > 100, "captions get a parent and a width")
+		self.captionParent = parent
+		return self.captionsH
+	end
+	function sp:CreatePortrait(parent, size)
+		local p = CreateFrame("Frame", nil, parent)
+		p:SetSize(size, size)
+		function p:SetClip(clip) self.clip = clip end
+		function p:SetRingColor(r, g, b) self.ring = { r, g, b } end
+		return p
+	end
+	function sp:CreateControl(parent, kind)
+		local b = CreateFrame("Button", nil, parent)
+		b:SetSize(24, 24)
+		b.kind = kind
+		return b
+	end
+	function sp:CreateActions(parent)
+		local row = CreateFrame("Frame", nil, parent)
+		function row:SetClip(clip) self.clip = clip; self:SetSize(clip and 20 or 1, clip and 20 or 1) end
+		return row
+	end
+	_G.Spoken = sp
+	load()
+	local info = sp.narrators.reforgedui
+	assert(info and info.addon == "ReforgedUI_Spoken" and info.title == "Reforged UI", "the narrator style is registered")
+	assert(sp.suggested[1] == "reforgedui", "and offered once")
+	assert(callbacks.AUDIO_CHANGED and callbacks.SPEAKER_CHANGED, "it follows the queue and the speaker")
+	fire("ADDON_LOADED", "ReforgedUI_Spoken")
+	assert(type(ReforgedUISpokenDB) == "table", "its settings are saved")
+
+	-- Its rows on Spoken's page.
+	local rows = {}
+	local layout = {}
+	function layout:Section(title) rows.section = title end
+	function layout:Checkbox(label, tooltip, read, write, apply) rows[#rows + 1] = { label = label, read = read, write = write, apply = apply } end
+	function layout:Slider(label, min, max, step, read, write, apply) rows[#rows + 1] = { label = label, read = read, write = write, apply = apply } end
+	info.settings(layout)
+	assert(rows.section == "Reforged UI" and #rows == 3, "a section of three rows")
+
+	local clip = { key = "q:1:accept", source = { key = "quests", title = "Quests" }, length = 6,
+		present = { header = "Thrall", label = "The Durotar Uprising", transcript = "Lok'tar!" } }
+	info.Update(clip)
+	local w = _G.ReforgedUISpokenFrame
+	assert(w and w:IsShown(), "a line shows the window")
+	assert(sp.captionParent and rawget(sp.captionParent, "_parent") == w, "Spoken's captions are docked in it")
+	assert(w:GetHeight() > 72 + 2 * 14, "the window fits its captions, got " .. w:GetHeight())
+	local function joins()
+		local found = {}
+		for _, f in ipairs(allFrames) do
+			if rawget(f, "_parent") == w and f._kind == "texture" and type(f._tex) == "string" then
+				local key = f._tex:match("Trim\\(%w+)\\join$")
+				if key then found[key] = (found[key] or 0) + 1 end
+			end
+		end
+		return found
+	end
+	assert(joins()[ns.themeKey] == 4, "the trim is in the UI's theme")
+	-- Following the speaker's race: an undead speaker's line in the
+	-- Forsaken theme, a speaker without a theme in the UI's.
+	slash("theme human")
+	assert(joins().human == 4, "the trim follows the UI's theme")
+	rows[1].write(true)
+	rows[1].apply()
+	speaker.race = "scourge"
+	callbacks.SPEAKER_CHANGED(clip)
+	assert(joins().forsaken == 4, "the trim follows the speaker's race")
+	speaker.race = "murloc"
+	callbacks.SPEAKER_CHANGED(clip)
+	assert(joins().human == 4, "a race without a theme keeps the UI's")
+	rows[1].write(false)
+	rows[1].apply()
+	speaker.race = nil
+	-- A line with no length has no reading position; a paused queue says so.
+	sp.paused, sp.waiting = true, 2
+	callbacks.AUDIO_CHANGED()
+	info.Update({ key = "p:1", source = { key = "places", title = "Places" }, present = {} })
+	assert(w:IsShown() and w.progress and not w.progress:IsShown(), "no progress bar without a length")
+	assert(w.status._text:find("Paused", 1, true) and w.status._text:find("2 more", 1, true), "the status line")
+	sp.paused, sp.waiting = nil, 0
+	-- Dragged and let go: the place is saved.
+	w._scripts.OnDragStart(w)
+	w:ClearAllPoints()
+	w:SetPoint("CENTER", UIParent, "CENTER", 10, 20)
+	w._scripts.OnDragStop(w)
+	assert(ReforgedUISpokenDB.point and ReforgedUISpokenDB.point[1] == "CENTER", "the window's place is saved")
+	rows[2].write(120)
+	rows[2].apply()
+	assert(w._scale == 1.2, "the window size option scales it")
+	info.Update(nil)
+	assert(not w:IsShown(), "no line: no window")
+	slash("theme auto")
+	_G.Spoken = nil
+end
+
 print("smoke test passed")
 io.stdout:write("smoke test passed (" .. #files .. " files)\n")

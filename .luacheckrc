@@ -5,7 +5,7 @@ ignore = {
 	"212", -- unused argument (event handlers)
 }
 globals = {
-	"ReforgedUI", "ReforgedUIDB", "SlashCmdList", "SLASH_REFORGEDUI1", "SLASH_REFORGEDUI2", "GetMinimapShape",
+	"ReforgedUI", "ReforgedUIDB", "ReforgedUISpokenDB", "SlashCmdList", "SLASH_REFORGEDUI1", "SLASH_REFORGEDUI2", "GetMinimapShape",
 }
 read_globals = {
 	-- WoW API and frames (Retail and Classic-based clients)
@@ -56,4 +56,6 @@ read_globals = {
 	"GetNumGroupMembers",
 	-- the group finder's eye (named differently per client)
 	"QueueStatusButton", "QueueStatusMinimapButton", "MiniMapLFGFrame",
+	-- Spoken (Reforged UI: Spoken)
+	"Spoken",
 }

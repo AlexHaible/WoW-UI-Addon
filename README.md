@@ -247,6 +247,20 @@ whole trim round a small bag), gold titles, and the race's own particles
 drifting off the bags (the Light's stars, orc embers, night elf wisps, forge
 sparks...).
 
+**Spoken.** A fourth addon, *Reforged UI: Spoken* (`ReforgedUI_Spoken`), adds
+a **Reforged UI** narrator style to [Spoken](https://github.com/rusty-key/spoken-wow),
+the addon that reads quests, gossip, places and books aloud. It goes through
+Spoken's public API (`Spoken:RegisterNarrator`): Spoken lists it among its
+narrator styles (and offers it once, the first time both addons are
+installed), and while it is the style, the narrator window is ours: the
+theme's trim around it, a dark inset, the speaker's name in the theme's title
+colour over its rail, then Spoken's own captions, a reading-position bar in
+the theme's accent colour and Spoken's round controls. Spoken's settings page
+gets a Reforged UI section while the style is chosen: **Frame follows the
+speaker's race** (an orc's line in the Orc theme, a night elf's in the Night
+Elf theme, whatever theme the UI wears), the window's size and locking it in
+place (drag it anywhere otherwise). Without Spoken the addon does nothing.
+
 ## Options
 
 The options live in the game's own options, under **Options > AddOns >
@@ -351,8 +365,9 @@ of your faction. Saved themes from earlier versions keep working.
 
 ## Setting up
 
-1. Copy the `ReforgedUI` folder (and `ReforgedUI_DamageMeter` and
-   `ReforgedUI_Bags`, for the damage meter and bags skins) into the AddOns
+1. Copy the `ReforgedUI` folder (and `ReforgedUI_DamageMeter`,
+   `ReforgedUI_Bags` and `ReforgedUI_Spoken`, for the damage meter, bags and
+   Spoken skins) into the AddOns
    folder of your Forever install.
    **Restart the game client completely** (not just `/reload`): the addon has
    new files, which the game only picks up on a full restart.
@@ -465,7 +480,8 @@ LibDataBroker-1.1 (public domain) for the top bar's data feeds.
   BetterBags Next). `python3 tools/make_next_pillar.py` makes the leafier
   post (and swaying leaf clusters) Night Elf's full BetterBags Next panels
   stand against.
-  `python3 tools/render_damage_meter.py out.png` and
-  `python3 tools/render_bags.py out.png` mock the two skins up for every
+  `python3 tools/render_damage_meter.py out.png`,
+  `python3 tools/render_bags.py out.png` and
+  `python3 tools/render_spoken.py out.png` mock the skins up for every
   theme.
 - `Layout.lua` holds all of the original addon's placement math, free of game API calls.

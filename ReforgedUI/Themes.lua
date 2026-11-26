@@ -187,6 +187,24 @@ function ns:RaceThemeKey(name, raceFile, faction, raceID)
 	return RACE_THEME[raceFile] or (faction == "Horde" and "orc" or "human")
 end
 
+-- The theme for someone else's race, as another addon names it: a race
+-- token in any case ("NightElf", "nightelf", "scourge"), "skyborne" being the
+-- player's faction's Skyborne theme. Nil for a race with no theme of its own.
+local RACE_THEME_LOWER = {}
+for race, key in pairs(RACE_THEME) do
+	RACE_THEME_LOWER[race:lower()] = key
+end
+function ns:OtherRaceThemeKey(race)
+	if type(race) ~= "string" then
+		return nil
+	end
+	local key = RACE_THEME_LOWER[(race:gsub("[%s_%-']", "")):lower()]
+	if key == "skyborne" then
+		return UnitFactionGroup("player") == "Horde" and "windshapers" or "highorder"
+	end
+	return key
+end
+
 -- The theme a saved choice stands for: a theme key as it is, "skyborne" the
 -- character's faction's Skyborne theme, anything else ("auto", or a theme
 -- that no longer exists) the race default.

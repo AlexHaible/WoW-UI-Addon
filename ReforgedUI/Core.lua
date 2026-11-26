@@ -908,8 +908,9 @@ function ns:Relayout()
 	end)
 end
 
--- Companion addons (ReforgedUI_DamageMeter, listed separately in the addon
--- list so it can be left unloaded) follow the theme through this global.
+-- Companion addons (ReforgedUI_DamageMeter, _Bags and _Spoken, listed
+-- separately in the addon list so they can be left unloaded) follow the
+-- theme through this global.
 ns.themeCallbacks = {}
 ReforgedUI = {
 	FONT = ns.FONT,
@@ -921,6 +922,31 @@ ReforgedUI = {
 	-- The theme's key (also its art folder name) and its table (Themes.lua).
 	GetTheme = function()
 		return ns.themeKey, ns.theme
+	end,
+	-- Left-drag moves `frame` while canMove() says so (always without one);
+	-- onDrop(frame) saves where it was let go. StopDrag(frame) ends a drag
+	-- cut short, as when the frame hides under the mouse.
+	MakeDraggable = function(frame, onDrop, canMove)
+		return ns:MakeDraggable(frame, onDrop, canMove)
+	end,
+	StopDrag = function(frame)
+		return ns:StopDrag(frame)
+	end,
+	-- The theme `key`'s table, or nil for a key that is no theme.
+	GetThemeByKey = function(key)
+		return key and ns.Themes[key] or nil
+	end,
+	-- The theme for a race another addon names ("nightelf", "Scourge"), and
+	-- its table: nil for a race with no theme of its own. A player on the
+	-- Scourge console keeps it for the undead.
+	ThemeForRace = function(race)
+		local key = ns:OtherRaceThemeKey(race)
+		if key == "forsaken" and ns.themeKey == "undead" then
+			key = "undead"
+		end
+		if key and ns.Themes[key] then
+			return key, ns.Themes[key]
+		end
 	end,
 	-- fn(key, theme) runs now if a theme is set, and on every theme change.
 	RegisterThemeCallback = function(fn)

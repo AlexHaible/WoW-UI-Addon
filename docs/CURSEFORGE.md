@@ -24,7 +24,7 @@ The theme follows your character's race automatically, and you can pick any them
   - **High Order** (Alliance mages): arcane violet leaves, frost-white blossoms, silver-lilac stone and pale silvered wood
   - **Windshapers** (Horde shamans): deep storm-blue leaves, ember-gold blossoms, slate stone and dark warm wood
 
-Each theme has its own top bar, clock frame, target plate, end caps, and the frame around the damage meter, tooltips and bags.
+Each theme has its own top bar, clock frame, target plate, end caps, and the frame around the damage meter, tooltips, bags and Spoken's narrator.
 
 ---
 
@@ -103,6 +103,26 @@ Each theme has its own top bar, clock frame, target plate, end caps, and the fra
 - Using **BetterBags**? Pick the **Reforged UI** theme in BetterBags' settings and its bag, bank and option windows match, following your theme as you switch. Without BetterBags installed, that part simply stays off.
 - On **BetterBags Next**, BetterBags' new full-height bags? Pick **Reforged UI** in its theme list too: your bags in the theme's dark inset, its trim down the side facing the middle of the screen (all round a small bag), gold titles and your race's own particles (gold stars of the Light, orc embers, night elf wisps, forge sparks and more), following your theme as you switch.
 - It comes as a separate addon in the same download, **Reforged UI: Bags**. Untick it in the addon list to keep your bags as they were.
+
+**Spoken narrator**
+- Using **Spoken**, the addon that reads quests, gossip, places and books aloud? Pick the **Reforged UI** narrator style in Spoken's settings (Spoken offers it the first time you have both): the narrator window wears your theme, with the top bar's trim around it, the speaker's name in the theme's colours, Spoken's captions and controls inside and a reading bar along the bottom.
+- Tick **Frame follows the speaker's race** in Spoken's settings and every line is framed in its speaker's race's theme instead: an orc's in the Orc theme, a night elf's in the Night Elf theme, whatever theme you wear. Lines with no speaker keep yours.
+- Drag the window anywhere; Spoken's settings also size it and lock it in place.
+- It comes as a separate addon in the same download, **Reforged UI: Spoken**. Without Spoken installed it does nothing; untick it in the addon list to keep Spoken's own narrator windows.
+
+---
+
+## Works with your other addons
+
+Reforged UI themes or makes room for these addons. None of them is needed; each part simply stays off without its addon.
+
+- **Spoken**: a Reforged UI narrator style, in your theme or your speaker's (Reforged UI: Spoken).
+- **BetterBags** and **BetterBags Next**: a Reforged UI theme in BetterBags' theme lists for the bag, bank and option windows (Reforged UI: Bags).
+- **Dominos**: with Dominos loaded, it places the stance buttons and Reforged UI leaves them to it.
+- **LibDataBroker** feeds: any addon's data broker feed can go in a top bar slot, and Reforged UI's own feeds (gold, bag space, durability, ping and FPS, zone, calendar, reputation, loot) show in other broker displays too.
+- **Minimap button addons**: their buttons are tucked into the addon button drawer above the minimap, while map pins from addons like HandyNotes, GatherMate and TomTom stay on the map.
+- **BugSack** and **BugGrabber**: catch Reforged UI's errors for bug reports.
+- The game's own **damage meter**, **tooltips** and **bags** wear your theme too (Reforged UI: Damage Meter, Reforged UI: Bags, and Reforged UI itself).
 
 ---
 

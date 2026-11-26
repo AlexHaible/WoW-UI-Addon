@@ -7,6 +7,7 @@
 --   trim.box:SetPoint(...)   -- the rect the trim goes around (all of window by default)
 --   trim:Paint()             -- after every theme change
 --   ReforgedUI.TrimArt("rail")
+--   trim:SetThemeKey("orc")  -- another theme's trim than the UI's (nil: the UI's again)
 local _, ns = ...
 
 local MEDIA = "Interface\\AddOns\\ReforgedUI\\Media\\"
@@ -32,9 +33,9 @@ local OWN_EDGE = { undead = true, gnome = true }
 
 local PIECES = { "topL", "topR", "bottomL", "bottomR", "leftT", "leftB", "rightT", "rightB", "tl", "tr", "bl", "br" }
 
--- The current theme's file `name` from Media/Trim.
-function ReforgedUI.TrimArt(name)
-	return TRIM .. (ns.themeKey or "human") .. "\\" .. name
+-- The current theme's file `name` from Media/Trim, or theme `key`'s.
+function ReforgedUI.TrimArt(name, key)
+	return TRIM .. ((key and ns.Themes[key]) and key or ns.themeKey or "human") .. "\\" .. name
 end
 
 -- How far the trim reaches past the box it goes around, and how thick it is.
@@ -62,6 +63,9 @@ local Trim = {}
 -- Lays the trim out around its box for the current theme.
 function Trim:Paint()
 	local key, theme = ns.themeKey, ns.theme
+	if self.themeKey and ns.Themes[self.themeKey] then
+		key, theme = self.themeKey, ns.Themes[self.themeKey]
+	end
 	if not (key and theme) then
 		return
 	end
@@ -144,6 +148,13 @@ function Trim:PaintPinned(p, box, media, key)
 	half(p.tr, join, box, "TOPRIGHT", out, out, EDGE, EDGE, 1, 0, 0, 1)
 	half(p.bl, join, box, "BOTTOMLEFT", -out, -out, EDGE, EDGE, 0, 1, 1, 0)
 	half(p.br, join, box, "BOTTOMRIGHT", out, -out, EDGE, EDGE, 1, 0, 1, 0)
+end
+
+-- Paint in theme `key` from now on instead of the UI's theme; nil goes back
+-- to following the UI's.
+function Trim:SetThemeKey(key)
+	self.themeKey = key
+	self:Paint()
 end
 
 function Trim:SetShown(shown)

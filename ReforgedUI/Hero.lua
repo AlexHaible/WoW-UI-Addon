@@ -28,7 +28,7 @@ local MENU_HINT = "\n|cff808080Right-click to choose what this icon shows.|r"
 -- Stat icon choices (the original addon's ChangeWeaponIcon).
 Hero.ICON_KINDS = {
 	"main", "offhand", "ranged", "ammo", "ap", "crit", "spell", "heal",
-	"armor", "dodge", "parry", "resist", "mainskill", "offskill", "rangedskill",
+	"armor", "dodge", "parry", "resist", "mainskill", "offskill", "rangedskill", "defense",
 	"str", "agi", "sta", "int", "spi", "none",
 }
 local SLOT = { main = 16, offhand = 17, ranged = 18, ammo = 0 }
@@ -47,6 +47,7 @@ local STAT_ICONS = {
 	dodge = "Interface\\Icons\\Ability_Rogue_Feint",
 	parry = "Interface\\Icons\\Ability_Parry",
 	resist = "Interface\\Icons\\Spell_Shadow_AntiShadow",
+	defense = "Interface\\Icons\\Ability_Defend",
 }
 -- Magic schools with a resistance: UnitResistance index, name and the
 -- colour the character sheet gives it.
@@ -59,18 +60,13 @@ local RESISTANCES = {
 }
 -- Weapon skill choices: the slot whose weapon's skill they show.
 local SKILL_SLOT = { mainskill = 16, offskill = 17, rangedskill = 18 }
--- The spell each weapon skill comes with, by weapon item subclass
--- (Enum.ItemWeaponSubclass): its name is the skill's name in the client's
--- language, as the skill list shows it. English names are the fallback.
+-- Skill line of each weapon item subclass (Enum.ItemWeaponSubclass), as
+-- the client's own character sheet maps them; fist weapons use Unarmed.
 local WEAPON_SKILLS = {
-	[0] = { 196, "Axes" }, [1] = { 197, "Two-Handed Axes" }, [2] = { 264, "Bows" }, [3] = { 266, "Guns" },
-	[4] = { 198, "Maces" }, [5] = { 199, "Two-Handed Maces" }, [6] = { 200, "Polearms" },
-	[7] = { 201, "Swords" }, [8] = { 202, "Two-Handed Swords" }, [10] = { 227, "Staves" },
-	[13] = { 15590, "Fist Weapons" }, [15] = { 1180, "Daggers" }, [16] = { 2567, "Thrown" },
-	[18] = { 5011, "Crossbows" }, [19] = { 5009, "Wands" },
+	[0] = 44, [1] = 172, [2] = 45, [3] = 46, [4] = 54, [5] = 160, [6] = 229,
+	[7] = 43, [8] = 55, [10] = 136, [13] = 162, [15] = 173, [16] = 176, [18] = 226, [19] = 228,
 }
-local UNARMED = { 203, "Unarmed" }
-local DEFENSE = { 204, "Defense" }
+local UNARMED_SKILL, FERAL_SKILL, DEFENSE_SKILL = 162, 3014, 95
 
 -- WoW ships the Blademaster's Critical Strike button as one of its own icons.
 local CRIT_ICON = "Interface\\Icons\\Ability_CriticalStrike"
@@ -641,44 +637,30 @@ local function critChances()
 	return melee, ranged, spell
 end
 
-local function spellName(id)
-	if C_Spell and C_Spell.GetSpellName then
-		return C_Spell.GetSpellName(id)
+-- A skill line the player has: name, rank with bonuses, bonus and maximum.
+local function skillInfo(id)
+	local info = C_SkillInfo and C_SkillInfo.GetSkillLineInfoByID and C_SkillInfo.GetSkillLineInfoByID(id)
+	if not (info and info.name and info.rank) then
+		return nil
 	end
-	return GetSpellInfo and (GetSpellInfo(id)) or nil
+	local bonus = info.modifier or 0
+	return { name = info.name, rank = info.rank + bonus, bonus = bonus, max = info.maxRank or info.rank }
 end
 
--- The name of a WEAPON_SKILLS entry, as the skill list has it.
-local function skillName(entry)
-	return spellName(entry[1]) or entry[2]
-end
-
--- The player's skills by name, from the skill list (only the lines under
--- expanded headers): rank with bonuses, bonus and maximum.
-local function skillLines()
-	local list = {}
-	if not (GetNumSkillLines and GetSkillLineInfo) then
-		return list
-	end
-	for i = 1, GetNumSkillLines() do
-		local name, isHeader, _, rank, _, modifier, maxRank = GetSkillLineInfo(i)
-		if name and not isHeader and rank then
-			modifier = modifier or 0
-			list[name] = { rank = rank + modifier, bonus = modifier, max = maxRank or rank }
-		end
-	end
-	return list
-end
-
--- The weapon skill of the weapon in `slot`: its WEAPON_SKILLS entry, or
--- UNARMED for an empty main hand; nil for an empty off hand or ranged slot
--- and for a shield or anything else that has no weapon skill.
+-- The skill line of the weapon in `slot` (the feral skill in a druid
+-- form, Unarmed for an empty main hand); nil for an empty off hand or
+-- ranged slot and for a shield or anything else that has no weapon skill.
 local function slotSkill(slot)
-	local id = GetInventoryItemID and GetInventoryItemID("player", slot)
-	if not id then
-		return slot == 16 and UNARMED or nil
+	local _, class = UnitClass("player")
+	if slot == 16 and class == "DRUID" and GetShapeshiftForm and GetShapeshiftForm() ~= 0 then
+		return FERAL_SKILL
 	end
-	local _, _, _, _, _, classID, subClassID = GetItemInfoInstant(id)
+	local id = GetInventoryItemID("player", slot)
+	if not id then
+		return slot == 16 and UNARMED_SKILL or nil
+	end
+	local instant = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
+	local _, _, _, _, _, classID, subClassID = instant(id)
 	if classID ~= 2 then
 		return nil
 	end
@@ -689,6 +671,18 @@ end
 local function skillText(skill)
 	local rank = skill.bonus > 0 and ("|cff40ff40%d|r"):format(skill.rank) or tostring(skill.rank)
 	return rank .. "/" .. skill.max
+end
+
+-- The player's defense skill, from UnitDefenseSkill (base and bonus) and
+-- its skill line's maximum.
+local function defenseSkill()
+	local base, bonus = UnitDefenseSkill("player")
+	bonus = bonus or 0
+	local line = skillInfo(DEFENSE_SKILL)
+	return {
+		name = line and line.name or "Defense", rank = math.max(0, base + bonus), bonus = bonus,
+		max = line and line.max or UnitLevel("player") * 5,
+	}
 end
 
 -- The picture of a stat icon of kind `kind` (nil for an empty slot).
@@ -719,7 +713,7 @@ local STAT_LABELS = {
 	spell = "Spell:", heal = "Healing:", armor = "Armor:",
 	str = "Strength:", agi = "Agility:", sta = "Stamina:", int = "Intellect:", spi = "Spirit:",
 	crit = "Crit:", ap = "Attack:", dodge = "Dodge:", parry = "Parry:", resist = "Resist:",
-	mainskill = "Skill:", offskill = "Skill:", rangedskill = "Skill:",
+	mainskill = "Skill:", offskill = "Skill:", rangedskill = "Skill:", defense = "Defense:",
 }
 
 -- Label and value for a stat icon of kind `kind`. In combat the client can
@@ -774,15 +768,15 @@ local function statValues(kind)
 	elseif kind == "resist" then
 		return "Resist:", resistText()
 	elseif SKILL_SLOT[kind] then
-		local entry = slotSkill(SKILL_SLOT[kind])
-		if not entry then
+		local id = slotSkill(SKILL_SLOT[kind])
+		local skill = id and skillInfo(id)
+		if not skill then
 			return "Skill:", "N/A"
 		end
 		-- "Two-Handed Swords:" is wider than the room beside the icon.
-		local name = skillName(entry)
-		local label = (name:gsub("^Two%-Handed ", "2H ")) .. ":"
-		local skill = skillLines()[name]
-		return label, skill and skillText(skill) or "N/A"
+		return (skill.name:gsub("^Two%-Handed ", "2H ")) .. ":", skillText(skill)
+	elseif kind == "defense" then
+		return "Defense:", skillText(defenseSkill())
 	end
 end
 
@@ -834,32 +828,23 @@ end
 -- The tooltip of a weapon skill icon: its slot's skill, then every weapon
 -- skill the character has and Defense.
 local function weaponSkillInfo(kind)
-	local skills = skillLines()
-	local entry = slotSkill(SKILL_SLOT[kind])
 	local slotName = ({ mainskill = "Main hand", offskill = "Off hand", rangedskill = "Ranged" })[kind]
-	local text
-	if entry then
-		local skill = skills[skillName(entry)]
-		text = ("%s%s skill:|r %s %s"):format(GOLD, slotName, skillName(entry), skill and skillText(skill) or "N/A")
-	else
-		text = ("%s%s skill:|r N/A"):format(GOLD, slotName)
-	end
-	local lines = {}
-	local all = { UNARMED, DEFENSE }
-	for _, e in pairs(WEAPON_SKILLS) do
-		all[#all + 1] = e
-	end
-	for _, e in ipairs(all) do
-		local name = skillName(e)
-		if skills[name] then
-			lines[#lines + 1] = ("%s%s:|r %s"):format(GOLD, name, skillText(skills[name]))
+	local id = slotSkill(SKILL_SLOT[kind])
+	local skill = id and skillInfo(id)
+	local text = ("%s%s skill:|r %s"):format(GOLD, slotName,
+		skill and (skill.name .. " " .. skillText(skill)) or "N/A")
+	local lines, seen = {}, {}
+	for _, lineID in pairs(WEAPON_SKILLS) do
+		local line = not seen[lineID] and skillInfo(lineID)
+		seen[lineID] = true
+		if line then
+			lines[#lines + 1] = ("%s%s:|r %s"):format(GOLD, line.name, skillText(line))
 		end
 	end
 	table.sort(lines)
-	if #lines > 0 then
-		text = text .. "\n\n" .. table.concat(lines, "\n")
-	end
-	return text
+	local defense = defenseSkill()
+	lines[#lines + 1] = ("%s%s:|r %s"):format(GOLD, defense.name, skillText(defense))
+	return text .. "\n\n" .. table.concat(lines, "\n")
 end
 
 local function statInfo(kind)
@@ -918,6 +903,14 @@ local function statInfo(kind)
 		return table.concat(lines, "\n")
 	elseif SKILL_SLOT[kind] then
 		return weaponSkillInfo(kind)
+	elseif kind == "defense" then
+		local d = defenseSkill()
+		local text = ("%s%s:|r %s"):format(GOLD, d.name, skillText(d))
+		if d.bonus ~= 0 then
+			text = text .. (" (%d base%s)"):format(d.rank - d.bonus,
+				d.bonus > 0 and ("|cff40ff40 +%d|r"):format(d.bonus) or ("|cffff4040 %d|r"):format(d.bonus))
+		end
+		return text
 	end
 	return attackInfo(kind)
 end
@@ -961,7 +954,7 @@ local ICON_NAMES = {
 	main = "Main hand", offhand = "Off hand", ranged = "Ranged", ammo = "Ammo",
 	ap = "Attack power", crit = "Crit chance", spell = "Spell power", heal = "Healing",
 	armor = "Armor", dodge = "Dodge chance", parry = "Parry chance", resist = "Resistances",
-	mainskill = "Main hand skill", offskill = "Off hand skill", rangedskill = "Ranged skill",
+	mainskill = "Main hand skill", offskill = "Off hand skill", rangedskill = "Ranged skill", defense = "Defense",
 	str = "Strength", agi = "Agility", sta = "Stamina", int = "Intellect", spi = "Spirit", none = "None",
 }
 local ICON_TITLES = { "Top left stat icon", "Top right stat icon", "Bottom right stat icon", "Bottom left stat icon" }

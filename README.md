@@ -47,7 +47,7 @@ screen stays free on either side).
   (the default for the fourth), dodge chance, parry chance, resistances
   (fire, nature, frost, shadow and arcane as coloured numbers), the weapon
   skill of the main hand, off hand or ranged weapon (Unarmed with no main
-  hand; the tooltip lists every weapon skill and Defense),
+  hand; the tooltip lists every weapon skill and Defense), defense skill,
   strength, agility, intellect (with Warcraft III's hero attribute art),
   stamina, spirit, crit chance (the best of melee, ranged and spell, with
   the Blademaster's Critical Strike icon) or nothing (an empty socket),

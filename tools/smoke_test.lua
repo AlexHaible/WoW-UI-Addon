@@ -671,9 +671,12 @@ function SetBinding(key, cmd)
 			if keys[i] == key then table.remove(keys, i) end
 		end
 	end
-	bindings[cmd] = bindings[cmd] or {}
-	table.insert(bindings[cmd], key)
+	if cmd then
+		bindings[cmd] = bindings[cmd] or {}
+		table.insert(bindings[cmd], key)
+	end
 end
+function IsKeyPressIgnoredForBinding(key) return key:find("SHIFT$") or key:find("CTRL$") or key:find("ALT$") end
 function SaveBindings() bindingsSaved = bindingsSaved + 1 end
 function GetCurrentBindingSet() return 2 end
 local overrides = 0
@@ -2212,6 +2215,46 @@ assert(actions[110] == "Lightning Bolt" and not actions[170], "Action Bar 8's se
 assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F2" and not GetBindingKey("MULTIACTIONBAR7BUTTON2")
 	and bindingsSaved == 1, "Action Bar 8's key moved to the minimap slot binding")
 assert(ReforgedUIMinimapButton2.hotkey._text == "F2", "the minimap slot shows its key")
+-- Quick Keybind mode: our slots are marked, and a key pressed over one binds
+-- it (QuickKeybindFrame itself is only hooked).
+do
+	local mb, b = ns.modules.minimapbar, ReforgedUIMinimapButton2
+	QuickKeybindFrame = new("frame", "QuickKeybindFrame", UIParent)
+	QuickKeybindFrame._shown = false
+	fire("ADDON_LOADED", "Blizzard_QuickKeybind")
+	assert(mb.quickKeybindHooked, "Quick Keybind mode hooked once Blizzard_QuickKeybind loads")
+	local hooks = QuickKeybindFrame._hooks
+	QuickKeybindFrame._shown = true
+	hooks.OnShow(QuickKeybindFrame)
+	assert(b.bindable._shown and ReforgedUIMinimapButton1.bindable._shown, "slots marked in Quick Keybind mode")
+	local oldAddLine = GameTooltip.AddLine
+	GameTooltip.AddLine = function() end
+	b._scripts.OnEnter(b)
+	hooks.OnKeyDown(QuickKeybindFrame, "F5")
+	assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F5", "Quick Keybind: key over the slot binds it")
+	hooks.OnKeyDown(QuickKeybindFrame, "LSHIFT")
+	assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F5", "a modifier alone binds nothing")
+	b._scripts.OnLeave(b)
+	hooks.OnKeyDown(QuickKeybindFrame, "F6")
+	assert(not GetBindingKey("F6") and GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F5",
+		"no slot under the mouse: nothing bound")
+	b._scripts.OnEnter(b)
+	inCombat = true
+	hooks.OnKeyDown(QuickKeybindFrame, "F7")
+	inCombat = false
+	assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F5", "no binding in combat")
+	-- The mode's cancel key closes it before the hook runs: nothing bound.
+	QuickKeybindFrame._shown = false
+	hooks.OnKeyDown(QuickKeybindFrame, "ESCAPE")
+	hooks.OnHide(QuickKeybindFrame)
+	assert(GetBindingKey("CLICK ReforgedUIMinimapButton2:LeftButton") == "F5" and not b.bindable._shown,
+		"Quick Keybind mode closed: slots unmarked, key kept")
+	GameTooltip.AddLine = oldAddLine
+	-- Back to the old key for the tests below.
+	SetBinding("F2", "CLICK ReforgedUIMinimapButton2:LeftButton")
+	SetBinding("F5")
+	fire("UPDATE_BINDINGS")
+end
 -- Out of range: the key turns red, never the icon; no range to check: back to normal.
 do
 	local b = ReforgedUIMinimapButton2

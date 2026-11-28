@@ -2398,6 +2398,45 @@ do
 	UnitAttackPower, UnitRangedAttackPower, GetDodgeChance, GetParryChance, UnitResistance, UnitStat = unpack(saved)
 	hero:UpdateStats()
 end
+-- Weapon skill choices show the skill of the weapon in their slot.
+do
+	local saved = { GetInventoryItemID, GetItemInfoInstant, GetNumSkillLines, GetSkillLineInfo, GetSpellInfo, C_Spell }
+	local lines = {
+		{ "Weapon Skills", true }, { "Swords", false, false, 45, 0, 0, 50 }, { "Two-Handed Swords", false, false, 1, 0, 0, 50 },
+		{ "Unarmed", false, false, 30, 0, 5, 50 }, { "Bows", false, false, 12, 0, 0, 50 }, { "Defense", false, false, 48, 0, 0, 50 },
+	}
+	local items = { [16] = 2000, [18] = 2001 }
+	GetInventoryItemID = function(_, slot) return items[slot] end
+	GetItemInfoInstant = function(id)
+		local sub = ({ [2000] = 8, [2001] = 2 })[id]
+		return id, "Weapon", "", "", nil, 2, sub
+	end
+	GetNumSkillLines = function() return #lines end
+	GetSkillLineInfo = function(i) return unpack(lines[i]) end
+	C_Spell, GetSpellInfo = nil, nil
+	local choices = hero:IconChoices()
+	local old = { choices[1], choices[2], choices[3], choices[4] }
+	choices[1], choices[2], choices[3] = "mainskill", "offskill", "rangedskill"
+	hero:UpdateStats()
+	local s = hero.stats
+	assert(s[1].label._text:find("2H Swords:") and s[1].value._text == "1/50", "main hand skill: " .. s[1].value._text)
+	assert(s[2].label._text:find("Skill:") and s[2].value._text == "N/A", "empty off hand has no skill")
+	assert(s[3].label._text:find("Bows:") and s[3].value._text == "12/50", "ranged skill")
+	items[16] = nil
+	hero:UpdateStats()
+	assert(s[1].label._text:find("Unarmed:") and s[1].value._text:find("35") and s[1].value._text:find("/50$"),
+		"no main hand weapon shows Unarmed with its bonus")
+	s[1]:GetScript("OnEnter")(s[1])
+	local tip = hero.infoBox.text._text
+	assert(tip:find("Main hand skill") and tip:find("Defense") and tip:find("Swords") and tip:find("Bows"),
+		"the tooltip lists every weapon skill and Defense")
+	s[1]:GetScript("OnLeave")(s[1])
+	for i = 1, 4 do
+		choices[i] = old[i]
+	end
+	GetInventoryItemID, GetItemInfoInstant, GetNumSkillLines, GetSkillLineInfo, GetSpellInfo, C_Spell = unpack(saved, 1, 6)
+	hero:UpdateStats()
+end
 -- A right-click on a weapon icon opens its menu (or steps on without one).
 local menuOpened
 local oldMenu = ns.ShowMenu

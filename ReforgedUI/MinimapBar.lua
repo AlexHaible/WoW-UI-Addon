@@ -88,7 +88,84 @@ end
 ----------------------------------------------------------------------------
 -- Display
 
+----------------------------------------------------------------------------
+-- Quick Keybind mode
+--
+-- The game's Quick Keybind mode (Options > Keybindings > Quick Keybind Mode)
+-- binds a key to the action button under the mouse, but only for Blizzard's
+-- own buttons: they hand QuickKeybindFrame their binding and Blizzard's key
+-- listener does the rest. Ours leave both alone (writing to them from addon
+-- code would taint them); QuickKeybindFrame ignores a key with none of its
+-- buttons under the mouse, so the key pressed over one of our slots is bound
+-- here, after it. Okay keeps these bindings and Cancel undoes them, as for
+-- Blizzard's buttons. Escape (the game menu key) cancels the mode before we
+-- see it, so a slot's key is cleared in the Keybindings menu.
+
+local hovered -- our slot under the mouse while in Quick Keybind mode
+
+local function quickKeybinding()
+	return QuickKeybindFrame ~= nil and QuickKeybindFrame:IsShown() and true or false
+end
+
+local function bindTooltip(b)
+	local command = BINDING:format(b.index)
+	local key = GetBindingKey(command)
+	GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+	GameTooltip:SetText(_G["BINDING_NAME_" .. command], 1, 1, 1)
+	if key then
+		GameTooltip:AddLine(GetBindingText and GetBindingText(key) or key, 0.1, 1, 0.1)
+		GameTooltip:AddLine("Press a key to bind it instead. Clear it in Options > Keybindings > AddOns.",
+			1, 0.82, 0, true)
+	else
+		GameTooltip:AddLine(NOT_BOUND or "Not Bound", 1, 0.1, 0.1)
+		GameTooltip:AddLine(PRESS_KEY_TO_BIND or "Press a key to bind it.", 1, 0.82, 0, true)
+	end
+	GameTooltip:Show()
+end
+
+-- The key (or chord) pressed while over slot `b` becomes its first key; a
+-- second key it had stays.
+local function bindKey(b, input)
+	if type(input) ~= "string" or InCombatLockdown() then
+		return
+	end
+	if GetBindingFromClick and GetBindingFromClick(input) == "SCREENSHOT" then
+		return
+	end
+	local command = BINDING:format(b.index)
+	local key1, key2 = GetBindingKey(command)
+	-- Escape (when it isn't the game menu key) clears the first key.
+	if input == "ESCAPE" then
+		if key1 then
+			SetBinding(key1)
+		end
+		bindTooltip(b)
+		return
+	end
+	local key = GetConvertedKeyOrButton and GetConvertedKeyOrButton(input) or input
+	if IsKeyPressIgnoredForBinding and IsKeyPressIgnoredForBinding(key) then
+		return
+	end
+	local chord = CreateKeyChordStringUsingMetaKeyState and CreateKeyChordStringUsingMetaKeyState(key) or key
+	if key1 then
+		SetBinding(key1)
+	end
+	if key2 then
+		SetBinding(key2)
+	end
+	SetBinding(chord, command)
+	if key2 and key2 ~= chord then
+		SetBinding(key2, command)
+	end
+	bindTooltip(b)
+end
+
 local function onEnter(b)
+	if quickKeybinding() then
+		hovered = b
+		bindTooltip(b)
+		return
+	end
 	GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
 	if hasAction(b.slot) and GameTooltip.SetAction then
 		GameTooltip:SetAction(b.slot)
@@ -281,9 +358,22 @@ function MinimapBar:CreateButton(i)
 	checked:SetBlendMode("ADD")
 	checked:SetAllPoints()
 	b:SetCheckedTexture(checked)
+	-- Marks the slot as bindable while in Quick Keybind mode.
+	local bindable = text:CreateTexture(nil, "OVERLAY")
+	bindable:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+	bindable:SetBlendMode("ADD")
+	bindable:SetAllPoints(b)
+	bindable:SetAlpha(0.5)
+	bindable:Hide()
+	b.bindable = bindable
 
 	b:SetScript("OnEnter", onEnter)
-	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	b:SetScript("OnLeave", function()
+		if hovered == b then
+			hovered = nil
+		end
+		GameTooltip:Hide()
+	end)
 	b:SetScript("OnDragStart", onDragStart)
 	b:SetScript("OnReceiveDrag", onReceiveDrag)
 	b:HookScript("PostClick", updateAll)
@@ -343,6 +433,13 @@ function MinimapBar:OnEnable()
 		end)
 	end
 
+	self:HookQuickKeybind()
+	ns:On("ADDON_LOADED", function(_, name)
+		if name == "Blizzard_QuickKeybind" then
+			self:HookQuickKeybind()
+		end
+	end)
+
 	ns:On("CVAR_UPDATE", function(_, name)
 		if type(name) == "string" and name:lower() == "countdownforcooldowns" then
 			for _, b in ipairs(self.buttons) do
@@ -363,6 +460,39 @@ function MinimapBar:OnEnable()
 			self:UpdateAll()
 		end)
 	end)
+end
+
+-- Quick Keybind mode (see above): mark our slots while it is open and bind
+-- the keys pressed over them. QuickKeybindFrame is Blizzard_QuickKeybind's,
+-- loaded with the game's UI; only hooked, never written to.
+function MinimapBar:HookQuickKeybind()
+	local frame = QuickKeybindFrame
+	if self.quickKeybindHooked or not (frame and frame.HookScript) then
+		return
+	end
+	self.quickKeybindHooked = true
+	local function mark(shown)
+		hovered = nil
+		for _, b in ipairs(self.buttons) do
+			b.bindable:SetShown(shown)
+			if GameTooltip.GetOwner and GameTooltip:GetOwner() == b then
+				GameTooltip:Hide()
+			end
+		end
+	end
+	frame:HookScript("OnShow", function() mark(true) end)
+	frame:HookScript("OnHide", function() mark(false) end)
+	local function onKey(_, input)
+		-- Still open: the key was not the mode's own cancel key.
+		if hovered and quickKeybinding() then
+			bindKey(hovered, input)
+		end
+	end
+	frame:HookScript("OnKeyDown", onKey)
+	frame:HookScript("OnGamePadButtonDown", onKey)
+	if frame:IsShown() then
+		mark(true)
+	end
 end
 
 function MinimapBar:UpdateAll()

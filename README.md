@@ -174,10 +174,12 @@ screen stays free on either side).
   screen's top edge.
 
 The three action slots beside the minimap are Reforged UI's own bar, so
-all of Blizzard's action bars stay yours. Bind them under Key Bindings >
-AddOns > Reforged UI. They need action slots of their own: they use the
-moonkin form page (slots 109-111), which only druids use, and on druids the
-shaman totem page (133-135). Drag spells, items and macros onto them out of
+all of Blizzard's action bars stay yours. Bind them under Options >
+Keybindings > AddOns ("Minimap action slot 1-3"), or open Quick Keybind
+Mode there, hover a slot and press a key (clear a slot's key in the
+Keybindings list: Escape cancels Quick Keybind Mode). They need action
+slots of their own: they use the moonkin form page (slots 109-111), which
+only druids use, and on druids page 11 (121-123). Drag spells, items and macros onto them out of
 combat (with locked bars, hold Shift as usual). Up to 1.11 the slots were
 Action Bar 8's first three buttons: on each character's first login with the
 new version, what was on them and their keys move over, and Action Bar 8

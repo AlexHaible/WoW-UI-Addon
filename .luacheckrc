@@ -38,6 +38,8 @@ read_globals = {
 	"UnitIsTapDenied", "UnitRangedDamage", "UnitReaction", "tContains", "C_EditMode", "ToggleGameMenu", "ToggleCharacter", "ToggleQuestLog", "ToggleFriendsFrame", "ToggleWorldMap", "GetUnitName", "GetActionBarToggles", "SetActionBarToggles", "BuffFrame", "DebuffFrame", "MainMenuBarBackpackButton", "CharacterReagentBag0Slot",
 	-- The minimap bar (own action buttons, key bindings)
 	"C_ActionBar", "GetCVarBool", "GetBindingText", "LOCK_ACTIONBAR", "IsModifiedClick", "SetBinding", "SaveBindings", "GetCurrentBindingSet",
+	"QuickKeybindFrame", "NOT_BOUND", "PRESS_KEY_TO_BIND", "GetBindingFromClick", "GetConvertedKeyOrButton",
+	"IsKeyPressIgnoredForBinding", "CreateKeyChordStringUsingMetaKeyState",
 	-- Console port (hero screen, action bars, options menu)
 	"ClearCursor", "ColorPickerFrame", "ContainerFrame1", "CurveConstants", "GetCursorInfo", "GetRealmName",
 	"GetShapeshiftFormID", "HasAction", "HasNewMail", "IsResting", "MiniMapMailBorder", "MiniMapTrackingFrame",

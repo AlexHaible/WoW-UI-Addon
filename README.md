@@ -45,7 +45,9 @@ screen stays free on either side).
   chance and value with a shield), ranged, ammo (yellow under 400, red under
   200), attack power (ranged for hunters), spell power, healing, armour
   (the default for the fourth), dodge chance, parry chance, resistances
-  (fire, nature, frost, shadow and arcane as coloured numbers),
+  (fire, nature, frost, shadow and arcane as coloured numbers), the weapon
+  skill of the main hand, off hand or ranged weapon (Unarmed with no main
+  hand; the tooltip lists every weapon skill and Defense),
   strength, agility, intellect (with Warcraft III's hero attribute art),
   stamina, spirit, crit chance (the best of melee, ranged and spell, with
   the Blademaster's Critical Strike icon) or nothing (an empty socket),
